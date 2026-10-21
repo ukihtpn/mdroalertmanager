@@ -614,6 +614,16 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .pwwrap{position:relative;display:block}.pwwrap input{width:100%;padding-right:44px!important}
 .pweye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:none;color:var(--mut);cursor:pointer;display:grid;place-items:center;border-radius:8px}
 .pweye:hover{background:var(--line);color:var(--ink)}.pweye svg{width:20px;height:20px}
+.choosehint{font-size:13px;font-weight:700;color:var(--warn);margin:0 0 8px}
+.choice2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice2 button{display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;border:2px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);cursor:pointer;font:inherit;transition:border-color .15s,background .15s}
+.choice2 button:hover{border-color:var(--brand);background:var(--brand-soft)}
+.choice2 button i{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--mut2);display:grid;place-items:center;font-style:normal;font-weight:800;font-size:14px;color:#fff}
+.choice2 button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft)}
+.choice2 button[aria-pressed="true"] i{background:var(--brand);border-color:var(--brand)}
+.choice2 b{display:block;font-size:15px}.choice2 small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
+@media (max-width:560px){.choice2{grid-template-columns:1fr}}
+.stephd p b{font-size:inherit}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -2264,7 +2274,7 @@ function rCensus(){if(!S.ed||S.ed.ward!==S.ward)edInit();const W=WCFG[S.ward];
     <div class="fld"><label for="edTin">Transfers in (other wards)</label><input id="edTin" type="number" min="0" inputmode="numeric" value="${esc(S.ed.tin)}" placeholder="auto: ${autoTin()}" oninput="S.ed.tin=this.value"></div>
     <div class="fld" style="grid-column:1/-1;min-width:0"><label for="edRem">Notes (remarks)</label><input id="edRem" value="${esc(S.ed.remarks)}" oninput="S.ed.remarks=this.value" placeholder="Optional"></div></div></div>
   ${layoutPanel()}
-  <div class="panel stepbox" id="st2box"><div class="stephd"><span>3</span><div><b>Load the patient name list</b><p>Yesterday's list has been loaded. Import today's Excel to replace the list (bed, disease and device columns are optional), or review directly in Step 4.</p></div></div>
+  <div class="panel stepbox" id="st2box"><div class="stephd"><span>3</span><div><b>Load the patient name list</b><p>${S.ed.rows.some(r=>r.name)?"Yesterday's list has been loaded. Import today's Excel to replace the list":"Import today's Excel or paste the list"} (bed, disease and device columns are optional), or review directly in Step 4.</p></div></div>
    <div class="btnrow"><button class="btn btn-pri" onclick="$('fileIn').click()">${svg("up")}Import Excel / CSV</button><button class="btn btn-ghost" onclick="openPaste()">Paste</button><button class="btn btn-ghost" onclick="useLast()" ${last?"":"disabled"}>${last?"Use list from "+fmt(last.date):"Use yesterday's list"}</button></div>
    <div class="hint" style="margin:10px 0 0">Want to try? Download a sample Excel (dummy data for this ward): <button class="linkbtn" onclick="sampleXlsx(true)">with bed</button> · <button class="linkbtn" onclick="sampleXlsx(false)">without bed</button></div>
    <div class="hint" id="st2" style="margin:8px 0 0"></div></div>
@@ -2320,7 +2330,9 @@ function paintCenMap(){const el=$("cenMap");if(!el)return;const W=WCFG[S.ward];I
 function cenBedClick(bed){if(S.place!=null){const r=S.ed.rows[S.place];const occ=S.ed.rows.find(x=>x.name&&x.bed===bed);if(occ){toast(`Bed ${bed} already exists ${occ.name}. Choose an empty bed.`);return}r.bed=bed;S.place=null;S.ed.touched=true;paintEd();toast(`${r.name} → bed ${bed}`);return}edBed(bed)}
 function layoutPanel(){const E=S.ed.ext||[];const L=S.ed.layout;const W=WCFG[S.ward];
   return`<div class="panel stepbox${L?" ok":""}"><div class="stephd"><span>2</span><div><b>Today's bed arrangement</b><p>${L==="same"?"Same as usual · no extra beds.":L==="ext"?`${E.length} extra beds (extension) today.`:"Has the bed arrangement changed today? For example, extra beds in the corridor or a cubicle."}</p></div></div>
-   <div class="seg" role="group" aria-label="Bed arrangement"><button aria-pressed="${L==="same"}" onclick="setLayout('same')">Same as usual</button><button aria-pressed="${L==="ext"}" onclick="setLayout('ext')">Has extra beds</button></div>
+   ${L?"":`<div class="choosehint">👇 Tap one option below</div>`}<div class="choice2" role="group" aria-label="Bed arrangement">
+    <button type="button" aria-pressed="${L==="same"}" onclick="setLayout('same')"><i>${L==="same"?"✓":""}</i><span><b>Same as usual</b><small>No extra beds today</small></span></button>
+    <button type="button" aria-pressed="${L==="ext"}" onclick="setLayout('ext')"><i>${L==="ext"?"✓":""}</i><span><b>Has extra beds</b><small>Extra beds in corridor / cubicle</small></span></button></div>
    ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b>${esc(e.bed)}</b>
      <div class="fld"><label for="ex_n${i}">Near bed / cubicle</label><select id="ex_n${i}" onchange="S.ed.ext[${i}].near=this.value"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div>
      <div class="fld"><label for="ex_t${i}">Location note</label><input id="ex_t${i}" value="${esc(e.note||"")}" placeholder="e.g. Cubicle B / corridor" oninput="S.ed.ext[${i}].note=this.value"></div>
