@@ -604,6 +604,13 @@ table.num td:first-child{white-space:nowrap}
 tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);padding-top:8px;padding-bottom:8px;text-align:left!important}
 .canDrag{cursor:grab}.canDrag button,.canDrag a,.canDrag input,.canDrag select{cursor:pointer}.dragging{cursor:grabbing!important;user-select:none}.dragging *{cursor:grabbing!important}
 .an-ctl{align-items:flex-end}.an-ctl .fld label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:0}
+.banner.ok{background:var(--ok-soft,#e3f5ec);color:var(--ink)}
+.banner.censt{border:1px solid currentColor}.banner.crit.censt{color:var(--crit)}.banner.crit.censt b,.banner.ok.censt b{font-size:15px}.banner.ok.censt{color:var(--ok)}
+.banner.censt div{color:var(--ink)}.banner.crit.censt div b{color:var(--crit)}.banner.ok.censt div b{color:var(--ok)}
+.totals{align-items:end}
+#cenMap{max-width:600px;margin:0 auto;border-right:none}
+@media (max-width:700px){#cenMap{max-width:none}}
+.hint svg,.rpt .hint svg{width:16px;height:16px;vertical-align:-3px;flex:none}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1178,12 +1185,13 @@ function jkPair(rows,pool){const used=new Set(),pair={};const dd=(a,b)=>a&&b?Mat
   [true,false].forEach(strict=>rows.forEach(({n,R})=>{if(pair[n])return;const nm=normN(R.B&&R.B.v),d=jkDateIso(R.O&&R.O.v),rn=normR(R.C&&R.C.v),ic=normR(R.D&&R.D.v);const sub=jkT2sub(R.T&&R.T.v,R.U&&R.U.v,"");const mo=sub?morg({subtype:sub}):"";
     let best=null,bs=99;pool.forEach(c=>{if(used.has(c.id))return;if(!((rn&&normR(c.rn)===rn)||(ic&&normR(c.ic)===ic)||(nm&&normN(c.name)===nm)))return;if(strict&&mo&&morg(c)!==mo)return;const g=dd(d,c.sample_date)+(c.case_status==="NEW"?0:.5);if(g<=3.5&&g<bs){bs=g;best=c}});
     if(best){used.add(best.id);pair[n]=best}}));return pair}
-function jkReconcile(){if(S.role!=="uki"){toast("For UKI only.");return}const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx";inp.onchange=async()=>{const f=inp.files[0];if(!f)return;
-  try{toast("Reading the JKNS file…");await loadJSZip();const zip=await JSZip.loadAsync(await f.arrayBuffer());const P=await xlSheetPaths(zip);if(!P["L.Listing Main"])throw new Error("Sheet 'L.Listing Main' not found.");
+function jkReconcile(){if(S.role!=="uki"){toast("For UKI only.");return}const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx";inp.onchange=async()=>{const f=inp.files[0];if(!f)return;jkReconcileBuf(await f.arrayBuffer(),f.name)};inp.click()}
+async function jkReconcileBuf(buf,fname){const f={name:fname};
+  try{toast("Reading the JKNS file…");await loadJSZip();const zip=await JSZip.loadAsync(buf);const P=await xlSheetPaths(zip);if(!P["L.Listing Main"])throw new Error("Sheet 'L.Listing Main' not found.");
     const ROWS=xlReadRows(await zip.file(P["L.Listing Main"]).async("string"),await xlShared(zip));const yr=String(YEAR);
     const rows=Object.keys(ROWS).map(Number).filter(n=>n>=9).sort((a,b)=>a-b).map(n=>({n,R:ROWS[n]})).filter(({R})=>!jkEmpty(R.B&&R.B.v)&&!(R.B&&R.B.f)&&jkDateIso(R.O&&R.O.v).startsWith(yr));
     if(!rows.length)throw new Error("No rows "+yr+" in the file.");const cnt=Array(12).fill(0);rows.forEach(({R})=>cnt[+jkDateIso(R.O.v).slice(5,7)-1]++);
-    let last=cnt.reduce((a,v,i)=>v?i:a,0);if(cnt[last]<5&&last>0)last--;S.jkRec={file:f.name,rows,cnt,upto:last,dec:{}};openReconcile()}catch(e){toast("Failed: "+(e.message||e))}};inp.click()}
+    let last=cnt.reduce((a,v,i)=>v?i:a,0);if(cnt[last]<5&&last>0)last--;S.jkRec={file:f.name,rows,cnt,upto:last,dec:{}};openReconcile()}catch(e){toast("Failed: "+(e.message||e))}}
 function recPlan(){const{rows,upto}=S.jkRec;const yr=String(YEAR);const lim=yr+"-"+pad(upto+1);const inM=d=>d&&d.startsWith(yr)&&d.slice(0,7)<=lim;
   const R=rows.filter(({R})=>inM(jkDateIso(R.O.v)));const pool=CASES.filter(c=>c.sample_date&&c.sample_date.startsWith(yr)&&c.hai!=="CONTAMINATION");const pair=jkPair(R,pool);
   const add=[],upd=[];let fill=0;
@@ -1325,13 +1333,18 @@ function pendTable(){const ord=w=>{const i=WARD_CFG.findIndex(x=>x.code===w);ret
      <td data-l="Data incomplete">${n(o.none,`S.mlWard='${esc(o.w)}';S.mlOv='none';S.mlMonth='';S.mlCls='';go('master')`,"c")}</td><td data-l="Pending data">${n(o.pend,`S.mlWard='${esc(o.w)}';S.mlOv='pend';S.mlMonth='';S.mlCls='';go('master')`)}</td>
      <td data-l="Not classified">${n(o.unrev,`S.mlWard='${esc(o.w)}';S.mlCls='UNREV';S.mlOv='';S.mlMonth='';go('master')`,"w")}</td><td data-l="Not reviewed by UKI">${n(o.norev,`S.dw='${esc(o.w)}';refresh()`)}</td></tr>`}).join("")}
    </tbody></table></div></div>`}
-function pendWard(w){const o=wardPend(w);const miss={};o.D.forEach(x=>x.d.miss.forEach(k=>miss[k]=(miss[k]||0)+1));
+function pendWard(w){const o0=wardPend(w);const pm=S.pwM??"";const pf=S.pwF||"";const o={...o0,D:o0.D.filter(x=>(pm===""||+String(x.c.sample_date).slice(5,7)-1===+pm)&&(!pf||x.d.st===pf))};
+  o.none=o.D.filter(x=>x.d.st==="none").length;o.pend=o.D.filter(x=>x.d.st==="pend").length;o.done=o.D.filter(x=>x.d.st==="done").length;
+  const pmCnt=Array(12).fill(0);o0.D.forEach(x=>{if(x.d.st!=="done")pmCnt[+String(x.c.sample_date).slice(5,7)-1]++});
+  const miss={};o.D.forEach(x=>x.d.miss.forEach(k=>miss[k]=(miss[k]||0)+1));
   const top=Object.entries(miss).sort((a,b)=>b[1]-a[1]).slice(0,10);const fc=formCases(w);
   const L=o.D.map(x=>({...x,f:fc.includes(x.c)?fstat(x.c):"",rv:x.c.case_status==="NEW"&&x.c.sample_date>=addDays(TODAY,-60)&&["INF","COL"].includes(cls(x.c))&&!(x.c.reviews||[]).length}))
     .filter(x=>x.d.st!=="done"||(x.f&&x.f!=="verified")||cls(x.c)==="UNREV"||x.rv).sort((a,b)=>({none:0,pend:1,done:2}[a.d.st]-{none:0,pend:1,done:2}[b.d.st])||b.c.sample_date.localeCompare(a.c.sample_date));
-  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Pending · ${esc(w)}</h3><p>${o.D.length} cases ${YEAR} · <b style="color:var(--crit)">${o.none}</b> incomplete · <b style="color:var(--warn)">${o.pend}</b> pending · <b style="color:var(--ok)">${o.done}</b> complete. MDRO forms incomplete: ${o.fn+o.fs+o.ff}.</p></div>
+  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Pending · ${esc(w)}</h3><p>${o.D.length} cases ${pm===""?YEAR:MONTHS[+pm]+" "+YEAR} · <b style="color:var(--crit)">${o.none}</b> incomplete · <b style="color:var(--warn)">${o.pend}</b> pending · <b style="color:var(--ok)">${o.done}</b> complete. MDRO forms incomplete: ${o.fn+o.fs+o.ff}.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${o.isW?`<button class="btn btn-ghost btn-sm" onclick="${o.cen?`openMap('${esc(w)}')`:`ukiCensus('${esc(w)}')`}">${svg("map")}${o.cen?"Mapping":"Fill in today's census"}</button>`:""}<button class="btn btn-ghost btn-sm" onclick="S.mlWard='${esc(w)}';S.mlOv='';S.mlMonth='';S.mlCls='';go('master')">${svg("list")}Masterlist ${esc(w)}</button><button class="btn btn-ghost btn-sm" onclick="S.dw='';refresh()">All wards</button></div></div>
-   ${top.length?`<div class="lbl" style="margin-top:0">Most frequently empty columns</div><div class="pills" style="margin-bottom:12px">${top.map(([k,v])=>`<span class="pill p-mut">${esc(COL[k][2])} <b class="mono">${v}</b></span>`).join("")}</div>`:""}
+   <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 16px 10px;align-items:flex-end"><div class="fld" style="width:240px;margin:0"><label for="pwM">Month (sample date)</label><select id="pwM" onchange="S.pwM=this.value;refresh()"><option value="">All months ${YEAR}</option>${MONTHS.map((m,i)=>`<option value="${i}"${String(pm)===String(i)?" selected":""}>${m} ${pmCnt[i]?`· ${pmCnt[i]} to complete`:""}</option>`).join("")}</select></div>
+    <div class="fld" style="width:200px;margin:0"><label for="pwF">Data status</label><select id="pwF" onchange="S.pwF=this.value;refresh()"><option value="">All</option><option value="none"${pf==="none"?" selected":""}>Incomplete</option><option value="pend"${pf==="pend"?" selected":""}>Pending</option><option value="done"${pf==="done"?" selected":""}>Complete</option></select></div></div>
+   ${top.length?`<div style="padding:4px 16px 14px"><div class="lbl" style="margin-top:0">Most frequently empty columns</div><div class="pills">${top.map(([k,v])=>`<span class="pill p-mut">${esc(COL[k][2])} <b class="mono">${v}</b></span>`).join("")}</div></div>`:""}
    <div class="tbl-wrap"><table><thead><tr><th>Patient / RN</th><th>Organism · sample</th><th>Masterlist data · empty columns</th><th>MDRO form</th><th>Class</th><th>UKI review</th></tr></thead><tbody>
    ${L.length?L.slice(0,80).map(x=>{const c=x.c;return`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name||"—")}</button><span class="mono">RN ${esc(c.rn||"—")}</span></td>
      <td><b>${esc(c.subtype||"—")}</b><div class="hint" style="margin:2px 0 0">${esc(c.spec||c.spec_other||"")} · ${fmt(c.sample_date)}</div></td>
@@ -1406,12 +1419,12 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
     <div class="kpi"><span>Patient days</span><b>${o.pd?o.pd.toLocaleString():"—"}</b><i>CVL ${o.cvl} · ventilator ${o.vent}</i></div>
     <div class="kpi"><span>Device utilisation</span><b>${o.pd?o.du.toFixed(2):"—"}</b><i>${o.pd?"CVL days ÷ patient days":"requires daily patient counts"}</i></div>
   </div></div>
-  <div class="panel chart"><h3>Monthly incidence per 100 admissions · ${bl}${orgLbl()?" · "+esc(orgLbl()):""}${S.an.ward?" · "+S.an.ward:""}</h3><div class="cbox tall"><canvas id="cSpc" aria-label="Monthly incidence chart"></canvas></div><div class="note" id="nSpc"></div></div>
+  <div class="panel chart"><h3>Monthly incidence per 100 admissions${sm>=0?" · Jan–"+MON3[sm]:""} · ${bl}${orgLbl()?" · "+esc(orgLbl()):""}${S.an.ward?" · "+S.an.ward:""}</h3><div class="cbox tall"><canvas id="cSpc" aria-label="Monthly incidence chart"></canvas></div><div class="note" id="nSpc"></div></div>
   <div class="charts">
-    <div class="panel chart"><h3>NEW cases by organism (all notified)</h3><div class="cbox"><canvas id="cOrg" aria-label="Cases by organism"></canvas></div></div>
+    <div class="panel chart"><h3>NEW cases by organism (all notified)${sm>=0?" · Jan–"+MON3[sm]:""}</h3><div class="cbox"><canvas id="cOrg" aria-label="Cases by organism"></canvas></div></div>
     <div class="panel chart"><h3>Cases ${mon3(sm)} by ward</h3><div class="cbox"><canvas id="cWard" aria-label="Cases by ward"></canvas></div></div>
     <div class="panel chart"><h3>Cases ${mon3(sm)} by specimen</h3><div class="cbox"><canvas id="cSpec" aria-label="Cases by specimen"></canvas></div></div>
-    <div class="panel chart"><h3>Classification of NEW cases by month</h3><div class="cbox"><canvas id="cHai" aria-label="Case classification"></canvas></div></div>
+    <div class="panel chart"><h3>Classification of NEW cases by month${sm>=0?" · Jan–"+MON3[sm]:""}</h3><div class="cbox"><canvas id="cHai" aria-label="Case classification"></canvas></div></div>
   </div>
   <div class="panel chart"><h3>Patients in ward each day · last 60 days</h3><div class="cbox"><canvas id="cDaily" aria-label="Daily census trend"></canvas></div><div class="note">From the daily census: number of MDRO, airborne (PTB, TRO PTB) and droplet (influenza, RSV, COVID-19) patients in the ward each day.</div></div>
   ${wardReport(sm)}
@@ -1439,9 +1452,9 @@ function chartBase(){const ink=cssv("--mut"),grid=cssv("--grid");Chart.defaults.
     plugins:{legend:{position:"bottom",labels:{boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:"rectRounded"}},tooltip:{backgroundColor:cssv("--ink"),titleColor:cssv("--bg"),bodyColor:cssv("--bg"),padding:10,cornerRadius:8}},
     scales:{x:{grid:{display:false},border:{color:grid},ticks:{color:ink}},y:{beginAtZero:true,grid:{color:grid},border:{display:false},ticks:{color:ink,precision:0}}}}}
 function drawCharts(){if(typeof Chart==="undefined"){document.querySelectorAll(".cbox").forEach(b=>b.innerHTML='<div class="hint">Charts could not be loaded (no connection to CDN).</div>');return}
-  const{M,C}=aggMonth();const sm=S.an.month;const L=M.map(r=>MON3[r.m]);
-  /* SPC: baseline = completed months */
-  const base=M.filter(r=>r.m<CUR_M).map(r=>r.rate);const mean=base.reduce((a,b)=>a+b,0)/(base.length||1);const sd=Math.sqrt(base.reduce((a,b)=>a+(b-mean)**2,0)/((base.length-1)||1));
+  const{M:MA,C}=aggMonth();const sm=S.an.month;const M=sm>=0?MA.slice(0,sm+1):MA;const L=M.map(r=>MON3[r.m]);
+  /* SPC: baseline = completed months before the selected / current month */
+  const lastM=sm>=0?Math.min(sm,CUR_M):CUR_M;const base=M.filter(r=>r.m<lastM).map(r=>r.rate);const mean=base.reduce((a,b)=>a+b,0)/(base.length||1);const sd=Math.sqrt(base.reduce((a,b)=>a+(b-mean)**2,0)/((base.length-1)||1));
   const B=chartBase();const brand=cssv("--brand"),crit=cssv("--crit"),warn=cssv("--warn"),mut=cssv("--mut2");
   const over=M.filter(r=>r.rate>mean+2*sd);
   CH.spc=new Chart($("cSpc"),{type:"line",data:{labels:L,datasets:[
@@ -1450,7 +1463,7 @@ function drawCharts(){if(typeof Chart==="undefined"){document.querySelectorAll("
     {label:"+2 SD",data:L.map(()=>+(mean+2*sd).toFixed(2)),borderColor:warn,borderDash:[6,4],borderWidth:1.5,pointRadius:0},
     {label:"+3 SD",data:L.map(()=>+(mean+3*sd).toFixed(2)),borderColor:crit,borderDash:[2,3],borderWidth:1.5,pointRadius:0}]},
     options:{...B,scales:{...B.scales,y:{...B.scales.y,ticks:{...B.scales.y.ticks,precision:undefined},title:{display:true,text:"per 100 admissions",color:cssv("--mut")}}}}});
-  const unc=M.reduce((a,r)=>a+r.notified-r.cases-r.k.CONT,0);$("nSpc").innerHTML=(unc>0&&(S.an.basis||"new")!=="new"?`<b style="color:var(--warn)">${unc} NEW cases not yet classified as infection/colonization (awaiting UKI review) — not counted in this rate.</b> Choose "NEW cases" under <i>Rate based on</i> to count all NEW cases. `:"")+`Mean <b>${mean.toFixed(2)}</b>, SD ${sd.toFixed(2)} (months Jan–${MON3[Math.max(0,CUR_M-1)]}). ${MON3[CUR_M]} is incomplete, so its rate may change. ${over.length?`Above +2 SD: <b>${over.map(r=>MON3[r.m]).join(", ")}</b>.`:"No month above +2 SD."}`;
+  const unc=M.reduce((a,r)=>a+r.notified-r.cases-r.k.CONT,0);$("nSpc").innerHTML=(unc>0&&(S.an.basis||"new")!=="new"?`<b style="color:var(--warn)">${unc} NEW cases not yet classified as infection/colonization (awaiting UKI review) — not counted in this rate.</b> Choose "NEW cases" under <i>Rate based on</i> to count all NEW cases. `:"")+`Mean <b>${mean.toFixed(2)}</b>, SD ${sd.toFixed(2)} (months Jan–${MON3[Math.max(0,lastM-1)]}${sm>=0?`, compared with ${MON3[sm]}`:""}). ${lastM===CUR_M?`${MON3[CUR_M]} is incomplete, so its rate may change. `:""}${over.length?`Above +2 SD: <b>${over.map(r=>MON3[r.m]).join(", ")}</b>.`:"No month above +2 SD."}`;
   const gs=S.an.org?[S.an.org]:MAIN_ORG;
   CH.org=new Chart($("cOrg"),{type:"bar",data:{labels:L,datasets:gs.map(g=>({label:g,data:M.map(r=>r.byG[g]||0),backgroundColor:cssv(MORG_COL[g]),borderColor:cssv("--panel"),borderWidth:{top:2},borderRadius:3,stack:"s"}))},options:{...B,scales:{...B.scales,x:{...B.scales.x,stacked:true},y:{...B.scales.y,stacked:true}}}});
   const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
@@ -2111,7 +2124,7 @@ function openImport(){IMP=null;
   const d=$("impDrop");["dragenter","dragover"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add("on")}));["dragleave","drop"].forEach(ev=>d.addEventListener(ev,()=>d.classList.remove("on")));
   d.addEventListener("drop",e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)readImport(f)})}
 function readImport(f){$("impRes").innerHTML=`<div class="banner info">${svg("up")}<div>Reading <b>${esc(f.name)}</b>…</div></div>`;const rd=new FileReader();
-  rd.onload=ev=>setTimeout(()=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});IMP=analyseWb(wb,f.name);renderImp()}catch(e){$("impRes").innerHTML=`<div class="banner crit">${svg("list")}<div>The file could not be read. Make sure it is an Excel file (.xlsx). <span class="hint">${esc(e.message)}</span></div></div>`}},30);rd.readAsArrayBuffer(f)}
+  rd.onload=ev=>setTimeout(()=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});IMP=analyseWb(wb,f.name);IMP.buf=ev.target.result;IMP.jkns=wb.SheetNames.includes("L.Listing Main");renderImp()}catch(e){$("impRes").innerHTML=`<div class="banner crit">${svg("list")}<div>The file could not be read. Make sure it is an Excel file (.xlsx). <span class="hint">${esc(e.message)}</span></div></div>`}},30);rd.readAsArrayBuffer(f)}
 function okDate(d,R){if(!d)return"";if(d>TODAY||d<"2020-01-01"){if(R)R.bad=(R.bad||0)+1;return""}return d}
 function transposed(A){if(A.length<3)return null;const beds=A.slice(1).filter(r=>/^(BED\b|ISO\b|R\d|CTG)/i.test(String(r[0]).trim()));if(beds.length<3)return null;
   const dc=A[0].map((x,j)=>j>0?[j,okDate(toYmd(x))]:null).filter(x=>x&&x[1]);if(dc.length<5)return null;
@@ -2174,7 +2187,8 @@ function renderImp(){const R=IMP;const unm=Object.keys(R.map);const wardOpt=cur=
     <details><summary>View sheet → ward matching</summary><div class="mapgrid">${R.bedSheets.map((s,i)=>`<label for="bs${i}">${esc(s.sheet)} <small>${s.cells.length} sel</small></label><select id="bs${i}" class="tsel" onchange="IMP.bedSheets[${i}].ward=this.value">${wardOpt(s.ward)}</select>`).join("")}</div></details></div>`:""}
   ${R.master.length?`<div class="impsec"><label class="imph"><input type="checkbox" id="impM" checked> Masterlist <span class="pill p-brand">${esc(R.masterSheet)}</span></label>
     <p>${R.master.length} cases${exist?` · ${exist} already exist and will be skipped`:""}. ${R.mcols} columns recognised (format ${R.mnew?"new, 44 columns":"old"}). Cases with a sample date within the last 6 months are tagged <b>Active</b>; older ones are tagged <b>Clearance</b> (can be changed in Masterlist).</p></div>`:""}
-  ${!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?`<div class="banner warn">${svg("list")}<div>No recognised sheets in this file.</div></div>`:`<label class="imph" style="font-weight:600"><input type="checkbox" id="impSyn"${R.daily.length||R.master.length?" checked":""}> Remove sample (dummy) data from Analysis${R.master.length?" and Masterlist":""}</label>
+  ${R.jkns?`<div class="banner info">${svg("list")}<div><b>This is a JKNS line listing file (MDRO/MOH/2022/2)</b>, not LAB_SURVEILLANCE. It is not imported here. To make the masterlist &amp; Analysis match this finalized JKNS file, use <b>Reconcile with JKNS</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="const b=IMP.buf,n=IMP.file;closeModal();jkReconcileBuf(b,n)">Reconcile with this JKNS file</button></div></div></div>`:""}
+  ${R.jkns&&!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?"":!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?`<div class="banner warn">${svg("list")}<div>No recognised sheets in this file.</div></div>`:`<label class="imph" style="font-weight:600"><input type="checkbox" id="impSyn"${R.daily.length||R.master.length?" checked":""}> Remove sample (dummy) data from Analysis${R.master.length?" and Masterlist":""}</label>
     ${R.daily.length&&!R.master.length?`<div class="hint" style="margin:0">MDRO cases in Analysis are still sample data until the MASTERLIST (LAB SURVEILLANCE file) is imported.</div>`:""}`}
   ${pdHTML(R)}
   ${R.skipped.length?`<details><summary class="hint">${R.skipped.length} sheets skipped</summary><div class="hint">${R.skipped.map(esc).join(" · ")}</div></details>`:""}`;
@@ -2212,11 +2226,11 @@ function autoAdm(){return S.ed.rows.filter(r=>{if(!r.name||r._in)return false;co
 function rCensus(){if(!S.ed||S.ed.ward!==S.ward)edInit();const W=WCFG[S.ward];
   const ex=censusOf(S.ward,TODAY);const last=latestCensus(S.ward,addDays(TODAY,-1));
   return`${S.role==="uki"?`<div class="banner info">${svg("bed")}<div><b>UKI mode:</b> you are filling the census on behalf of the ward ("${esc(S.staff)}"). <span style="display:inline-flex;gap:6px;margin-left:6px;flex-wrap:wrap"><select class="tsel" aria-label="Ward" onchange="ukiCensus(this.value)">${WARDS.map(w=>`<option${w===S.ward?" selected":""}>${w}</option>`).join("")}</select><button class="btn btn-ghost btn-sm" onclick="S.ed=null;openMap('${esc(S.ward)}')">‹ Mapping</button></span></div></div>`:""}<div class="sec-h"><div><h2>Daily census ${esc(S.ward)}</h2><p>${fmt(TODAY)} · Follow steps 1 to 6.</p></div></div>
-  ${ex?`<div class="banner info">${svg("up")}<div><b>Already sent</b> ${fmtT(ex.at)} by ${esc(ex.by)} (${ex.rows.length} patients). You can update and resubmit.</div></div>`:`<div class="banner warn">${svg("up")}<div><b>Today's census not submitted yet.</b> ${last?`Latest census ${fmt(last.date)} (${last.rows.length} patients).`:""}</div></div>`}
+  ${ex?`<div class="banner ok censt">${svg("up")}<div><b>✓ Today's census submitted</b> ${fmtT(ex.at)} by ${esc(ex.by)} (${ex.rows.length} patients). You can update and resubmit.</div></div>`:`<div class="banner crit censt">${svg("up")}<div><b>Today's census not submitted yet.</b> ${last?`Latest census ${fmt(last.date)} (${last.rows.length} patients).`:""}</div></div>`}
   <div class="panel stepbox"><div class="stephd"><span>1</span><div><b>Today's totals (12mn – 12mn)</b><p>Leave empty to use the automatic count.</p></div></div>
    <div class="totals" style="padding:0;border:0">
     <div class="fld"><label for="edAdm">New admissions</label><input id="edAdm" type="number" min="0" inputmode="numeric" value="${esc(S.ed.adm)}" placeholder="auto: ${autoAdm()}" oninput="S.ed.adm=this.value"></div>
-    <div class="fld"><label for="edTin">Transfer in from another ward</label><input id="edTin" type="number" min="0" inputmode="numeric" value="${esc(S.ed.tin)}" placeholder="auto: ${autoTin()}" oninput="S.ed.tin=this.value"></div>
+    <div class="fld"><label for="edTin">Transfers in (other wards)</label><input id="edTin" type="number" min="0" inputmode="numeric" value="${esc(S.ed.tin)}" placeholder="auto: ${autoTin()}" oninput="S.ed.tin=this.value"></div>
     <div class="fld" style="grid-column:1/-1;min-width:0"><label for="edRem">Notes (remarks)</label><input id="edRem" value="${esc(S.ed.remarks)}" oninput="S.ed.remarks=this.value" placeholder="Optional"></div></div></div>
   ${layoutPanel()}
   <div class="panel stepbox" id="st2box"><div class="stephd"><span>3</span><div><b>Load the patient name list</b><p>Yesterday's list has been loaded. Import today's Excel to replace the list (bed, disease and device columns are optional), or review directly in Step 4.</p></div></div>
@@ -2268,7 +2282,7 @@ function sampleXlsx(withBed){if(!window.XLSX)return;const prev=currentIn(S.ward)
 function paintCenMap(){const el=$("cenMap");if(!el)return;const W=WCFG[S.ward];IMPMODE=false;EXTMETA=Object.fromEntries((S.ed.ext||[]).map(e=>[e.bed,e]));
   const R=S.ed.rows;const rows=R.filter(r=>r.name&&r.bed);const byBed=Object.fromEntries(rows.map(r=>[r.bed,r]));const nb=R.filter(r=>r.name&&!r.bed);
   if(S.place!=null&&(!R[S.place]||R[S.place].bed))S.place=null;
-  $("cenNB").innerHTML=nb.length?`<div class="lbl" style="margin-top:0">No bed yet (${nb.length}) · tap a name, then tap an empty bed</div><div class="nbchips">${nb.map(r=>{const i=R.indexOf(r);return`<button class="nbchip${S.place===i?" on":""}${orgsOf(r).length?" md":""}" onclick="S.place=S.place===${i}?null:${i};paintCenMap()">${esc(r.name)}${r._in?` · from ${esc(r._in)}`:""}${orgsOf(r).length?" · MDRO":""}</button>`}).join("")}</div>${S.place!=null?`<div class="banner drop" style="margin:8px 0">${svg("bed")}<div>Choose an empty bed for <b>${esc(R[S.place].name)}</b>.</div></div>`:""}`:R.some(r=>r.name)?'<div class="hint" style="margin:0 0 8px">All patients have beds.</div>':'<div class="hint" style="margin:0 0 8px">Load the patient list in Step 2 first.</div>';
+  $("cenNB").innerHTML=nb.length?`<div class="lbl" style="margin-top:0">No bed yet (${nb.length}) · tap a name, then tap an empty bed</div><div class="nbchips">${nb.map(r=>{const i=R.indexOf(r);return`<button class="nbchip${S.place===i?" on":""}${orgsOf(r).length?" md":""}" onclick="S.place=S.place===${i}?null:${i};paintCenMap()">${esc(r.name)}${r._in?` · from ${esc(r._in)}`:""}${orgsOf(r).length?" · MDRO":""}</button>`}).join("")}</div>${S.place!=null?`<div class="banner drop" style="margin:8px 0">${svg("bed")}<div>Choose an empty bed for <b>${esc(R[S.place].name)}</b>.</div></div>`:""}`:R.some(r=>r.name)?'<div class="hint" style="margin:0 0 8px">All patients have beds.</div>':'<div class="hint" style="margin:0 0 8px">Load the patient list in Step 3 first.</div>';
   el.innerHTML=mapDraw(W,byBed);el.classList.toggle("placing",S.place!=null);el.querySelectorAll("[data-bed]").forEach(b=>b.onclick=()=>cenBedClick(b.dataset.bed));sizeMarkers();
   const n=R.filter(r=>r.name).length;const st=$("st2");if(st)st.innerHTML=n?`<b>${n}</b> patients in the list · <b>${rows.length}</b> have beds · <b style="color:${nb.length?"var(--warn)":"var(--ok)"}">${nb.length}</b> without a bed`:"No list yet.";
   $("st2box").classList.toggle("ok",n>0);$("st3box").classList.toggle("ok",n>0&&!nb.length)}
