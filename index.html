@@ -602,7 +602,7 @@ table.num td:first-child{white-space:nowrap}
 .sbar #snav .snav{flex-shrink:0}
 @media (max-height:820px){.sbar .logo{width:58px;height:58px;border-radius:14px}.sbar .logo img{width:52px}.snav{padding:7px 4px;gap:3px;font-size:11.5px}.snav svg{width:20px;height:20px}}
 tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);padding-top:8px;padding-bottom:8px;text-align:left!important}
-.tbl-wrap.canDrag{cursor:grab}.tbl-wrap.dragging{cursor:grabbing;user-select:none}.tbl-wrap.dragging *{cursor:grabbing!important}
+.canDrag{cursor:grab}.canDrag button,.canDrag a,.canDrag input,.canDrag select{cursor:pointer}.dragging{cursor:grabbing!important;user-select:none}.dragging *{cursor:grabbing!important}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1051,7 +1051,7 @@ function jkHcai(c){if(c.hai==="HAI - own hospital")return"HA, Own Facility";if(c
 function jkRow(c){const ic=icInfo(c);const it=jkInfType(c);const iso=c.infcol==="INFECTION"?"Infection":c.infcol==="COLONIZER"?"Coloniser":"";const hc=jkHcai(c);
   const habsi=iso==="Infection"&&it==="BSI"&&hc==="HA, Own Facility";const d30=c.sample_date&&addDays(c.sample_date,30)<=TODAY;
   const out=habsi?(c.pt_status==="DEATH"&&c.dod&&c.dod<=addDays(c.sample_date,30)?"Dead":d30?"Alive":""):"";
-  return[c.name||"",c.rn||"",c.ic||"",c.age||ic.age||"",c.gender||ic.gender||"",c.adm_date?fmtD(c.adm_date):"",jkWard(c.ward_adm),jkDept(c.dept),c.diag_adm||"",c.prev_enc?(/^Y/i.test(c.prev_enc)?"YES":"NO"):"",c.prev_fac||"",c.prev_date?fmtD(c.prev_date):"",c.diag_spec||"",c.sample_date?fmtD(c.sample_date):"",c.sample_date?MON3[+c.sample_date.slice(5,7)-1]:"",jkSpec(c),c.lab_date?fmtD(c.lab_date):"",jkWard(c.ward),jkOrg(c),jkOrg(c)==="Others"?(c.organism||c.subtype||""):"",iso,iso==="Coloniser"?"NA":it,it==="BSI"?(c.pbsi==="YES"?"Primary BSI":c.pbsi==="NO"?"Secondary BSI":""):"",hc,jkAbx(c.abx1),jkAbx(c.abx2),out,habsi?(out==="Alive"?"NA":out==="Dead"?(c.death_rel||""):""):""]}
+  return[c.name||"",c.rn||"",c.ic||"",c.age||ic.age||"",c.gender||ic.gender||"",c.adm_date?fmtD(c.adm_date):"",jkWard(c.ward_adm),jkDept(c.dept),c.diag_adm||"",c.prev_enc?(/^Y/i.test(c.prev_enc)?"YES":"NO"):"",c.prev_fac||"",c.prev_date?fmtD(c.prev_date):"",c.diag_spec||"",c.sample_date?fmtD(c.sample_date):"",c.sample_date?MON3[+c.sample_date.slice(5,7)-1]:"",jkSpec(c),c.lab_date?fmtD(c.lab_date):"",jkWard(c.ward),jkOrg(c),jkOrg(c)==="Others"?(normOrg(c.organism)||c.organism||c.subtype||""):"",iso,iso==="Coloniser"?"NA":it,it==="BSI"?(c.pbsi==="YES"?"Primary BSI":c.pbsi==="NO"?"Secondary BSI":""):"",hc,jkAbx(c.abx1),jkAbx(c.abx2),out,habsi?(out==="Alive"?"NA":out==="Dead"?(c.death_rel||""):""):""]}
 const fmtD=d=>{const[y,m,dd]=String(d).split("-");return dd&&m?`${dd}/${m}/${y}`:d};
 function jkSet(m0,m1){const yr=String(YEAR);const inR=c=>c.sample_date&&c.sample_date.startsWith(yr)&&+c.sample_date.slice(5,7)-1>=m0&&+c.sample_date.slice(5,7)-1<=m1;
   const all=CASES.filter(inR);const inc=[],exc=[];
@@ -1066,13 +1066,108 @@ function jkSet(m0,m1){const yr=String(YEAR);const inR=c=>c.sample_date&&c.sample
 function rJkns(){const m1=S.jkM1??CUR_M,m0=S.jkM0??0;const{rows,exc,dup}=jkSet(m0,m1);const bad=rows.filter(x=>x.miss.length);const F=S.jkF||"";const V=F==="miss"?bad:F==="exc"?[]:rows;
   const opt=cur=>MONTHS.slice(0,CUR_M+1).map((m,i)=>`<option value="${i}"${i===cur?" selected":""}>${m}</option>`).join("");
   return`<div class="mrow" style="align-items:flex-end"><div class="fld"><label for="jk0">Dari bulan</label><select id="jk0" onchange="S.jkM0=+this.value;refresh()">${opt(m0)}</select></div><div class="fld"><label for="jk1">Hingga bulan</label><select id="jk1" onchange="S.jkM1=+this.value;refresh()">${opt(m1)}</select></div>
-    <div class="fld jkbtn" style="flex:none"><button class="btn btn-pri" onclick="dlJkns()">${svg("up")}Muat turun Excel JKNS</button></div><div class="fld jkbtn" style="flex:none"><button class="btn btn-ghost" onclick="copyJkns()">Salin untuk tampal ke template</button></div></div>
+    <div class="fld jkbtn" style="flex:none"><button class="btn btn-pri" onclick="jknsTemplate()">${svg("up")}Isi ke template JKNS asal</button></div><div class="fld jkbtn" style="flex:none"><button class="btn btn-ghost" onclick="copyJkns()">Salin (tampal di B9)</button></div></div>
+   <div class="hint" style="margin:6px 0 0">Kali pertama, pilih fail JKNS. <b>Fail ${YEAR} yang sudah diisi</b> (cth. MDRO_MRSAB_HTPNK_${YEAR}.xlsx): isian manual tidak diubah, app hanya isi sel kosong dan tambah kes baru di bawah. <b>Template kosong / tahun lepas</b>: app isi semua kes mula baris 9. TOTAL ADMISSION / PATIENT DAYS setiap sheet bulan turut diisi. Format, dropdown, formula, sheet Bacteraemia &amp; Reporting Form kekal. <button class="linkbtn" onclick="jknsTemplate(true)">Tukar template / fail</button> · <button class="linkbtn" onclick="jkImport()">Ambil maklumat dari fail JKNS ke app</button> · <button class="linkbtn" onclick="dlJkns()">Senarai ringkas sahaja</button></div>
    <div class="jkstat"><button aria-pressed="${!F}" onclick="S.jkF='';refresh()"><b>${rows.length}</b>kes NEW dimasukkan</button><button aria-pressed="${F==="miss"}" onclick="S.jkF='miss';refresh()" class="${bad.length?"w":""}"><b>${bad.length}</b>perlu dilengkapkan</button><button aria-pressed="${F==="exc"}" onclick="S.jkF='exc';refresh()"><b>${exc.length}</b>tidak dimasukkan (repeat dll.)</button></div>
    ${dup.length?`<div class="banner warn">${svg("list")}<div><b>${dup.length} kes NEW mungkin repeat</b> (pesakit &amp; organisma sama sudah ada kes NEW lebih awal): ${dup.slice(0,6).map(x=>`<button class="linkbtn" onclick="openCase('${x.c.id}')">${esc(x.c.name)} · ${esc(x.c.subtype)} ${fmt(x.c.sample_date)}</button>`).join(", ")}. Semak dan tukar status kepada REPEAT jika betul.</div></div>`:""}
    ${F==="exc"?`<div class="tbl-wrap"><table><thead><tr><th>Pesakit / RN</th><th>Organisma</th><th>Tarikh sampel</th><th>Sebab</th></tr></thead><tbody>${exc.map(({c,why})=>`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn)}</span></td><td>${esc(c.subtype)}</td><td class="mono">${fmt(c.sample_date)}</td><td>${esc(why)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty-row">Tiada.</td></tr>'}</tbody></table></div>`
-   :`<div class="tbl-wrap jkt"><table><thead><tr><th>Pesakit / RN</th><th>T · Organisma</th><th>V · Status</th><th>W · Jangkitan</th><th>Y · HCAI</th><th>Kolum kosong</th></tr></thead><tbody>
-   ${V.slice(0,150).map(({c,r,miss})=>`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn)} · ${fmt(c.sample_date)}</span></td><td data-l="T · Organisma">${esc(r[18])}${r[19]?`<div class="hint" style="margin:0">${esc(r[19])}</div>`:""}</td><td data-l="V · Status">${esc(r[20]||"—")}</td><td data-l="W · Jangkitan">${esc(r[21]||"—")}${r[22]?`<div class="hint" style="margin:0">${esc(r[22])}</div>`:""}</td><td data-l="Y · HCAI">${esc(r[23]||"—")}</td>
-     <td data-l="Kolum kosong">${miss.length?`<div class="pills">${miss.map(i=>`<span class="pill p-warn" title="${esc(JK_H[i])}">${JK_L[i]} · ${esc(JK_H[i].split(" ").slice(0,3).join(" "))}</span>`).join("")}</div>`:'<span class="pill p-ok">Lengkap</span>'}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">Tiada kes.</td></tr>'}</tbody></table></div>${V.length>150?`<div class="hint">Menunjukkan 150 daripada ${V.length}.</div>`:""}`}`}
+   :`<div class="tbl-wrap jkt"><table><thead><tr><th>Pesakit / RN</th><th>Tarikh sampel</th><th>T · Organisma</th><th>V · Status</th><th>W · Jangkitan</th><th>Y · HCAI</th><th>Kolum kosong</th></tr></thead><tbody>
+   ${V.slice(0,150).map(({c,r,miss})=>`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn||"—")}</span></td><td class="mono" style="white-space:nowrap"><b>${fmt(c.sample_date)}</b><div class="hint" style="margin:0">Lab ${fmt(c.lab_date)} · ${esc(c.ward||"")}</div></td><td data-l="T · Organisma">${esc(r[18])}${r[19]?`<div class="hint" style="margin:0">${esc(r[19])}</div>`:""}</td><td data-l="V · Status">${esc(r[20]||"—")}</td><td data-l="W · Jangkitan">${esc(r[21]||"—")}${r[22]?`<div class="hint" style="margin:0">${esc(r[22])}</div>`:""}</td><td data-l="Y · HCAI">${esc(r[23]||"—")}</td>
+     <td data-l="Kolum kosong">${miss.length?`<div class="pills">${miss.map(i=>`<span class="pill p-warn" title="${esc(JK_H[i])}">${JK_L[i]} · ${esc(JK_H[i].split(" ").slice(0,3).join(" "))}</span>`).join("")}</div>`:'<span class="pill p-ok">Lengkap</span>'}</td></tr>`).join("")||'<tr><td colspan="7" class="empty-row">Tiada kes.</td></tr>'}</tbody></table></div>${V.length>150?`<div class="hint">Menunjukkan 150 daripada ${V.length}.</div>`:""}`}`}
+/* ===== isi terus ke template JKNS asal (format, formula, dropdown & carta kekal) ===== */
+let JSZIP_P=null;function loadJSZip(){if(window.JSZip)return Promise.resolve();return JSZIP_P||(JSZIP_P=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";sc.onload=res;sc.onerror=()=>rej(new Error("JSZip tidak dapat dimuat"));document.head.appendChild(sc)}))}
+const xmlEsc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function xlSerial(d){const m=String(d).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return null;return Math.round((Date.UTC(+m[3],+m[2]-1,+m[1])-Date.UTC(1899,11,30))/864e5)}
+function xlCell(ref,s,v){if(v===""||v===null||v===undefined)return`<c r="${ref}"${s}/>`;if(typeof v==="number")return`<c r="${ref}"${s}><v>${v}</v></c>`;return`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`}
+function xlSetCells(xml,vals){/* vals: {"B9":value,...}; keeps style, skips formula cells */
+  return xml.replace(/<c r="([A-Z]+\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,(m,ref,attrs,inner)=>{if(!(ref in vals))return m;if(inner&&/<f[ >\/]/.test(inner))return m;const sm=attrs.match(/\ss="(\d+)"/);return xlCell(ref,sm?` s="${sm[1]}"`:"",vals[ref])})}
+async function xlSheetPaths(zip){const wb=await zip.file("xl/workbook.xml").async("string"),rels=await zip.file("xl/_rels/workbook.xml.rels").async("string");const out={};
+  [...wb.matchAll(/<sheet [^>]*name="([^"]+)"[^>]*r:id="([^"]+)"/g)].forEach(m=>{const r=rels.match(new RegExp(`<Relationship [^>]*Id="${m[2]}"[^>]*Target="([^"]+)"`))||rels.match(new RegExp(`<Relationship [^>]*Target="([^"]+)"[^>]*Id="${m[2]}"`));if(r)out[m[1].replace(/&amp;/g,"&")]="xl/"+r[1].replace(/^\/?xl\//,"").replace(/^\//,"")});return out}
+/* ===== baca / tulis sel template JKNS (sel yang tiada akan ditambah ikut susunan kolum) ===== */
+const xlColN=L=>L.split("").reduce((a,ch)=>a*26+ch.charCodeAt(0)-64,0);
+const xlUnesc=s=>String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");
+async function xlShared(zip){const f=zip.file("xl/sharedStrings.xml");if(!f)return[];const x=await f.async("string");
+  return[...x.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m=>xlUnesc([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t=>t[1]).join("")))}
+function xlReadRows(xml,SS){const out={};for(const m of xml.matchAll(/<row r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){const rn=+m[1];const row={};
+  for(const c of m[2].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){const L=c[1],a=c[2],inn=c[3]||"";const t=(a.match(/\st="(\w+)"/)||[])[1];const f=/<f[ >\/]/.test(inn);
+    let v="";const vm=inn.match(/<v>([\s\S]*?)<\/v>/);if(t==="s"&&vm)v=SS[+vm[1]]??"";else if(t==="inlineStr")v=xlUnesc([...inn.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>x[1]).join(""));else if(vm)v=t==="str"||t==="b"||t==="e"?xlUnesc(vm[1]):(isNaN(+vm[1])?xlUnesc(vm[1]):+vm[1]);
+    row[L]={v:typeof v==="string"?v.trim():v,f}}out[rn]=row}return out}
+function xlRowPut(inner,rn,vals,styleFrom,force){/* vals {L:value}; tukar sel sedia ada (kekal gaya, langkau formula) atau tambah sel baru */
+  const cells=[...inner.matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)].map(m=>({L:m[1],x:m[0],a:m[2],inn:m[3]||""}));const have=new Set(cells.map(c=>c.L));
+  cells.forEach(c=>{if(!(c.L in vals)||(/<f[ >\/]/.test(c.inn)&&!(force&&force.has(c.L))))return;const sm=c.a.match(/\ss="(\d+)"/);c.x=xlCell(c.L+rn,sm?` s="${sm[1]}"`:"",vals[c.L])});
+  Object.keys(vals).forEach(L=>{if(have.has(L))return;const s=styleFrom&&styleFrom[L]?` s="${styleFrom[L]}"`:"";cells.push({L,x:xlCell(L+rn,s,vals[L])})});
+  cells.sort((a,b)=>xlColN(a.L)-xlColN(b.L));return cells.map(c=>c.x).join("")}
+const jkDateIso=v=>{if(typeof v==="number"&&v>20000&&v<80000){const d=new Date(Date.UTC(1899,11,30)+v*864e5);return d.toISOString().slice(0,10)}const m=String(v||"").match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);if(m)return`${m[3].length===2?"20"+m[3]:m[3]}-${pad(+m[2])}-${pad(+m[1])}`;return/^\d{4}-\d{2}-\d{2}/.test(String(v))?String(v).slice(0,10):""};
+const jkEmpty=v=>v===""||v===null||v===undefined;
+/* padankan baris fail JKNS dengan kes app: nama + tarikh sampel (±3 hari), atau RN/IC + tarikh */
+function jkMatch(row,pool,used){const nm=normN(row.B&&row.B.v),d=jkDateIso(row.O&&row.O.v),rn=normR(row.C&&row.C.v),ic=normR(row.D&&row.D.v);if(!nm&&!rn)return null;
+  const dd=(a,b)=>a&&b?Math.abs((Date.parse(a)-Date.parse(b))/864e5):99;let best=null,bs=99;
+  pool.forEach(c=>{if(used.has(c.id))return;const idOk=(rn&&normR(c.rn)===rn)||(ic&&normR(c.ic)===ic)||(nm&&normN(c.name)===nm);if(!idOk)return;const g=dd(d,c.sample_date);if(g<=3&&g<bs){bs=g;best=c}});return best}
+async function fillJkns(buf){await loadJSZip();const zip=await JSZip.loadAsync(buf);const P=await xlSheetPaths(zip);const SS=await xlShared(zip);
+  const LL=P["L.Listing Main"];if(!LL)throw new Error("Sheet 'L.Listing Main' tiada. Pastikan fail ini template JKNS MDRO/MOH/2022/2.");
+  const m1=S.jkM1??CUR_M,m0=S.jkM0??0;const SET=jkSet(m0,m1).rows;const DATE=new Set([5,11,13,16]);
+  const val=(r,i)=>{let v=r[i];if(DATE.has(i))v=xlSerial(v)??v;else if((i===1||i===3)&&/^\d+$/.test(String(v)))v=+v;return v??""};
+  let xml=await zip.file(LL).async("string");const ROWS=xlReadRows(xml,SS);const rowNums=Object.keys(ROWS).map(Number).filter(n=>n>=9).sort((a,b)=>a-b);
+  const yrT=String((ROWS[4]&&ROWS[4].D&&ROWS[4].D.v)||"");const dataRows=rowNums.filter(n=>!jkEmpty(ROWS[n].B&&ROWS[n].B.v)&&!(ROWS[n].B&&ROWS[n].B.f));
+  const merge=yrT===String(YEAR)&&dataRows.length>0;const W={},FORCE={};/* rn -> {L:value} */const st={mode:merge?"merge":"new",upd:0,cells:0,add:0,keep:0,n:SET.length};
+  if(merge){/* fail tahun semasa yang sudah diisi: kekalkan semua isian manual; isi sel kosong sahaja; kes baru ditambah di bawah */
+    const used=new Set();const pool=SET.map(x=>x.c);const byId=Object.fromEntries(SET.map(x=>[x.c.id,x.r]));
+    dataRows.forEach(n=>{const c=jkMatch(ROWS[n],pool,used);if(!c){st.keep++;return}used.add(c.id);const r=byId[c.id];const v={};
+      JK_L.forEach((L,i)=>{if(L==="P")return;const cur=ROWS[n][L];if(cur&&(cur.f||!jkEmpty(cur.v)))return;const nv=val(r,i);if(!jkEmpty(nv))v[L]=nv});if(Object.keys(v).length){W[n]=v;st.upd++;st.cells+=Object.keys(v).length}});
+    const last=dataRows[dataRows.length-1];const first=ROWS[dataRows[0]];let no=+(ROWS[last].A&&ROWS[last].A.v)||dataRows.length;let rn=last+1;
+    SET.filter(x=>!used.has(x.c.id)).forEach(({c,r})=>{const v={};{const A=ROWS[rn]&&ROWS[rn].A;++no;if(!A||(!A.f&&jkEmpty(A.v)))v.A=no}JK_L.forEach((L,i)=>{if(L!=="P")v[L]=val(r,i)});
+      ["AD","AE","AF"].forEach(L=>{if(first[L]&&!first[L].f&&!jkEmpty(first[L].v))v[L]=first[L].v});if(first.AG&&!first.AG.f)v.AG=val(r,17);W[rn]=v;FORCE[rn]=new Set(["AD","AE","AF"].filter(L=>L in v));rn++;st.add++})}
+  else{rowNums.forEach(n=>{const r=SET[n-9]?SET[n-9].r:null;const v={};JK_L.forEach((L,i)=>{if(L!=="P")v[L]=r?val(r,i):""});W[n]=v});
+    for(let n=(rowNums[rowNums.length-1]||8)+1;n<9+SET.length;n++){const v={};JK_L.forEach((L,i)=>{if(L!=="P")v[L]=val(SET[n-9].r,i)});W[n]=v}st.add=SET.length}
+  /* gaya untuk sel baharu: ambil dari baris data pertama */
+  const sty={};const r9=(xml.match(/<row r="9"[^>]*>([\s\S]*?)<\/row>/)||[])[1]||"";for(const m of r9.matchAll(/<c r="([A-Z]+)9"([^>]*?)(?:\/>|>)/g)){const s=(m[2].match(/\ss="(\d+)"/)||[])[1];if(s)sty[m[1]]=s}
+  const done=new Set();xml=xml.replace(/<row r="(\d+)"([^>]*?)(\/>|>([\s\S]*?)<\/row>)/g,(m,rn,ra,tail,inner)=>{rn=+rn;
+    if(rn===4&&!merge)return`<row r="4"${ra}>${xlRowPut(inner||"",4,{D:YEAR},null)}</row>`;if(!W[rn])return m;done.add(rn);return`<row r="${rn}"${ra.replace(/\sspans="[^"]*"/,"")}>${xlRowPut(inner||"",rn,W[rn],sty,FORCE[rn])}</row>`});
+  const extra=Object.keys(W).map(Number).filter(n=>!done.has(n)).sort((a,b)=>a-b);
+  if(extra.length)xml=xml.replace(/<\/sheetData>/,extra.map(n=>`<row r="${n}">${xlRowPut("",n,W[n],sty)}</row>`).join("")+"</sheetData>");
+  zip.file(LL,xml);
+  /* sheet bulanan: jumlah kemasukan & hari pesakit — isi jika kosong (fail diisi) atau tulis semula (template baru) */
+  const MN=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];const DR=dayRows();
+  for(const [name,path] of Object.entries(P)){const mi=MN.indexOf(name.trim().slice(0,3).toLowerCase());if(mi<0||name.length>9)continue;const ym=YEAR+"-"+pad(mi+1);
+    const mo=MONTHLY.filter(x=>x.ym===ym);const adm=mo.length?mo.reduce((a,x)=>a+(+x.adm||0),0):DR.filter(r=>r.date.startsWith(ym)).reduce((a,r)=>a+(r.adm||0),0);const pd=mo.length?mo.reduce((a,x)=>a+(+x.pd||0),0):0;
+    let x=await zip.file(path).async("string");const V={D16:YEAR,C42:YEAR,B18:adm||"",B20:pd||""};
+    if(merge){const R=xlReadRows(x,SS);const g=ref=>{const m=ref.match(/([A-Z]+)(\d+)/);const c=R[+m[2]]&&R[+m[2]][m[1]];return c&&(c.f||!jkEmpty(c.v))};Object.keys(V).forEach(k=>{if(g(k)||V[k]==="")delete V[k]})}
+    x=xlSetCells(x,V);zip.file(path,x)}
+  let wbx=await zip.file("xl/workbook.xml").async("string");wbx=wbx.replace(/<calcPr([^>]*?)\/>/,(m,a)=>`<calcPr${a.replace(/\sfullCalcOnLoad="[^"]*"/,"")} fullCalcOnLoad="1"/>`);zip.file("xl/workbook.xml",wbx);
+  st.blob=await zip.generateAsync({type:"blob",compression:"DEFLATE",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});return st}
+function jknsTemplate(force){const go=async buf=>{try{toast("Mengisi fail JKNS…");const r=await fillJkns(buf);await saveFile(`MDRO_${YEAR}_HTPNK.xlsx`,r.blob);
+    toast(r.mode==="merge"?`Fail JKNS ${YEAR} dikemas kini: isian sedia ada tidak diubah · ${r.cells} sel kosong diisi (${r.upd} baris) · ${r.add} kes baru ditambah di bawah · ${r.keep} baris tiada dalam app dibiarkan.`:`${r.n} kes diisi ke template JKNS. Format asal kekal; formula dikira semula bila dibuka.`)}catch(e){toast("Gagal: "+(e.message||e))}};
+  let saved=null;try{saved=!force&&localStorage.getItem("mdro_jkns_tpl")}catch(e){}
+  if(saved){const b=Uint8Array.from(atob(saved),c=>c.charCodeAt(0));go(b.buffer);return}
+  const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx";inp.onchange=async()=>{const f=inp.files[0];if(!f)return;const buf=await f.arrayBuffer();
+    try{let bin="";const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=32768)bin+=String.fromCharCode.apply(null,u.subarray(i,i+32768));localStorage.setItem("mdro_jkns_tpl",btoa(bin))}catch(e){}go(buf)};inp.click()}
+/* ===== ambil maklumat dari fail JKNS (yang UKI isi manual) ke dalam app: isi kolum kosong sahaja ===== */
+const JK_DEPT_R={Medical:"Medical",Surgical:"Surgery",Surgery:"Surgery",Ortho:"Orthopaedics",Orthopaedic:"Orthopaedics",Anaest:"Anaesthesiology","O&G":"Obstetric & Gynae",OG:"Obstetric & Gynae",Paed:"Paediatric",Paediatric:"Paediatric",Derma:"Dermatology",OMFS:"OMFS",Psych:"Psychiatry"};
+const jkWardR=v=>{v=String(v??"").trim();if(!v)return"";let m;if(m=v.match(/^(\d+)$/))return WARDS.includes("W"+m[1])?"W"+m[1]:"";if(/^ICU$/i.test(v))return"ICU MB";if(m=v.match(/^(.+?)\s*\/\s*WCC$/i)){const w=m[1].toUpperCase()+" WCC";return ALL_LOC.find(x=>x.toUpperCase()===w)||""}return ALL_LOC.find(x=>x.toUpperCase()===v.toUpperCase())||""};
+function jkFromRow(R){const g=L=>R[L]&&!R[L].f?R[L].v:"";const out={};const put=(k,v)=>{if(!jkEmpty(v)&&String(v).trim()!=="")out[k]=typeof v==="string"?v.trim():v};
+  put("rn",g("C")===""?"":String(g("C")));put("ic",String(g("D")||""));const age=g("E");if(/^\d+$/.test(String(age)))put("age",+age);const gd=String(g("F")).toLowerCase();put("gender",gd.startsWith("m")?"Male":gd.startsWith("f")?"Female":"");
+  put("adm_date",jkDateIso(g("G")));put("ward_adm",jkWardR(g("H")));const dp=String(g("I")).trim();put("dept",dp?(JK_DEPT_R[dp]||(DEPTS.includes(dp)?dp:"Others")):"");put("diag_adm",String(g("J")||""));
+  const pe=String(g("K")).toUpperCase();put("prev_enc",pe.startsWith("Y")?"YES":pe.startsWith("N")?"NO":"");put("prev_fac",String(g("L")||""));put("prev_date",jkDateIso(g("M")));put("diag_spec",String(g("N")||""));
+  const iso=String(g("V")).toLowerCase();put("infcol",iso.startsWith("inf")?"INFECTION":iso.startsWith("colo")?"COLONIZER":"");
+  const it=String(g("W")).trim();const IT=COLS.find(x=>x[0]==="inf_type")[4];put("inf_type",IT.find(x=>x.toLowerCase()===it.toLowerCase())||"");
+  const pb=String(g("X")).toLowerCase();put("pbsi",pb.startsWith("prim")?"YES":pb.startsWith("sec")?"NO":"");
+  const y=String(g("Y")).toLowerCase();put("hai",/own/.test(y)?"HAI - own hospital":/not health/.test(y)?"NOT HCAI":/other moh|non moh/.test(y)?"HAI - other facility":"");
+  const ab=v=>{v=String(v||"").trim();return v&&v.toUpperCase()!=="NA"?v:""};put("abx1",ab(g("Z")));put("abx2",ab(g("AA")));const ah=String(g("AH")).toUpperCase();put("clabsi",ah==="CLABSI"||ah==="NON-CLABSI"?ah:"");return out}
+function jkImport(){if(S.role!=="uki"){toast("Untuk UKI sahaja.");return}const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx";inp.onchange=async()=>{const f=inp.files[0];if(!f)return;
+  try{toast("Membaca fail JKNS…");await loadJSZip();const zip=await JSZip.loadAsync(await f.arrayBuffer());const P=await xlSheetPaths(zip);if(!P["L.Listing Main"])throw new Error("Sheet 'L.Listing Main' tiada.");
+    const SS=await xlShared(zip);const ROWS=xlReadRows(await zip.file(P["L.Listing Main"]).async("string"),SS);const yr=String(YEAR);
+    const pool=CASES.filter(c=>c.sample_date&&c.sample_date.startsWith(yr)).sort((a,b)=>(a.case_status==="NEW"?0:1)-(b.case_status==="NEW"?0:1));const used=new Set();const plan=[];const none=[];const st=[];
+    Object.keys(ROWS).map(Number).filter(n=>n>=9).sort((a,b)=>a-b).forEach(n=>{const R=ROWS[n];if(jkEmpty(R.B&&R.B.v)||(R.B&&R.B.f))return;const c=jkMatch(R,pool,used);
+      if(!c){const nm=normN(R.B.v);const o=CASES.filter(x=>normN(x.name)===nm&&x.sample_date&&x.sample_date.startsWith(yr));none.push({n,name:R.B.v,d:jkDateIso(R.O&&R.O.v),org:R.T&&R.T.v,app:o.map(x=>fmt(x.sample_date)+" "+(x.case_status||"tiada status")).join(", ")});return}used.add(c.id);if(c.case_status!=="NEW")st.push({n,c});const v=jkFromRow(R);const ch={};Object.keys(v).forEach(k=>{if(jkEmpty(c[k])||String(c[k]).trim()==="")ch[k]=v[k]});if(Object.keys(ch).length)plan.push({c,ch,n})});
+    S.jkImp={plan,none,st,file:f.name};openJkImport()}catch(e){toast("Gagal: "+(e.message||e))}};inp.click()}
+function openJkImport(){const{plan,none,st,file}=S.jkImp;const nCell=plan.reduce((a,p)=>a+Object.keys(p.ch).length,0);const lbl=k=>(COLS.find(x=>x[0]===k)||[k,k,k])[2];
+  openModal(`<div class="m-head"><div class="hx"><h3>Ambil maklumat dari fail JKNS</h3><p>${esc(file)} · ${plan.length} kes dalam app akan dilengkapkan (${nCell} kolum kosong). Isian sedia ada dalam app tidak ditukar.</p></div>${xBtn()}</div>
+  <div class="m-body"><div class="tbl-wrap"><table><thead><tr><th>Baris</th><th>Pesakit</th><th>Tarikh sampel</th><th>Kolum yang akan diisi</th></tr></thead><tbody>
+  ${plan.slice(0,200).map(p=>`<tr><td class="mono">${p.n}</td><td class="nm"><b>${esc(p.c.name)}</b><span class="mono">${esc(p.c.subtype)}</span></td><td class="mono">${fmt(p.c.sample_date)}</td><td style="min-width:360px"><div class="pills">${Object.keys(p.ch).map(k=>`<span class="pill" title="${esc(String(p.ch[k]))}">${esc(lbl(k))}</span>`).join("")}</div></td></tr>`).join("")||'<tr><td colspan="4" class="empty-row">Tiada kolum kosong yang boleh diisi.</td></tr>'}</tbody></table></div>
+  ${st.length?`<div class="lbl">Ada dalam fail JKNS tetapi app tanda bukan NEW (${st.length}) · semak status kes</div><div class="pills">${st.map(({n,c})=>`<button class="pill p-warn" onclick="closeModal();openCase('${c.id}')">${esc(c.name)} · ${fmt(c.sample_date)} · ${esc(c.case_status||"tiada status")} (baris ${n})</button>`).join("")}</div>`:""}
+  ${none.length?`<div class="lbl">Ada dalam fail JKNS tetapi tiada dalam masterlist app (${none.length}) · nama/RN + tarikh sampel ±3 hari</div><div class="tbl-wrap"><table><thead><tr><th>Baris</th><th>Nama dalam fail JKNS</th><th>Tarikh sampel</th><th>Organisma</th><th>Dalam app</th></tr></thead><tbody>${none.map(x=>`<tr><td class="mono">${x.n}</td><td>${esc(x.name)}</td><td class="mono">${x.d?fmt(x.d):"—"}</td><td>${esc(x.org||"")}</td><td>${x.app?`Tarikh lain: ${esc(x.app)}`:"Tiada nama ini"}</td></tr>`).join("")}</tbody></table></div>`:""}</div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Batal</button><button class="btn btn-pri"${plan.length?"":" disabled"} onclick="applyJkImport()">Isi ${plan.length} kes</button></div>`,true)}
+function applyJkImport(){const{plan}=S.jkImp;plan.forEach(({c,ch})=>Object.assign(c,ch));const n=plan.length;S.jkImp=null;closeModal();refresh();toast(`${n} kes dilengkapkan dari fail JKNS.`)}
 function jkAoa(){const m1=S.jkM1??CUR_M,m0=S.jkM0??0;return jkSet(m0,m1).rows.map(x=>x.r)}
 function dlJkns(){const R=jkAoa();if(!window.XLSX)return;const m1=S.jkM1??CUR_M,m0=S.jkM0??0;
   const A=[["MDRO Surveillance Line Listing (MDRO/MOH/2022/2)"],["HOSPITAL",": HOSPITAL TENGKU PERMAISURI NORASHIKIN, KAJANG (HTPNK)"],["SURVEY PERIOD",`: ${MONTHS[m0]}–${MONTHS[m1]} ${YEAR}`],[],["NO"].concat(JK_L),["NO"].concat(JK_H)].concat(R.map((r,i)=>[i+1].concat(r)));
@@ -1166,13 +1261,29 @@ function mvHTML(m){const mdro=mdroOf(m).length;const t=m.type==="BED"?`<span cla
 let CH={};
 function destroyCharts(){Object.values(CH).forEach(c=>{try{c.destroy()}catch(e){}});CH={}}
 /* numerator for rates: new = semua kes NEW kecuali contaminant; infcol/inf = HAI hospital ini sahaja */
+/* nama organisma seragam (S.A → STAPHYLOCOCCUS AUREUS, KPN → KLEBSIELLA PNEUMONIAE, …) */
+function normOrg(s){const u=String(s||"").toUpperCase().replace(/\s+/g," ").trim();if(!u||/^[?\-]$/.test(u)||/NO SPECIAL ID/.test(u))return"";
+  const RX=[[/^(S\.? ?A\.?|STAPH\w*\.? ?AUREUS|S\. ?AUREUS)$/,"STAPHYLOCOCCUS AUREUS"],[/^(E[.\- ]?\s*COLI|ESCHERICHIA COLI)$/,"ESCHERICHIA COLI"],[/^(KPN|K\.? ?PNEUMONIAE|KLEB\.? ?PNEU\w*|KLEBSIE?LL?A PNEUMONIAE)$/,"KLEBSIELLA PNEUMONIAE"],
+   [/^(A\.? ?BAUMANN?II?|ACB|ACINETOBACTER BAUMANNII)$/,"ACINETOBACTER BAUMANNII"],[/^(KLEB\.? ?AEROGENES|KLEBSIELLA AEROGENES)$/,"KLEBSIELLA AEROGENES"],[/^KLEB\.? ?OXYTOCA$/,"KLEBSIELLA OXYTOCA"],
+   [/^(PSEU\w*\s*\.?\s*A\.?|PSEUDOMONAS( AERUGINOSA)?|P\.? ?AERUGINOSA)$/,"PSEUDOMONAS AERUGINOSA"],[/^SERRATIA/,"SERRATIA MARCESCENS"],[/^ENTEROBACTER$/,"ENTEROBACTER SPP"],[/^KLEBSIELLA SPP?\.?$/,"KLEBSIELLA SPP"],
+   [/^MORGANELLA( MORGANII)?$/,"MORGANELLA MORGANII"],[/^A\.? ?NOSOCOMIALIS$/,"ACINETOBACTER NOSOCOMIALIS"],[/^E\.? ?FAECIUM$/,"ENTEROCOCCUS FAECIUM"],[/^PROTEUS$/,"PROTEUS MIRABILIS"]];
+  const parts=u.split(/\s*(?:&|\+|,|\bAND\b)\s*/).map(p=>{const x=p.replace(/\b(CRE|ESBL|MRO|MRSA|VRE|NON[ -]?CP)\b/g,"").replace(/[\s\-]+$/,"").replace(/^[\s\-]+/,"").trim();for(const[re,v]of RX)if(re.test(x))return v;return x}).filter(x=>x&&x.length>1);
+  return[...new Set(parts)].join(" + ")}
+/* tapisan organisma: kumpulan (MRSA/ESBL/…), subjenis (ESBL KPN…) dan nama organisma */
+const orgLbl=()=>{const o=S.an.org||"";const n=S.an.oname||"";return(o?o.replace(/^S:/,""):"")+(n?" · "+n:"")};
+function orgOk(c){const o=S.an.org||"";if(o){if(o.startsWith("S:")){if(c.subtype!==o.slice(2))return false}else if(c.group!==o)return false}
+  if(S.an.oname&&!normOrg(c.organism).split(" + ").includes(S.an.oname))return false;return true}
+function orgFilterHTML(){const o=S.an.org||"";const sub=g=>SUBTYPES.filter(t=>sgrp(t)===g);
+  const names=[...new Set(CASES.filter(c=>c.case_status==="NEW"&&(!o||(o.startsWith("S:")?c.subtype===o.slice(2):c.group===o))).flatMap(c=>normOrg(c.organism).split(" + ")).filter(Boolean))].sort();
+  return`<div class="fld"><label for="aOrg">Organisma (kumpulan / subjenis)</label><select id="aOrg" onchange="S.an.org=this.value;S.an.oname='';refresh()"><option value="">Semua MDRO</option>${GROUPS.map(g=>`<optgroup label="${g}"><option value="${g}"${o===g?" selected":""}>${g} (semua)</option>${sub(g).filter(t=>t!==g).map(t=>`<option value="S:${t}"${o==="S:"+t?" selected":""}>${t}</option>`).join("")}</optgroup>`).join("")}</select></div>
+   <div class="fld"><label for="aOname">Nama organisma (organism isolated)</label><select id="aOname" onchange="S.an.oname=this.value;refresh()"><option value="">Semua (${names.length})</option>${names.map(n=>`<option${S.an.oname===n?" selected":""}>${esc(n)}</option>`).join("")}</select></div>`}
 function basisOk(c){const B=S.an.basis||"new";const k=cls(c);return B==="new"?k!=="CONT":B==="inf"?k==="INF":["INF","COL"].includes(k)}
 const BASIS_L={new:"Kes NEW (Infection + Colonizer, tolak contaminant)",infcol:"Infection + colonization (HAI hospital ini)",inf:"Infection sahaja (HAI hospital ini)"};
 function aggMonth(){const W=S.an.ward,G=S.an.org;const D=dayRows().filter(r=>(!W||r.ward===W)&&r.date.startsWith(String(YEAR)));
   const B=S.an.basis||"new";const inB=basisOk;
   const M=Array.from({length:CUR_M+1},(_,m)=>({m,adm:0,tin:0,pd:0,cvl:0,vent:0,cases:0,notified:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0])),byG:{}}));
   D.forEach(r=>{const o=M[+r.date.slice(5,7)-1];if(!o)return;o.adm+=r.adm;o.tin+=r.tin;o.pd+=r.pd||0;o.cvl+=r.cvl;o.vent+=r.vent});
-  const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&(!W||c.ward===W)&&(!G||c.group===G));
+  const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&(!W||c.ward===W)&&orgOk(c));
   C.forEach(c=>{const o=M[+c.sample_date.slice(5,7)-1];if(!o)return;o.notified++;o.k[cls(c)]++;if(!inB(c))return;o.cases++;o.byG[c.group]=(o.byG[c.group]||0)+1});
   MONTHLY.filter(x=>x.ym.startsWith(String(YEAR))&&(!W||x.ward===W)).forEach(x=>{const o=M[+x.ym.slice(5,7)-1];if(!o)return;if(o.src!=="PD211"){o.src="PD211";o.adm=0;o.pd=0;o.bop=0}o.adm+=x.adm;o.pd+=x.pd;o.bop+=x.beds_op});
   M.forEach(o=>{o.rInf=o.adm?o.k.INF/o.adm*100:0;o.rIC=o.adm?(o.k.INF+o.k.COL)/o.adm*100:0;o.rate=o.adm?o.cases/o.adm*100:0;o.r1k=o.pd?o.cases/o.pd*1000:0;o.du=o.pd?o.cvl/o.pd:0;const dim=new Date(YEAR,o.m+1,0).getDate();o.bor=o.src==="PD211"&&o.bop?o.pd/(o.bop*dim)*100:null;o.src=o.src||(o.adm?"Banci harian":"—")});return{M,C}}
@@ -1188,7 +1299,7 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
   return`<div class="sec-h"><div><h2>Analysis</h2><p>Kes NEW dari masterlist dibahagi dengan kemasukan dan hari pesakit${MONTHLY.length?" (PD211 bila ada, selain itu banci harian)":" dari banci harian"}. Data Jan–${MON3[CUR_M]} ${YEAR}${HIST.some(h=>h.src==="import")||MONTHLY.length?"":" (contoh)"}.</p></div></div>
   <div class="panel"><div class="an-ctl">
     <div class="fld"><label for="aWard">Wad</label><select id="aWard" onchange="S.an.ward=this.value;refresh()">${opt(WARDS,S.an.ward,"Semua wad")}</select></div>
-    <div class="fld"><label for="aOrg">Organisma</label><select id="aOrg" onchange="S.an.org=this.value;refresh()">${opt(GROUPS,S.an.org,"Semua MDRO")}</select></div>
+    ${orgFilterHTML()}
     <div class="fld"><label for="aBasis">Kadar dikira dari</label><select id="aBasis" onchange="S.an.basis=this.value;refresh()">${Object.entries(BL).map(([k,v])=>`<option value="${k}"${(S.an.basis||"new")===k?" selected":""}>${v}</option>`).join("")}</select></div>
     <div class="fld"><label for="aMonth">Bulan</label><select id="aMonth" onchange="S.an.month=+this.value;refresh()"><option value="-1"${sm===-1?" selected":""}>Semua bulan (Jan–Dis)</option>${opt(MONTHS,sm,"",(v,i)=>i)}</select></div>
   </div>
@@ -1206,7 +1317,7 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
     <div class="kpi"><span>Hari pesakit</span><b>${o.pd?o.pd.toLocaleString():"—"}</b><i>CVL ${o.cvl} · ventilator ${o.vent}</i></div>
     <div class="kpi"><span>Device utilisation</span><b>${o.pd?o.du.toFixed(2):"—"}</b><i>${o.pd?"hari CVL ÷ hari pesakit":"perlu bilangan pesakit harian"}</i></div>
   </div></div>
-  <div class="panel chart"><h3>Insiden bulanan per 100 kemasukan · ${bl}${S.an.org?" · "+S.an.org:""}${S.an.ward?" · "+S.an.ward:""}</h3><div class="cbox tall"><canvas id="cSpc" aria-label="Carta insiden bulanan"></canvas></div><div class="note" id="nSpc"></div></div>
+  <div class="panel chart"><h3>Insiden bulanan per 100 kemasukan · ${bl}${orgLbl()?" · "+esc(orgLbl()):""}${S.an.ward?" · "+S.an.ward:""}</h3><div class="cbox tall"><canvas id="cSpc" aria-label="Carta insiden bulanan"></canvas></div><div class="note" id="nSpc"></div></div>
   <div class="charts">
     <div class="panel chart"><h3>Kes NEW mengikut organisma</h3><div class="cbox"><canvas id="cOrg" aria-label="Kes mengikut organisma"></canvas></div></div>
     <div class="panel chart"><h3>Kes ${mon3(sm)} mengikut wad</h3><div class="cbox"><canvas id="cWard" aria-label="Kes mengikut wad"></canvas></div></div>
@@ -1221,7 +1332,7 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
    </tbody></table></div></div>`}
 
 function wardReport(sm,useWard){const G=S.an.org;const WF=useWard===false?"":S.an.ward;const ym=sm===-1?String(YEAR):YEAR+"-"+pad(sm+1);const mons=sm===-1?Array.from({length:12},(_,i)=>YEAR+"-"+pad(i+1)):[ym];
-  const C=CASES.filter(c=>c.case_status==="NEW"&&c.sample_date.startsWith(ym)&&(!G||c.group===G));
+  const C=CASES.filter(c=>c.case_status==="NEW"&&c.sample_date.startsWith(ym)&&orgOk(c));
   const order=WARD_CFG.filter(w=>w.bld==="MB").map(w=>w.code).concat(WARD_CFG.filter(w=>w.bld==="WCC").map(w=>w.code));
   const wards=[...new Set(order.concat(C.map(c=>c.ward).filter(Boolean).sort()))].filter(w=>!WF||w===WF);
   const DRW=dayRows();const admOf=w=>mons.reduce((t,mm)=>{const m=MONTHLY.filter(x=>x.ym===mm&&x.ward===w);return t+(m.length?m.reduce((a,x)=>a+x.adm,0):DRW.filter(r=>r.ward===w&&r.date.startsWith(mm)).reduce((a,r)=>a+r.adm,0))},0);
@@ -1231,7 +1342,7 @@ function wardReport(sm,useWard){const G=S.an.org;const WF=useWard===false?"":S.a
   const bld=w=>(WCFG[w]||{}).bld;let last="";
   const tr=(r,cls_)=>{let h="";const b=r.w==="JUMLAH"?"":bld(r.w)||"X";if(!cls_&&b!==last){last=b;h=`<tr class="grp"><td colspan="${CLS_ORDER.length+6}">${b==="MB"?"Main Building":b==="WCC"?"WCC (Women &amp; Children)":"Lokasi lain (ETD / klinik)"}</td></tr>`}
     return h+`<tr${cls_?` class="${cls_}"`:""}><td class="mh">${esc(r.w)}</td>${td(r.n,"Notified UKI")}${CLS_ORDER.map(x=>td(r.k[x],CLS[x].l)).join("")}<td data-l="Kemasukan">${r.adm?r.adm.toLocaleString():"—"}</td><td data-l="Kes dikira">${r.num}</td><td data-l="Kadar /100" style="font-weight:800">${rt(r.num,r.adm)}</td><td data-l="Inf+col HAI /100">${rt(r.k.INF+r.k.COL,r.adm)}</td></tr>`};
-  return`<div class="panel"><div class="ph"><div><h3>Laporan ikut wad · ${monLbl(sm)}${sm===-1?"":" "+YEAR}${G?" · "+G:""}${WF?" · "+esc(WF):""}</h3><p><b>Kadar /100</b> = kes dikira ÷ kemasukan × 100. Kes dikira: ${esc(BASIS_L[S.an.basis||"new"])}. Lajur terakhir = Infection + Colonization HAI hospital ini sahaja (format JKNS).</p></div></div>
+  return`<div class="panel"><div class="ph"><div><h3>Laporan ikut wad · ${monLbl(sm)}${sm===-1?"":" "+YEAR}${orgLbl()?" · "+esc(orgLbl()):""}${WF?" · "+esc(WF):""}</h3><p><b>Kadar /100</b> = kes dikira ÷ kemasukan × 100. Kes dikira: ${esc(BASIS_L[S.an.basis||"new"])}. Lajur terakhir = Infection + Colonization HAI hospital ini sahaja (format JKNS).</p></div></div>
    <div class="tbl-wrap"><table class="num mc"><thead><tr><th>Wad</th><th>Notified UKI</th>${CLS_ORDER.map(x=>`<th>${CLS[x].l}</th>`).join("")}<th>Kemasukan</th><th>Kes dikira</th><th>Kadar /100</th><th>Inf+col HAI /100</th></tr></thead><tbody>
    ${rows.map(r=>tr(r)).join("")}${tr({w:"JUMLAH",...T},"sel")}</tbody></table></div></div>`}
 function chartBase(){const ink=cssv("--mut"),grid=cssv("--grid");Chart.defaults.font.family="Inter, system-ui, sans-serif";Chart.defaults.color=ink;
@@ -1251,7 +1362,7 @@ function drawCharts(){if(typeof Chart==="undefined"){document.querySelectorAll("
     {label:"+3 SD",data:L.map(()=>+(mean+3*sd).toFixed(2)),borderColor:crit,borderDash:[2,3],borderWidth:1.5,pointRadius:0}]},
     options:{...B,scales:{...B.scales,y:{...B.scales.y,ticks:{...B.scales.y.ticks,precision:undefined},title:{display:true,text:"per 100 kemasukan",color:cssv("--mut")}}}}});
   $("nSpc").innerHTML=`Purata <b>${mean.toFixed(2)}</b>, SD ${sd.toFixed(2)} (bulan Jan–${MON3[Math.max(0,CUR_M-1)]}). ${MON3[CUR_M]} belum lengkap, jadi kadarnya boleh berubah. ${over.length?`Melebihi +2 SD: <b>${over.map(r=>MON3[r.m]).join(", ")}</b>.`:"Tiada bulan melebihi +2 SD."}`;
-  const gs=S.an.org?[S.an.org]:GROUPS;
+  const gs=S.an.org?[S.an.org.startsWith("S:")?sgrp(S.an.org.slice(2)):S.an.org]:GROUPS;
   CH.org=new Chart($("cOrg"),{type:"bar",data:{labels:L,datasets:gs.map(g=>({label:g,data:M.map(r=>r.byG[g]||0),backgroundColor:cssv(GCOL[g]),borderColor:cssv("--panel"),borderWidth:{top:2},borderRadius:3,stack:"s"}))},options:{...B,scales:{...B.scales,x:{...B.scales.x,stacked:true},y:{...B.scales.y,stacked:true}}}});
   const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
   const cnt=(arr,key)=>{const o={};arr.forEach(c=>{const k=c[key]||"Belum dinilai";o[k]=(o[k]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1])};
@@ -2369,10 +2480,11 @@ try{const t=localStorage.getItem("mdroThm");if(t)document.documentElement.datase
 $("lgIcn").innerHTML=ICN.map(n=>`<option${n==="DR ANEESA"?" selected":""}>${n}</option>`).join("");
 $("lgWard").innerHTML=WARDS.map(w=>`<option${w==="W7"?" selected":""}>${w}</option>`).join("");
 paintThm();
-/* ===== seret jadual dengan tangan (tetikus): gerak ke tepi & ke bawah tanpa scrollbar ===== */
-(function(){let D=null,moved=false;const skip=t=>t.closest("button,a,input,select,textarea,label,[contenteditable]");
-  document.addEventListener("mouseover",e=>{const w=e.target.closest&&e.target.closest(".tbl-wrap");if(w)w.classList.toggle("canDrag",w.scrollWidth>w.clientWidth+2)});
-  document.addEventListener("mousedown",e=>{if(e.button!==0)return;const w=e.target.closest&&e.target.closest(".tbl-wrap");if(!w||w.scrollWidth<=w.clientWidth+2||skip(e.target))return;
+/* ===== seret dengan tangan (tetikus): semua jadual / kotak yang boleh ditatal ke tepi ===== */
+(function(){let D=null,moved=false;const skip=t=>t.closest("button,a,input,select,textarea,label,canvas,[contenteditable],[data-pb],#stage,.sbar,.tabs");
+  const hs=el=>{for(let n=el;n&&n!==document.body&&n.nodeType===1;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==="auto"||o==="scroll")return n}}return null};
+  let last=null;document.addEventListener("mouseover",e=>{if(D)return;const w=e.target.nodeType===1&&!skip(e.target)?hs(e.target):null;if(last&&last!==w)last.classList.remove("canDrag");if(w)w.classList.add("canDrag");last=w});
+  document.addEventListener("mousedown",e=>{if(e.button!==0||e.target.nodeType!==1||skip(e.target))return;const w=hs(e.target);if(!w)return;
     const sc=w.closest(".modal")||null;D={w,x:e.clientX,y:e.clientY,sl:w.scrollLeft,sc,st:sc?sc.scrollTop:window.scrollY};moved=false;w.classList.add("dragging");e.preventDefault()});
   document.addEventListener("mousemove",e=>{if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;D.w.scrollLeft=D.sl-dx;if(D.sc)D.sc.scrollTop=D.st-dy;else window.scrollTo(window.scrollX,D.st-dy)});
   document.addEventListener("mouseup",()=>{if(!D)return;D.w.classList.remove("dragging");D=null});
