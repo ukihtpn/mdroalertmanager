@@ -601,6 +601,8 @@ table.num td:first-child{white-space:nowrap}
 .sbar #snav{flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;display:flex;flex-direction:column;gap:4px}
 .sbar #snav .snav{flex-shrink:0}
 @media (max-height:820px){.sbar .logo{width:58px;height:58px;border-radius:14px}.sbar .logo img{width:52px}.snav{padding:7px 4px;gap:3px;font-size:11.5px}.snav svg{width:20px;height:20px}}
+tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);padding-top:8px;padding-bottom:8px;text-align:left!important}
+.tbl-wrap.canDrag{cursor:grab}.tbl-wrap.dragging{cursor:grabbing;user-select:none}.tbl-wrap.dragging *{cursor:grabbing!important}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1089,7 +1091,7 @@ function rReports(){const sm=S.rpM??CUR_M;const need=CASES.filter(c=>c.case_stat
    <div class="mrow" style="align-items:flex-end"><div class="fld"><label for="rpM">Bulan</label><select id="rpM" onchange="S.rpM=+this.value;refresh()"><option value="-1"${sm===-1?" selected":""}>Semua bulan (Jan–Dis ${YEAR})</option>${MONTHS.map((m,i)=>`<option value="${i}"${i===sm?" selected":""}>${m} ${YEAR}</option>`).join("")}</select></div>
     <div class="fld" style="flex:3"><label for="rpRem">Catatan / remarks (pilihan)</label><input id="rpRem" value="${esc(S.rpRem||"")}" oninput="S.rpRem=this.value" placeholder="cth. Peningkatan CRE di W7 · audit hand hygiene dijalankan"></div>
     <div class="fld" style="flex:none"><button class="btn btn-pri" onclick="dlMonthly(${sm})">${svg("up")}Muat turun Excel</button></div></div>
-   <div id="rpMonthly">${wardReport(sm)}</div>`)}
+   <div id="rpMonthly">${wardReport(sm,false)}</div>`)}
   ${rptCard("J","Line listing MDRO untuk JKNS (MDRO/MOH/2022/2)","Kes <b>NEW</b> sahaja; kes REPEAT dan contaminant tidak dimasukkan. Kolum B–AC ikut susunan template JKNS. Semak kes yang ada kolum kosong (tekan nama untuk isi), kemudian muat turun atau salin dan tampal ke template mula di sel B9. Sheet bulanan, Bacteraemia dan Reporting Form dalam template akan dikira sendiri oleh formula.",rJkns())}
   ${rptCard(3,"Borang semakan UKI (setiap pesakit)","Borang bercetak dengan nama, IC, katil semasa positif, organisma, infection/colonizer, HAI, jenis jangkitan dan pelan. Disimpan dalam profil pesakit.",`
    <div class="lbl" style="margin-top:0">Perlu disemak (${need.length})</div>
@@ -1131,16 +1133,16 @@ function wardPend(w){const yr=String(YEAR);const C=CASES.filter(c=>c.ward===w&&c
   const unrev=C.filter(c=>c.case_status==="NEW"&&cls(c)==="UNREV");const norev=C.filter(c=>recent(c)&&["INF","COL"].includes(cls(c))&&!(c.reviews||[]).length);
   const o={w,nf:notifPend(w).length,isW:!!WCFG[w],cen:WCFG[w]?censusOf(w,TODAY):null,none:D.filter(x=>x.d.st==="none").length,pend:D.filter(x=>x.d.st==="pend").length,done:D.filter(x=>x.d.st==="done").length,fn:fo.none,fs:fo.sent,ff:fo.filled,unrev:unrev.length,norev:norev.length,D};
   o.score=o.none*3+o.fn*2+o.ff*2+o.fs+o.unrev*2+o.norev+o.pend*.2+(o.isW&&!o.cen?5:0);return o}
-function pendTable(){const L=dashWards().map(wardPend).filter(o=>o.isW||o.score>0).sort((a,b)=>b.score-a.score);
+function pendTable(){const ord=w=>{const i=WARD_CFG.findIndex(x=>x.code===w);return i<0?999:(WARD_CFG[i].bld==="MB"?0:100)+i};const L=dashWards().map(wardPend).filter(o=>o.isW||o.score>0).sort((a,b)=>ord(a.w)-ord(b.w)||a.w.localeCompare(b.w));let lastB="";
   const n=(v,act,cls_)=>v?`<button class="pnum ${cls_||""}" onclick="${act}">${v}</button>`:'<span class="pz">—</span>';
   return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Perkara pending ikut wad</h3><p>Disusun dari wad paling banyak tertunggak. Tekan nama wad untuk lihat senarai kes, atau tekan nombor untuk terus ke tab berkaitan.</p></div></div>
    <div class="tbl-wrap"><table class="num pendt mc"><thead><tr><th rowspan="2">Wad</th><th rowspan="2">Banci hari ini</th><th rowspan="2">Borang MDRO<br>belum lengkap</th><th colspan="2">Data masterlist ${YEAR}</th><th rowspan="2">Belum dikelas<br>Inf / Col</th><th rowspan="2">Belum semakan<br>UKI</th></tr>
    <tr><th>Belum lengkap</th><th>Pending</th></tr></thead><tbody>
-   ${L.map(o=>`<tr><td class="mh"><button class="namebtn" onclick="S.dw='${esc(o.w)}';refresh()">${esc(o.w)}</button></td>
+   ${L.map(o=>{const b=(WCFG[o.w]||{}).bld||"X";const gh=b!==lastB?(lastB=b,`<tr class="grp"><td colspan="7">${b==="MB"?"Main Building":b==="WCC"?"WCC (Women &amp; Children)":"Lokasi lain (ETD / klinik)"}</td></tr>`):"";return gh+`<tr><td class="mh"><button class="namebtn" onclick="S.dw='${esc(o.w)}';refresh()">${esc(o.w)}</button></td>
      <td data-l="Banci hari ini">${o.isW?(o.cen?`<span class="pill p-ok">${fmtT(o.cen.at)}</span>`:`<button class="pill p-warn" onclick="ukiCensus('${esc(o.w)}')">Belum · isi</button>`):'<span class="pz">—</span>'}</td>
      <td data-l="Borang MDRO belum lengkap">${n(o.fn+o.fs+o.ff,"go('formsU')","w")}</td>
      <td data-l="Data belum lengkap">${n(o.none,`S.mlWard='${esc(o.w)}';S.mlOv='none';S.mlMonth='';S.mlCls='';go('master')`,"c")}</td><td data-l="Data pending">${n(o.pend,`S.mlWard='${esc(o.w)}';S.mlOv='pend';S.mlMonth='';S.mlCls='';go('master')`)}</td>
-     <td data-l="Belum dikelas">${n(o.unrev,`S.mlWard='${esc(o.w)}';S.mlCls='UNREV';S.mlOv='';S.mlMonth='';go('master')`,"w")}</td><td data-l="Belum semakan UKI">${n(o.norev,`S.dw='${esc(o.w)}';refresh()`)}</td></tr>`).join("")}
+     <td data-l="Belum dikelas">${n(o.unrev,`S.mlWard='${esc(o.w)}';S.mlCls='UNREV';S.mlOv='';S.mlMonth='';go('master')`,"w")}</td><td data-l="Belum semakan UKI">${n(o.norev,`S.dw='${esc(o.w)}';refresh()`)}</td></tr>`}).join("")}
    </tbody></table></div></div>`}
 function pendWard(w){const o=wardPend(w);const miss={};o.D.forEach(x=>x.d.miss.forEach(k=>miss[k]=(miss[k]||0)+1));
   const top=Object.entries(miss).sort((a,b)=>b[1]-a[1]).slice(0,10);const fc=formCases(w);
@@ -1163,8 +1165,11 @@ function mvHTML(m){const mdro=mdroOf(m).length;const t=m.type==="BED"?`<span cla
 /* ================= Analysis ================= */
 let CH={};
 function destroyCharts(){Object.values(CH).forEach(c=>{try{c.destroy()}catch(e){}});CH={}}
+/* numerator for rates: new = semua kes NEW kecuali contaminant; infcol/inf = HAI hospital ini sahaja */
+function basisOk(c){const B=S.an.basis||"new";const k=cls(c);return B==="new"?k!=="CONT":B==="inf"?k==="INF":["INF","COL"].includes(k)}
+const BASIS_L={new:"Kes NEW (Infection + Colonizer, tolak contaminant)",infcol:"Infection + colonization (HAI hospital ini)",inf:"Infection sahaja (HAI hospital ini)"};
 function aggMonth(){const W=S.an.ward,G=S.an.org;const D=dayRows().filter(r=>(!W||r.ward===W)&&r.date.startsWith(String(YEAR)));
-  const B=S.an.basis||"infcol";const inB=c=>B==="all"||(B==="inf"?cls(c)==="INF":["INF","COL"].includes(cls(c)));
+  const B=S.an.basis||"new";const inB=basisOk;
   const M=Array.from({length:CUR_M+1},(_,m)=>({m,adm:0,tin:0,pd:0,cvl:0,vent:0,cases:0,notified:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0])),byG:{}}));
   D.forEach(r=>{const o=M[+r.date.slice(5,7)-1];if(!o)return;o.adm+=r.adm;o.tin+=r.tin;o.pd+=r.pd||0;o.cvl+=r.cvl;o.vent+=r.vent});
   const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&(!W||c.ward===W)&&(!G||c.group===G));
@@ -1178,16 +1183,17 @@ function sumMons(M){const o=emptyMon(-1);let bopd=0,pdB=0;const src=new Set();M.
    if(r.bop){bopd+=r.bop*new Date(YEAR,r.m+1,0).getDate();pdB+=r.pd}if(r.src&&r.src!=="—")src.add(r.src)});
   o.rInf=o.adm?o.k.INF/o.adm*100:0;o.rIC=o.adm?(o.k.INF+o.k.COL)/o.adm*100:0;o.rate=o.adm?o.cases/o.adm*100:0;o.r1k=o.pd?o.cases/o.pd*1000:0;o.du=o.pd?o.cvl/o.pd:0;o.bor=bopd?pdB/bopd*100:null;o.src=[...src].join(" + ")||"—";return o}
 function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear(M);const o=sm===-1?sumMons(M):MF[sm];const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
-  const BL={infcol:"Infection + colonization (HAI hospital ini)",inf:"Infection sahaja (HAI hospital ini)",all:"Semua kes NEW dinotifikasi"};const bl=BL[S.an.basis||"infcol"];
+  const BL=BASIS_L;const bl=BL[S.an.basis||"new"];
   const opt=(arr,cur,all,val)=>(all?`<option value="">${all}</option>`:"")+arr.map((v,i)=>`<option value="${val?val(v,i):v}"${String(val?val(v,i):v)===String(cur)?" selected":""}>${esc(v)}</option>`).join("");
   return`<div class="sec-h"><div><h2>Analysis</h2><p>Kes NEW dari masterlist dibahagi dengan kemasukan dan hari pesakit${MONTHLY.length?" (PD211 bila ada, selain itu banci harian)":" dari banci harian"}. Data Jan–${MON3[CUR_M]} ${YEAR}${HIST.some(h=>h.src==="import")||MONTHLY.length?"":" (contoh)"}.</p></div></div>
   <div class="panel"><div class="an-ctl">
     <div class="fld"><label for="aWard">Wad</label><select id="aWard" onchange="S.an.ward=this.value;refresh()">${opt(WARDS,S.an.ward,"Semua wad")}</select></div>
     <div class="fld"><label for="aOrg">Organisma</label><select id="aOrg" onchange="S.an.org=this.value;refresh()">${opt(GROUPS,S.an.org,"Semua MDRO")}</select></div>
-    <div class="fld"><label for="aBasis">Kadar dikira dari</label><select id="aBasis" onchange="S.an.basis=this.value;refresh()">${Object.entries(BL).map(([k,v])=>`<option value="${k}"${(S.an.basis||"infcol")===k?" selected":""}>${v}</option>`).join("")}</select></div>
+    <div class="fld"><label for="aBasis">Kadar dikira dari</label><select id="aBasis" onchange="S.an.basis=this.value;refresh()">${Object.entries(BL).map(([k,v])=>`<option value="${k}"${(S.an.basis||"new")===k?" selected":""}>${v}</option>`).join("")}</select></div>
     <div class="fld"><label for="aMonth">Bulan</label><select id="aMonth" onchange="S.an.month=+this.value;refresh()"><option value="-1"${sm===-1?" selected":""}>Semua bulan (Jan–Dis)</option>${opt(MONTHS,sm,"",(v,i)=>i)}</select></div>
   </div>
   <div class="kpis">
+    <div class="kpi" style="border:2px solid var(--brand)"><span>Kadar per 100 kemasukan</span><b>${o.adm?o.rate.toFixed(2):"—"}</b><i>${o.cases} kes ÷ ${o.adm.toLocaleString()} kemasukan × 100</i></div>
     <div class="kpi"><span>Kemasukan</span><b>${o.adm.toLocaleString()}</b><i>sumber ${o.src} · + ${o.tin} pindah masuk</i></div>
     <div class="kpi"><span>Dinotifikasi (NEW)</span><b>${o.notified}</b><i>${monLbl(sm)}${sm>CUR_M?" · belum ada data":""}</i></div>
     <div class="kpi"><span>Infection (HAI)</span><b>${o.k.INF}</b><i>${o.rInf.toFixed(2)} per 100 kemasukan</i></div>
@@ -1210,20 +1216,23 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
   <div class="panel chart"><h3>Pesakit dalam wad setiap hari · 60 hari lepas</h3><div class="cbox"><canvas id="cDaily" aria-label="Trend banci harian"></canvas></div><div class="note">Dari banci harian: bilangan pesakit MDRO, airborne (PTB, TRO PTB) dan droplet (influenza, RSV, COVID-19) yang ada dalam wad setiap hari.</div></div>
   ${wardReport(sm)}
   <div class="panel"><div class="ph"><div><h3>Denominator bulanan · Jan–Dis ${YEAR}</h3><p>Bulan dipilih diserlahkan. Baris JUMLAH = keseluruhan tahun setakat ini.</p></div></div>
-   <div class="tbl-wrap"><table class="num"><thead><tr><th>Bulan</th><th>Kemasukan</th><th>Pindah masuk</th><th>Hari pesakit</th><th>Dinotifikasi</th><th>Infection</th><th>Colonization</th><th>Contamination</th><th>Inf /100 kem.</th><th>Inf+col /100 kem.</th><th>Per 1,000 HP</th><th>BOR %</th><th>Hari CVL</th><th>Hari ventilator</th><th>Device util.</th><th>Sumber denominator</th></tr></thead><tbody>
-   ${MF.concat([sumMons(M)]).map(r=>`<tr class="${r.m===sm?"sel":""}"${r.m===-1?' style="font-weight:800"':""}><td>${r.m===-1?"JUMLAH":MONTHS[r.m]}</td><td>${r.adm.toLocaleString()}</td><td>${r.tin}</td><td>${r.pd?r.pd.toLocaleString():"—"}</td><td>${r.notified}</td><td>${r.k.INF}</td><td>${r.k.COL}</td><td>${r.k.CONT}</td><td>${r.rInf.toFixed(2)}</td><td>${r.rIC.toFixed(2)}</td><td>${r.pd?r.r1k.toFixed(2):"—"}</td><td>${r.bor!=null?r.bor.toFixed(1):"—"}</td><td>${r.cvl.toLocaleString()}</td><td>${r.vent.toLocaleString()}</td><td>${r.pd?r.du.toFixed(2):"—"}</td><td>${r.src}</td></tr>`).join("")}
+   <div class="tbl-wrap"><table class="num"><thead><tr><th>Bulan</th><th>Kemasukan</th><th>Pindah masuk</th><th>Hari pesakit</th><th>Dinotifikasi</th><th>Infection</th><th>Colonization</th><th>Contamination</th><th>Kes dikira</th><th>Kadar /100 kem.</th><th>Inf HAI /100</th><th>Inf+col HAI /100</th><th>Per 1,000 HP</th><th>BOR %</th><th>Hari CVL</th><th>Hari ventilator</th><th>Device util.</th><th>Sumber denominator</th></tr></thead><tbody>
+   ${MF.concat([sumMons(M)]).map(r=>`<tr class="${r.m===sm?"sel":""}"${r.m===-1?' style="font-weight:800"':""}><td>${r.m===-1?"JUMLAH":MONTHS[r.m]}</td><td>${r.adm.toLocaleString()}</td><td>${r.tin}</td><td>${r.pd?r.pd.toLocaleString():"—"}</td><td>${r.notified}</td><td>${r.k.INF}</td><td>${r.k.COL}</td><td>${r.k.CONT}</td><td>${r.cases}</td><td style="font-weight:800">${r.adm?r.rate.toFixed(2):"—"}</td><td>${r.rInf.toFixed(2)}</td><td>${r.rIC.toFixed(2)}</td><td>${r.pd?r.r1k.toFixed(2):"—"}</td><td>${r.bor!=null?r.bor.toFixed(1):"—"}</td><td>${r.cvl.toLocaleString()}</td><td>${r.vent.toLocaleString()}</td><td>${r.pd?r.du.toFixed(2):"—"}</td><td>${r.src}</td></tr>`).join("")}
    </tbody></table></div></div>`}
 
-function wardReport(sm){const G=S.an.org;const ym=sm===-1?String(YEAR):YEAR+"-"+pad(sm+1);const mons=sm===-1?Array.from({length:12},(_,i)=>YEAR+"-"+pad(i+1)):[ym];
+function wardReport(sm,useWard){const G=S.an.org;const WF=useWard===false?"":S.an.ward;const ym=sm===-1?String(YEAR):YEAR+"-"+pad(sm+1);const mons=sm===-1?Array.from({length:12},(_,i)=>YEAR+"-"+pad(i+1)):[ym];
   const C=CASES.filter(c=>c.case_status==="NEW"&&c.sample_date.startsWith(ym)&&(!G||c.group===G));
-  const wards=[...new Set(WARDS.concat(C.map(c=>c.ward)))];
+  const order=WARD_CFG.filter(w=>w.bld==="MB").map(w=>w.code).concat(WARD_CFG.filter(w=>w.bld==="WCC").map(w=>w.code));
+  const wards=[...new Set(order.concat(C.map(c=>c.ward).filter(Boolean).sort()))].filter(w=>!WF||w===WF);
   const DRW=dayRows();const admOf=w=>mons.reduce((t,mm)=>{const m=MONTHLY.filter(x=>x.ym===mm&&x.ward===w);return t+(m.length?m.reduce((a,x)=>a+x.adm,0):DRW.filter(r=>r.ward===w&&r.date.startsWith(mm)).reduce((a,r)=>a+r.adm,0))},0);
-  const rows=wards.map(w=>{const cs=C.filter(c=>c.ward===w);const k=Object.fromEntries(CLS_ORDER.map(x=>[x,cs.filter(c=>cls(c)===x).length]));const adm=WCFG[w]?admOf(w):0;return{w,n:cs.length,k,adm}}).filter(r=>r.n||WCFG[r.w]);
-  const T={n:0,adm:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0]))};rows.forEach(r=>{T.n+=r.n;T.adm+=r.adm;CLS_ORDER.forEach(x=>T.k[x]+=r.k[x])});
+  const rows=wards.map(w=>{const cs=C.filter(c=>c.ward===w);const k=Object.fromEntries(CLS_ORDER.map(x=>[x,cs.filter(c=>cls(c)===x).length]));const adm=WCFG[w]?admOf(w):0;return{w,n:cs.length,num:cs.filter(basisOk).length,k,adm}}).filter(r=>r.n||WCFG[r.w]);
+  const T={n:0,num:0,adm:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0]))};rows.forEach(r=>{T.n+=r.n;T.num+=r.num;T.adm+=r.adm;CLS_ORDER.forEach(x=>T.k[x]+=r.k[x])});
   const rt=(a,b)=>b?(a/b*100).toFixed(2):"—";const td=(v,l)=>`<td data-l="${l}"${v?' style="font-weight:800;color:var(--ink)"':' style="color:var(--mut2)"'}>${v}</td>`;
-  const tr=(r,cls_)=>`<tr${cls_?` class="${cls_}"`:""}><td class="mh">${esc(r.w)}</td>${td(r.n,"Notified UKI")}${CLS_ORDER.map(x=>td(r.k[x],CLS[x].l)).join("")}<td data-l="Kemasukan">${r.adm?r.adm.toLocaleString():"—"}</td><td data-l="Inf /100">${rt(r.k.INF,r.adm)}</td><td data-l="Inf+col /100">${rt(r.k.INF+r.k.COL,r.adm)}</td></tr>`;
-  return`<div class="panel"><div class="ph"><div><h3>Laporan ikut wad · ${monLbl(sm)}${sm===-1?"":" "+YEAR}${G?" · "+G:""}</h3><p>Sama dengan sheet bulanan Excel (Monthly statistic of alert organism). Infection &amp; Colonization dikira untuk HAI hospital ini sahaja; Contamination tidak masuk kadar.</p></div></div>
-   <div class="tbl-wrap"><table class="num mc"><thead><tr><th>Wad</th><th>Notified UKI</th>${CLS_ORDER.map(x=>`<th>${CLS[x].l}</th>`).join("")}<th>Kemasukan</th><th>Inf /100</th><th>Inf+col /100</th></tr></thead><tbody>
+  const bld=w=>(WCFG[w]||{}).bld;let last="";
+  const tr=(r,cls_)=>{let h="";const b=r.w==="JUMLAH"?"":bld(r.w)||"X";if(!cls_&&b!==last){last=b;h=`<tr class="grp"><td colspan="${CLS_ORDER.length+6}">${b==="MB"?"Main Building":b==="WCC"?"WCC (Women &amp; Children)":"Lokasi lain (ETD / klinik)"}</td></tr>`}
+    return h+`<tr${cls_?` class="${cls_}"`:""}><td class="mh">${esc(r.w)}</td>${td(r.n,"Notified UKI")}${CLS_ORDER.map(x=>td(r.k[x],CLS[x].l)).join("")}<td data-l="Kemasukan">${r.adm?r.adm.toLocaleString():"—"}</td><td data-l="Kes dikira">${r.num}</td><td data-l="Kadar /100" style="font-weight:800">${rt(r.num,r.adm)}</td><td data-l="Inf+col HAI /100">${rt(r.k.INF+r.k.COL,r.adm)}</td></tr>`};
+  return`<div class="panel"><div class="ph"><div><h3>Laporan ikut wad · ${monLbl(sm)}${sm===-1?"":" "+YEAR}${G?" · "+G:""}${WF?" · "+esc(WF):""}</h3><p><b>Kadar /100</b> = kes dikira ÷ kemasukan × 100. Kes dikira: ${esc(BASIS_L[S.an.basis||"new"])}. Lajur terakhir = Infection + Colonization HAI hospital ini sahaja (format JKNS).</p></div></div>
+   <div class="tbl-wrap"><table class="num mc"><thead><tr><th>Wad</th><th>Notified UKI</th>${CLS_ORDER.map(x=>`<th>${CLS[x].l}</th>`).join("")}<th>Kemasukan</th><th>Kes dikira</th><th>Kadar /100</th><th>Inf+col HAI /100</th></tr></thead><tbody>
    ${rows.map(r=>tr(r)).join("")}${tr({w:"JUMLAH",...T},"sel")}</tbody></table></div></div>`}
 function chartBase(){const ink=cssv("--mut"),grid=cssv("--grid");Chart.defaults.font.family="Inter, system-ui, sans-serif";Chart.defaults.color=ink;
   return{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},
@@ -1522,21 +1531,29 @@ function orgMap(t){t=String(t||"");const u=t.toUpperCase();let st="";
   else if(/\bCRE\b|CARBAPENEM.?RESIST|CARBAPENEMASE|\bCPE\b/.test(u))st="CRE";
   else if(/ESBL|EXTENDED.?SPECTRUM/.test(u))st=/KLEBSIELLA.*PNEUMONIAE|KPN/.test(u)?"ESBL KPN":/COLI/.test(u)?"ESBL E Coli":"ESBL others";
   else if(/MULTI.?DRUG|\bMRO\b|\bMDR/.test(u))st="MRO others";
-  const sp=t.match(/\b([A-Z][a-z]+)\s+([a-z]{3,})\b/);return{subtype:st,organism:sp?(sp[1]+" "+sp[2]).toUpperCase():""}}
+  const sp=t.match(/\b([A-Z][a-z]+)\s+([a-z]{3,})\b/);const AB={"E\\.?\\s?COLI":"ESCHERICHIA COLI","K\\.?\\s?PNEUMONIAE|KLEB\\.?\\s?PNEUMO":"KLEBSIELLA PNEUMONIAE","A\\.?\\s?BAUMANNII":"ACINETOBACTER BAUMANNII","S\\.?\\s?AUREUS":"STAPHYLOCOCCUS AUREUS","P\\.?\\s?AERUGINOSA":"PSEUDOMONAS AERUGINOSA","E\\.?\\s?FAECIUM":"ENTEROCOCCUS FAECIUM","E\\.?\\s?FAECALIS":"ENTEROCOCCUS FAECALIS"};
+  let org=sp?(sp[1]+" "+sp[2]).toUpperCase():"";if(!org||/EXTENDED|SPECTRUM|CARBAPEN|RESIST|MULTI|METHICIL|VANCOMY|LACTAM/.test(org))for(const[k,v]of Object.entries(AB))if(new RegExp("\\b("+k+")\\b").test(u)){org=v;break}
+  return{subtype:st,organism:org}}
 function fmtIC(s){const d=String(s||"").replace(/\D/g,"");return d.length===12?d.slice(0,6)+"-"+d.slice(6,8)+"-"+d.slice(8):String(s||"").trim()}
 function wardFromClinic(t){const u=String(t||"").toUpperCase().replace(/INTENSIVE CARE UNIT/g,"ICU").replace(/WARD|WAD/g,"W ");
   if(/EMERGENCY|ETD|A&E/.test(u))return/WCC/.test(u)?"ETD WCC":"ETD MB";return wardCode(u)||""}
-function parseReportText(T){const g=re=>{const m=T.match(re);return m?m[1].trim():""};
-  const name=g(/Name\s*:\s*([A-Z@'./ -]+?)(?=\s{2,}|\s+MRN|\s*$)/im),ic=g(/No\.?\s*I\/?C\s*:\s*([\d-]{12,14})/i),mrn=g(/MRN\s*:\s*([A-Z0-9-]+)/i);
-  const sd=g(/Sample Date(?:\s*Time)?\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i),rd=g(/(?:Report|Validat\w*|Authori[sz]ed)\s*Date(?:\s*Time)?\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-  const clinic=g(/(?:Clinic|Ward|Location)\s*:\s*([A-Z0-9 &/-]+?)(?=\s*\(|\s{2,}|\s+Report|\s*$)/im),stype=g(/Sample Type\s*:\s*([A-Z ,/()-]+?)\s*$/im);
-  const dx=g(/Diagnosis\s*:?\s+([A-Z][A-Z0-9 ,/-]{1,60})\s*$/m),rep=g(/LABORATORY REPORT\s*:?\s*(\d{5,})/i),doc=g(/Doctor\s*:\s*(DR\.?\s[A-Z ./@'-]+?)(?=\s{2,}|\s+Sample|\s*$)/im);
-  const fr=T.match(/Final Report[^\n]*?1\.\s*([^\n]+)(?:\n[^\n]*?(Organisms?\s*\([A-Z]+\)|[a-z][^\n]*))?/i);const orgTxt=fr?(fr[1]+" "+(fr[2]||"")):(T.match(/(?:Organism|Isolate)[^\n]*\n?[^\n]*/gi)||[]).join(" ");
-  return{name,ic,mrn,sample_date:toYmd(sd),report_date:toYmd(rd),clinic,sample_type:stype,diagnosis:dx,report_no:rep,doctor:doc,organism_text:orgTxt,gender:g(/Gender\s*:\s*(MALE|FEMALE)/i),age:g(/Age\s*:\s*(\d+)/i)}}
+function parseReportText(T){T=String(T||"").replace(/\r/g,"").replace(/[|]/g,"I");const g=re=>{const m=T.match(re);return m?m[1].trim():""};
+  let name=g(/Name\s*:\s*([A-Z@'./ -]+?)(?=\s{2,}|\s+MRN|\s+[A-Z]*\d|\s*$)/im),ic=g(/No\.?\s*I\/?C\s*:?\s*([\d-]{12,14})/i)||g(/\b(\d{6}-?\d{2}-?\d{4})\b/),mrn=g(/MRN\s*:\s*([A-Z]*\d[A-Z0-9-]*)/i)||g(/\b(HTPN[A-Z]?\d{4,})\b/i)||g(/\b([A-Z]{2,6}\d{5,})\b/);
+  const DT=[...T.matchAll(/(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)/g)].map(m=>({d:m[1],k:toYmd(m[1])+" "+m[2].padStart(8,"0")})).sort((a,b)=>a.k.localeCompare(b.k));
+  const sd=g(/Sample Date(?:\s*Time)?\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)||(DT[0]&&DT[0].d)||"",rd=g(/(?:Report|Validat\w*|Authori[sz]ed|Verified)\s*Date(?:\s*Time)?\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)||(DT.length?DT[DT.length-1].d:"");
+  const clinic=g(/(?:Clinic|Ward|Location)\s*:\s*([A-Z0-9 &/-]+?)(?=\s*\(|\s{2,}|\s+Rep|\s+Sample|\s*$)/im),stype=g(/Sample Type\s*:\s*([A-Z ,/()-]+?)\s*$/im)||g(/CULTURE\s*&\s*SENSITIVITY\s*-\s*([A-Z ]+)/i);
+  const dx=g(/Diagnosis\s*:?\s+([A-Z][A-Z0-9 ,/-]{1,60})\s*$/m),rep=g(/LABORATORY REPORT\s*:?\s*(\d{5,})/i),doc=g(/Doctor\s*:\s*(DR\.?\s*[A-Z ./@'-]+?)(?=\s{2,}|\s+Sa\w*|\s+[A-Z]*\d|\s*$)/im);
+  const ORG=/(coli|klebs|kleb\.|acinetob|baumann|pseudomon|staphyl|aureus|enteroc|enterobact|proteus|citrobact|serratia|morganella|providencia|ESBL|MRSA|VRE|carbapen|resistan)/i;
+  const fr=T.match(/Final Report[^\n]*?1\.\s*([^\n]+)(?:\n[^\n]*?(Organisms?\s*\([A-Z]+\)|[a-z][^\n]*))?/i);let orgTxt=fr&&ORG.test(fr[1])?(fr[1]+" "+(fr[2]||"")):"";
+  if(!orgTxt){const L=T.split("\n").filter(l=>/^\s*\d\.\s*\S/.test(l)&&ORG.test(l));orgTxt=L.length?L.map(l=>l.replace(/^\s*\d\.\s*/,"")).join(" "):(T.match(/(?:Organism|Isolate)[^\n]*\n?[^\n]*/gi)||[]).join(" ")}
+  orgTxt=orgTxt.split(/\s+(?:Sensitivity|Final Report|RESULT|Remarks?|Comments?)\b|={2,}|\s{3,}/i)[0].trim();
+  return{name,ic,mrn,sample_date:toYmd(sd),report_date:toYmd(rd),clinic,sample_type:stype,diagnosis:dx,report_no:rep,doctor:doc.replace(/^DR(?=[A-Z])/,"DR "),organism_text:orgTxt,gender:g(/Gender\s*:?\s*(MALE|FEMALE)/i).toUpperCase(),age:g(/Age\s*:\s*(\d+)/i)}}
 function applyExtract(pre,x){const set=(k,v)=>{const e=$(pre+k);if(e&&v!==undefined&&v!==null&&String(v).trim()!==""){e.value=v;e.classList.add("filled");return 1}return 0};let n=0;
   const o=orgMap(x.organism_text||"");const sp=specMap(x.sample_type);
   n+=set("name",String(x.name||"").toUpperCase());n+=set("ic",fmtIC(x.ic));n+=set("rn",x.mrn);n+=set("spec",sp);if(sp==="OTHERS")n+=set("spec_other",x.sample_type);
+  if(x.gender)n+=set("gender",/^F/i.test(x.gender)?"Female":"Male");if(x.age)n+=set("age",x.age);
   n+=set("sample_date",x.sample_date);n+=set("lab_date",x.report_date||TODAY);n+=set("organism",o.organism);n+=set("subtype",o.subtype);
+  if(x.diagnosis&&$(pre+"diag_spec")&&!$(pre+"diag_spec").value)n+=set("diag_spec",x.diagnosis);
   const w=wardFromClinic(x.clinic);if(w)n+=set("ward",w);
   const pt={name:x.name,rn:x.mrn,ic:fmtIC(x.ic)};const l=locate(pt);if(l.st==="IN"){n+=set("ward",l.ward);n+=set("bed",l.bed)}
   if(w&&WCFG[w]&&!$(pre+"dept").value){const m={MEDIKAL:"Medical",SURGIKAL:"Surgery","SURGIKAL, ORTHO":"Surgery","ORTHO, SURGIKAL":"Orthopaedics",ANAEST:"Anaesthesiology",PEADS:"Paediatric","O&G":"Obstetric & Gynae",PSIKIATRI:"Psychiatry"}[WCFG[w].disc];if(m)n+=set("dept",m)}
@@ -2352,6 +2369,14 @@ try{const t=localStorage.getItem("mdroThm");if(t)document.documentElement.datase
 $("lgIcn").innerHTML=ICN.map(n=>`<option${n==="DR ANEESA"?" selected":""}>${n}</option>`).join("");
 $("lgWard").innerHTML=WARDS.map(w=>`<option${w==="W7"?" selected":""}>${w}</option>`).join("");
 paintThm();
+/* ===== seret jadual dengan tangan (tetikus): gerak ke tepi & ke bawah tanpa scrollbar ===== */
+(function(){let D=null,moved=false;const skip=t=>t.closest("button,a,input,select,textarea,label,[contenteditable]");
+  document.addEventListener("mouseover",e=>{const w=e.target.closest&&e.target.closest(".tbl-wrap");if(w)w.classList.toggle("canDrag",w.scrollWidth>w.clientWidth+2)});
+  document.addEventListener("mousedown",e=>{if(e.button!==0)return;const w=e.target.closest&&e.target.closest(".tbl-wrap");if(!w||w.scrollWidth<=w.clientWidth+2||skip(e.target))return;
+    const sc=w.closest(".modal")||null;D={w,x:e.clientX,y:e.clientY,sl:w.scrollLeft,sc,st:sc?sc.scrollTop:window.scrollY};moved=false;w.classList.add("dragging");e.preventDefault()});
+  document.addEventListener("mousemove",e=>{if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;D.w.scrollLeft=D.sl-dx;if(D.sc)D.sc.scrollTop=D.st-dy;else window.scrollTo(window.scrollX,D.st-dy)});
+  document.addEventListener("mouseup",()=>{if(!D)return;D.w.classList.remove("dragging");D=null});
+  document.addEventListener("click",e=>{if(moved){moved=false;e.stopPropagation();e.preventDefault()}},true)})();
 
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
@@ -2445,10 +2470,18 @@ window.formLink=c=>`${WEBAPP_URL}?f=${c.fw.token}`;
 window.tryPrint=function(){try{window.print()}catch(e){toast("Guna Muat turun PDF dan cetak dari situ.")}};
 window.saveFile=async function(name,blob){try{const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},4000);return true}catch(e){toast("Muat turun gagal: "+e.message);return false}};
 /* read lab report image / PDF with Google Drive OCR */
+SAMPLE={ocr:true};   /* auto-read lab report after upload (Google OCR, fallback Tesseract in browser) */
+let TESS=null;function loadTess(){if(window.Tesseract)return Promise.resolve();if(TESS)return TESS;TESS=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";sc.onload=res;sc.onerror=()=>rej(new Error("Tesseract tidak dapat dimuat"));document.head.appendChild(sc)});return TESS}
+async function imgForOcr(a){if(a.type==="application/pdf"){const doc=await pdfDoc(a.data);return(await pdfPage(doc,1,2000)).toDataURL("image/jpeg",.92)}return a.data}
 window.readReport=async function(ctx,id){const pre=ctx==="reg"?"rg_":"cf_";const a=attList(ctx).find(x=>x.id===id);if(!a)return;
-  const box=$(pre+"readRes");box.innerHTML=`<div class="banner info">${svg("form")}<div><b>Membaca laporan (Google OCR)…</b> Biasanya 5–20 saat.</div></div>`;
-  try{if(String(a.data).startsWith("drive:"))await hydrate(a);const text=await GS("ocr",TOKEN,a.data);if(!text||text.length<20)throw new Error("tiada teks");
-    showExtract(pre,applyExtract(pre,parseReportText(text)),"gambar laporan (OCR)")}
+  const box=$(pre+"readRes");const say=t=>box.innerHTML=`<div class="banner info">${svg("form")}<div><b>${t}</b></div></div>`;
+  say("Membaca laporan (Google OCR)… biasanya 5–20 saat.");let text="",how="Google OCR";
+  try{if(String(a.data).startsWith("drive:"))await hydrate(a);
+    try{text=await GS("ocr",TOKEN,a.data)}catch(e){text="";how="";console.warn("Drive OCR:",e)}
+    if(!text||text.length<30){say("Membaca laporan dalam peranti (Tesseract)… 20–60 saat kali pertama.");await loadTess();const r=await Tesseract.recognize(await imgForOcr(a),"eng");text=r&&r.data&&r.data.text||"";how="Tesseract"}
+    if(!text||text.length<20)throw new Error("tiada teks dikesan");
+    const x=parseReportText(text);const n=applyExtract(pre,x);showExtract(pre,n,"gambar laporan ("+how+")");
+    if(!x.name&&!x.ic&&!x.mrn)box.insertAdjacentHTML("beforeend",`<div class="hint">Nama/IC tidak dapat dikesan. Ambil gambar lebih dekat dan lurus, atau <button class="infbtn" onclick="openPasteReport('${pre}')">tampal teks laporan</button>.</div>`)}
   catch(e){box.innerHTML=`<div class="banner warn">${svg("list")}<div>Laporan tidak dapat dibaca (${esc(e.message||"ralat")}). <button class="infbtn" onclick="openPasteReport('${pre}')">Tampal teks laporan</button></div></div>`}};
 /* load attachments / signatures from Drive before showing */
 ["openCase","openProfile","viewReview","openReview","dlReview"].forEach(fn=>{const f=window[fn];window[fn]=async function(...a){const id=fn==="viewReview"||fn==="dlReview"?a[0]:a[0];if(id)await hydrateCase(id);return f.apply(this,a)}});
