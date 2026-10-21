@@ -596,6 +596,7 @@ table.num td:first-child{white-space:nowrap}
 .profact .btn{white-space:normal;text-align:left;max-width:100%}
 @media(max-width:640px){.a4{padding:16px 12px;font-size:12px}.a4t{table-layout:fixed;font-size:11.5px}.a4t th,.a4t td{word-break:break-word;padding:5px 6px}.a4sig{grid-template-columns:1fr}.a4-h b{font-size:11px}}
 @media (max-width:980px){.map-body .side{order:-1;margin-bottom:12px}}
+.audl{display:flex;flex-direction:column;gap:8px;margin:10px 0}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -2416,12 +2417,19 @@ function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up
 
 /* ---------- login ---------- */
 async function liveLogin(o,errEl){$(errEl).textContent="";syncSt("Log masuk…");
-  try{const r=await GS("login",o);TOKEN=r.token;try{sessionStorage.setItem("mdro_tok",TOKEN);sessionStorage.setItem("mdro_user",JSON.stringify(r.user))}catch(e){}await boot(r.user)}
-  catch(e){syncSt();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Nama pengguna atau kata laluan salah.":"Ralat: "+(e.message||e)}}
-window.loginUki=function(){const u=$("lgUser").value.trim(),p=$("lgPass").value;if(!u||!p){$("lgErrU").textContent="Isi nama pengguna dan kata laluan.";return}liveLogin({user:u,pass:p},"lgErrU")};
-window.loginWard=function(){const w=$("lgWard").value,p=$("lgWPass").value,n=$("lgWName").value.trim();if(!n){$("lgErrW").textContent="Masukkan nama staf.";return}liveLogin({ward:w,pass:p,staff:n},"lgErrW")};
-const _logout=logout;window.logout=async function(){if(diffAll().n){await syncNow()}try{GS("logout",TOKEN)}catch(e){}TOKEN="";try{sessionStorage.removeItem("mdro_tok");sessionStorage.removeItem("mdro_user")}catch(e){}_logout()};
-function sessionExpired(){syncSt("Sesi tamat · log masuk semula",2);toast("Sesi tamat. Sila log masuk semula; perubahan yang belum disimpan akan dihantar selepas log masuk.");TOKEN="";$("app").hidden=true;$("login").hidden=false;lgStep(S.role==="uki"?"uki":"ward")}
+  try{const r=await GS("login",o);TOKEN=r.token;syncSt();
+    if(r.user.role==="uki"&&(r.user.auditors||[]).length){pickAuditor(r.user);return}
+    saveSess(r.user);await boot(r.user)}
+  catch(e){syncSt();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Kata laluan salah.":"Ralat: "+(e.message||e)}}
+function saveSess(u){try{sessionStorage.setItem("mdro_tok",TOKEN);sessionStorage.setItem("mdro_user",JSON.stringify(u))}catch(e){}}
+function pickAuditor(u){let last="";try{last=localStorage.getItem("mdro_aud")||""}catch(e){}
+  $("lgStepU").innerHTML=`<div class="lg-q">Pilih pegawai (auditor)</div><div class="audl">${u.auditors.map(n=>`<button class="btn ${n===last?"btn-pri":"btn-ghost"} btn-block" onclick="chooseAuditor(this.textContent)">${esc(n)}</button>`).join("")}</div><div class="err" id="lgErrU"></div>`}
+window.chooseAuditor=async function(n){syncSt("Log masuk…");try{const u=await GS("setAuditor",TOKEN,n);try{localStorage.setItem("mdro_aud",n)}catch(e){}saveSess(u);await boot(u)}catch(e){syncSt();$("lgErrU").textContent="Ralat: "+(e.message||e)}};
+window.loginUki=function(){const u=$("lgUser").value.trim()||"uki",p=$("lgPass").value;if(!p){$("lgErrU").textContent="Isi kata laluan.";return}liveLogin({user:u,pass:p},"lgErrU")};
+window.loginWard=function(){const w=$("lgWard").value,p=$("lgWPass").value,n=$("lgWName").value.trim()||("Staf "+w);if(!p){$("lgErrW").textContent="Isi kata laluan wad.";return}try{localStorage.setItem("mdro_ward",w)}catch(e){}liveLogin({ward:w,pass:p,staff:n},"lgErrW")};
+let ORIG_U="";const restoreU=()=>{if(ORIG_U){$("lgStepU").innerHTML=ORIG_U;$("lgUser").value="uki";const f=$("lgIcn");if(f&&f.closest(".fld"))f.closest(".fld").hidden=true}};
+const _logout=logout;window.logout=async function(){if(diffAll().n){await syncNow()}try{GS("logout",TOKEN)}catch(e){}TOKEN="";try{sessionStorage.removeItem("mdro_tok");sessionStorage.removeItem("mdro_user")}catch(e){}restoreU();_logout()};
+function sessionExpired(){restoreU();syncSt("Sesi tamat · log masuk semula",2);toast("Sesi tamat. Sila log masuk semula; perubahan yang belum disimpan akan dihantar selepas log masuk.");TOKEN="";$("app").hidden=true;$("login").hidden=false;lgStep(S.role==="uki"?"uki":"ward")}
 
 /* ---------- features that differ from preview ---------- */
 window.formLink=c=>`${WEBAPP_URL}?f=${c.fw.token}`;
@@ -2447,7 +2455,8 @@ async function doctorBoot(tok){$("login").hidden=true;syncSt("Memuat borang…")
     catch(e){syncSt("Gagal hantar",2);c.fw.status=before;$("docView").innerHTML=docShell(c,`<div class="panel pad doc-done"><h2>Borang belum dihantar</h2><p>${esc(e.message||e)}. Sila cuba lagi.</p><button class="btn btn-pri" onclick="openDoctor('${id}')">Cuba lagi</button></div>`)}}}}
 
 /* ---------- start ---------- */
-async function liveBoot(){$("lgUser").value="";$("lgPass").value="";$("lgWName").value="";$("lgWPass").value="";
+async function liveBoot(){ORIG_U=$("lgStepU").innerHTML;$("lgUser").value="uki";$("lgPass").value="";$("lgWName").value="";$("lgWPass").value="";
+  {const l=document.querySelector('label[for="lgWName"]');if(l)l.textContent="Nama staf (pilihan)";try{const w=localStorage.getItem("mdro_ward");if(w)$("lgWard").value=w}catch(e){}}
   const f=$("lgIcn");if(f&&f.closest(".fld"))f.closest(".fld").hidden=true;
   if(DOC_TOKEN){doctorBoot(DOC_TOKEN);return}
   if(TOKEN){try{const u=JSON.parse(sessionStorage.getItem("mdro_user")||"null");if(u){await boot(u);return}}catch(e){TOKEN="";syncSt()}}
