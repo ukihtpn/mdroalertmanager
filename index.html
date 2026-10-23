@@ -624,6 +624,17 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .choice2 b{display:block;font-size:15px}.choice2 small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
 @media (max-width:560px){.choice2{grid-template-columns:1fr}}
 .stephd p b{font-size:inherit}
+.findbtn{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:10px;padding:8px 12px;font:inherit;font-size:13.5px;cursor:pointer;margin-left:auto;margin-right:8px}
+.findbtn svg{width:16px;height:16px}.findbtn i{font-style:normal;color:var(--mut2)}.findbtn:hover{border-color:var(--brand);color:var(--ink)}
+@media (max-width:700px){.findbtn span{display:none}}
+.dashfind{display:flex;align-items:center;gap:10px;width:100%;margin:0 0 14px;padding:13px 16px;border:2px solid var(--line);border-radius:12px;background:var(--panel);color:var(--mut);font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.dashfind:hover{border-color:var(--brand)}.dashfind svg{width:20px;height:20px;flex:none;color:var(--brand)}.dashfind span{flex:1}.dashfind b{color:var(--ink)}
+.dashfind kbd{font:600 11px/1 inherit;border:1px solid var(--line);border-radius:6px;padding:4px 6px;color:var(--mut)}
+@media (max-width:700px){.dashfind kbd{display:none}}
+.findres{display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:55vh;overflow:auto}
+.findres button{display:block;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 14px;cursor:pointer;font:inherit;color:var(--ink)}
+.findres button:hover,.findres button:first-child{border-color:var(--brand);background:var(--brand-soft)}
+.findres b{display:block;font-size:14.5px}.findres small{color:var(--mut);font-size:12.5px}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -681,6 +692,7 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
     <header class="appbar">
       <div class="ab-row">
         <div class="ab-title"><b id="abName">MDRO Census</b><span id="abWho">—</span></div>
+        <button class="findbtn" id="findBtn" onclick="openFind()" aria-label="Search features" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search… <i>e.g. PD211</i></span></button>
         <button class="icobtn thm" id="thmBtn" onclick="toggleTheme()" aria-label="Toggle light / dark mode"><svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/></svg></button>
         <button class="btn-out" id="outBtn" onclick="logout()"><span>Log out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M3 12h11M10 8l4 4-4 4"/></svg></button>
       </div>
@@ -987,7 +999,7 @@ function tabsFor(){
     return[["dash","Dashboard","dash"],["reports","Generate report","chart"],["register","Register case","form"],["formsU","MDRO form","form",fpu],["analysis","Analysis","chart"],["mapping","Mapping","map"],["master","Masterlist","list",pend],["wards","Ward census","table",miss],["moves","Movements","move"]]}
   const fp=wardCases().filter(c=>fstat(c)!=="verified").length;const done=!!censusOf(S.ward,TODAY);
   return[["census","Daily census","up",done?0:"!"],["mapping","Mapping","map"],["forms","MDRO form","form",fp]]}
-function renderNav(){const T=tabsFor();
+function renderNav(){{const fb=$("findBtn");if(fb)fb.hidden=S.role!=="uki"}const T=tabsFor();
   $("snav").innerHTML=T.map(([id,l,i,c])=>`<button class="snav" aria-selected="${S.tab===id}" onclick="go('${id}')">${svg(i)}${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("");
   $("tabs").innerHTML=T.map(([id,l,i,c])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" onclick="go('${id}')">${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("")}
 function go(t){S.tab=t;destroyCharts();renderNav();const R={reports:rReports,dash:rDash,formsU:rFormsUki,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
@@ -1007,6 +1019,7 @@ function rDash(){const dw=S.dw;
   let comm=0,air=0;WL.forEach(w=>{const c=latestCensus(w);if(c)c.rows.forEach(r=>{if((r.inf||[]).length)comm++;if((r.inf||[]).some(k=>INFP[k]==="air"))air++})});
   return`<div class="sec-h"><div><h2>UKI dashboard</h2><p>${fmt(TODAY)} · MDRO patient locations update every time a ward submits its daily census.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="tsel" aria-label="Filter ward" onchange="S.dw=this.value;refresh()"><option value="">All wards</option>${dashWards().map(w=>`<option${w===dw?" selected":""}>${esc(w)}</option>`).join("")}</select><button class="btn btn-ghost" onclick="go('reports')">${svg("chart")}Generate report</button><button class="btn btn-pri" onclick="openCase()">${svg("form")}Register new case</button></div></div>
+  <button type="button" class="dashfind" onclick="openFind()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search features — e.g. <b>PD211</b>, <b>JKNS</b>, <b>import</b>, <b>WhatsApp summary</b></span><kbd>Ctrl K</kbd></button>
   ${alertBanner()}${dqBanner()}
   <div class="stats">
     ${stat("--crit","bed","MDRO in ward",inW.length,"In the latest census","go('mapping')")}
@@ -2235,7 +2248,7 @@ function renderImp(){const R=IMP;const unm=Object.keys(R.map);const wardOpt=cur=
   ${R.skipped.length?`<details><summary class="hint">${R.skipped.length} sheets skipped</summary><div class="hint">${R.skipped.map(esc).join(" · ")}</div></details>`:""}`;
   $("impFoot").innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>${R.daily.length||R.bedSheets.length||R.master.length||R.monthly.length?`<button class="btn btn-pri" onclick="applyImport()">${svg("up")}Save to app</button>`:""}`}
 function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB=0,nM=0,nP=0;
-  if(on("impP")){const K={};R.monthly.forEach(x=>{const code=x.code||R.mmap[x.label];if(!code)return;const k=code+"|"+x.ym;if(K[k]){["beds_rasmi","beds_op","adm","pd","disc","deaths","trans_out"].forEach(f=>K[k][f]+=x[f])}else K[k]={...x,ward:code}});
+  if(on("impP")){const K={};R.monthly.forEach(x=>{const code=x.code||R.mmap[x.label]||String(x.label||"").replace(/^WA[DR]D?\s+/i,"").trim().toUpperCase();if(!code)return;const k=code+"|"+x.ym;if(K[k]){["beds_rasmi","beds_op","adm","pd","disc","deaths","trans_out"].forEach(f=>K[k][f]+=x[f])}else K[k]={...x,ward:code}});
     MONTHLY=MONTHLY.filter(m=>!K[m.ward+"|"+m.ym]);Object.values(K).forEach(v=>{MONTHLY.push(v);nP++})}
   if(on("impSyn")){HIST=HIST.filter(h=>!h.syn);if(on("impM"))CASES=CASES.filter(c=>!c.syn)}
   if(on("impD")){const K={};R.daily.forEach(d=>{const code=d.code||R.map[d.label];if(!code)return;const k=code+"|"+d.date;
@@ -2645,6 +2658,35 @@ paintThm();
     const w=document.createElement("span");w.className="pwwrap";i.parentNode.insertBefore(w,i);w.appendChild(i);const b=document.createElement("button");b.type="button";b.className="pweye";b.setAttribute("aria-label","Show password");b.innerHTML=EYE;
     b.onclick=()=>{const show=i.type==="password";i.type=show?"text":"password";b.innerHTML=show?OFF:EYE;b.setAttribute("aria-label",show?"Hide password":"Show password");i.focus()};w.appendChild(b)})}
   add();new MutationObserver(add).observe(document.body,{childList:true,subtree:true})})();
+
+/* ===== Carian fungsi: taip "PD211", "JKNS", "import"… dan terus ke tempatnya ===== */
+const FIND=[
+ {t:"Import PD211 (monthly admissions & patient days)",k:"pd211 per-pd 104c statistik admission kemasukan patient days hari pesakit denominator bor import",d:"Excel STATISTIK PD211 · used as the Analysis & JKNS denominator",run:()=>{go("master");openImport()}},
+ {t:"Import LAB_SURVEILLANCE (masterlist cases)",k:"lab surveillance masterlist import excel cases kes makmal",d:"Adds new MDRO cases; existing ones are skipped",run:()=>{go("master");openImport()}},
+ {t:"Import daily census Excel (CENSUS HARIAN)",k:"census harian banci import jumlah daily excel",d:"Old daily totals & bed sheets",run:()=>{go("wards");openImport()}},
+ {t:"Reconcile with JKNS file & lock months",k:"jkns reconcile selaraskan finalize lock kunci line listing",d:"Make masterlist & Analysis match the finalized JKNS file",run:()=>{go("reports");jkReconcile()}},
+ {t:"Fill the original JKNS template",k:"jkns template excel line listing mdro/moh/2022/2 hantar",d:"Generates MDRO_YYYY_HTPNK.xlsx",run:()=>{go("reports");setTimeout(()=>{const e=document.querySelector(".jkstat");e&&e.scrollIntoView({block:"center"})},200)}},
+ {t:"Pull details from a JKNS file into the app",k:"jkns ambil import details rn age diagnosis",d:"Fills empty columns from the JKNS file",run:()=>{go("reports");jkImport()}},
+ {t:"Data check · patients to review",k:"semak data quality issues repeat double isu check",d:"Possible repeats, missing status, illogical dates…",run:()=>{S.dqF="";openDQ()}},
+ {t:"Daily WhatsApp summary",k:"whatsapp daily summary ringkasan harian",d:"Totals by ward at a chosen time",run:()=>{go("reports");openSummary()}},
+ {t:"Monthly ward report (Excel)",k:"monthly report laporan bulanan ward excel",d:"Monthly statistic of alert organism",run:()=>{go("reports");setTimeout(()=>{const e=$("rpM");e&&e.scrollIntoView({block:"center"})},200)}},
+ {t:"MDRO alerts (upper limit / trend)",k:"alert amaran trend upper limit sd",d:"Hospital & ward signals this month",run:()=>openAlerts()},
+ {t:"Analysis · rates, epi week curve",k:"analysis kadar rate epi week graph chart incidence",d:"Filters by ward, organism, month",run:()=>go("analysis")},
+ {t:"Register new MDRO case",k:"register daftar new case kes baru",d:"With NEW / REPEAT check",run:()=>go("register")},
+ {t:"Masterlist",k:"masterlist senarai cases export",d:"All lab surveillance records",run:()=>go("master")},
+ {t:"Export masterlist to Excel",k:"export eksport masterlist excel download",d:"Original MASTERLIST format",run:()=>exportXlsx()},
+ {t:"Ward mapping / floor plan",k:"mapping peta floor plan pelan bed katil",d:"Bed status per ward",run:()=>go("mapping")},
+ {t:"Ward census status (today)",k:"ward census banci status submitted hantar",d:"Which wards have submitted",run:()=>go("wards")},
+ {t:"Patient movements",k:"movements pergerakan transfer discharge pindah",d:"Transfers, discharges, bed changes",run:()=>go("moves")},
+ {t:"MDRO forms (doctor)",k:"mdro form borang doctor doktor",d:"Form status per case",run:()=>go("forms")},
+ {t:"UKI review forms",k:"uki review semakan borang print cetak",d:"Generate printable review per patient",run:()=>{go("reports")}},
+];
+function openFind(){openModal(`<div class="m-head"><div class="hx"><h3>Search features</h3><p>Type what you want to do, e.g. <b>PD211</b>, <b>JKNS</b>, <b>import</b>, <b>WhatsApp</b>.</p></div>${xBtn()}</div>
+  <div class="m-body"><input id="findQ" type="search" placeholder="Search… e.g. PD211" autocomplete="off" style="width:100%;font-size:16px;padding:12px 14px" oninput="paintFind()" onkeydown="if(event.key==='Enter'){const b=document.querySelector('#findRes button');b&&b.click()}"><div id="findRes" class="findres"></div></div>`);paintFind();setTimeout(()=>$("findQ")&&$("findQ").focus(),50)}
+function paintFind(){const q=($("findQ")?.value||"").toLowerCase().trim();const W=q.split(/\s+/).filter(Boolean);
+  const L=FIND.map((f,i)=>({f,i,sc:W.reduce((a,w)=>a+((f.t+" "+f.k).toLowerCase().includes(w)?1:0),0)})).filter(x=>!W.length||x.sc===W.length).sort((a,b)=>b.sc-a.sc);
+  $("findRes").innerHTML=L.map(({f,i})=>`<button type="button" onclick="closeModal();FIND[${i}].run()"><b>${esc(f.t)}</b><small>${esc(f.d)}</small></button>`).join("")||'<div class="hint">No match. Try "import", "JKNS", "report".</div>'}
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&S.role==="uki"){e.preventDefault();openFind()}});
 
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
