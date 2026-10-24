@@ -722,7 +722,7 @@ const DOC_TOKEN=(new URLSearchParams(location.search).get("f")||"").replace(/[^A
 const WEBAPP_URL=location.origin+location.pathname;
 /* google.script.run → fetch(API_URL) */
 window.google={script:{get run(){let ok=()=>{},bad=()=>{};const o=new Proxy({},{get:(t,k)=>k==="withSuccessHandler"?(h=>{ok=h;return o}):k==="withFailureHandler"?(h=>{bad=h;return o}):(...args)=>{
-  fetch(API_URL,{method:"POST",body:JSON.stringify({fn:k,args}),redirect:"follow"}).then(r=>r.json()).then(r=>r.err?bad(new Error(r.err)):ok(r.ok)).catch(e=>bad(new Error("No connection to the server ("+e.message+")")))}});return o}}};
+  fetch(API_URL,{method:"POST",body:JSON.stringify({fn:k,args}),redirect:"follow"}).then(r=>r.json()).then(async r=>{if(r.okz){const bin=Uint8Array.from(atob(r.okz),c=>c.charCodeAt(0));r.ok=JSON.parse(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text())}return r}).then(r=>r.err?bad(new Error(r.err)):ok(r.ok)).catch(e=>bad(new Error("No connection to the server ("+e.message+")")))}});return o}}};
 if(!/^https:\/\/script\.google\.com\//.test(API_URL))document.addEventListener("DOMContentLoaded",()=>{document.body.innerHTML='<div class="apiset"><h2>First-time setup</h2><p>Paste the Apps Script web app URL (ending with <code>/exec</code>).</p><input id="apiU" placeholder="https://script.google.com/macros/s/…/exec"><button onclick="try{localStorage.setItem(\'mdro_api\',document.getElementById(\'apiU\').value.trim())}catch(e){};location.reload()">Save</button><p style="color:#666;font-size:13px">Or edit API_URL_DEFAULT in index.html so users do not need to paste it.</p></div>'});
 </script>
 <script src="plans.js"></script>
@@ -2375,6 +2375,7 @@ function layoutPanel(){const E=S.ed.ext||[];const L=S.ed.layout;const W=WCFG[S.w
    ${L?"":`<div class="choosehint">👇 Tap one option below</div>`}<div class="choice2" role="group" aria-label="Bed arrangement">
     <button type="button" aria-pressed="${L==="same"}" onclick="setLayout('same')"><i>${L==="same"?"✓":""}</i><span><b>Same as usual</b><small>No extra beds today</small></span></button>
     <button type="button" aria-pressed="${L==="ext"}" onclick="setLayout('ext')"><i>${L==="ext"?"✓":""}</i><span><b>Has extra beds</b><small>Extra beds in corridor / cubicle</small></span></button></div>
+    <div class="hint" style="margin:10px 0 0">Ward layout changed permanently (new floor plan / bed numbers)? <button class="linkbtn" onclick="openPlanUpdate()">Upload new floor plan (image / PDF)</button></div>
    ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b>${esc(e.bed)}</b>
      <div class="fld"><label for="ex_n${i}">Near bed / cubicle</label><select id="ex_n${i}" onchange="S.ed.ext[${i}].near=this.value"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div>
      <div class="fld"><label for="ex_t${i}">Location note</label><input id="ex_t${i}" value="${esc(e.note||"")}" placeholder="e.g. Cubicle B / corridor" oninput="S.ed.ext[${i}].note=this.value"></div>
@@ -2743,6 +2744,9 @@ async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;
     if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});refresh()}toast(n?`${n} new cases pulled from ${d.name}.`:`LAB_SURVEILLANCE checked · no new cases.`)}catch(e){toast("Auto-pull failed: "+(e.message||e))}}
 FIND.push({t:"Link Google Sheets (pull LAB_SURVEILLANCE / PD211 / census without downloading)",k:"link google sheet pull tarik auto sambung lab surveillance pd211 census",d:"Read the source Google Sheets directly",run:()=>{go("master");openImport();setTimeout(openLinks,300)}});
 
+function openPlanUpdate(){const w=S.role==="ward"?S.ward:S.map.ward;S.map.ward=w;S.map.bld=(WCFG[w]||{}).bld||"MB";S.map.date=TODAY;S.mapEd=false;S.map.edit=true;S.map.arm="";go("mapping");setTimeout(()=>{window.scrollTo(0,0)},50)}
+FIND.push({t:"Upload a new ward floor plan (image / PDF)",k:"floor plan pelan lantai mapping upload gambar pdf katil bed list",d:"Change plan & bed numbers",run:()=>openPlanUpdate()});
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
@@ -2803,9 +2807,9 @@ function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONT
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
-async function boot(user){syncSt("Loading data…");const d=await GS("getAll",TOKEN,CENSUS_DAYS);loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
+async function boot(user){syncSt("Loading data…");const d=await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
-  start();setInterval(poll,60000);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
+  start();setInterval(poll,60000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
 async function poll(){if(!TOKEN||SYNC.busy)return;try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
@@ -2870,6 +2874,12 @@ async function liveBoot(){{const f=$("lgUser");if(f&&f.closest(".fld"))f.closest
   lgStep(0)}
 {const f=window.lgStep;window.lgStep=function(k){f(k);setTimeout(()=>{const e=k==="uki"?$("lgPass"):k==="ward"?$("lgWPass"):null;if(e)e.focus()},50)}}
 document.addEventListener("keydown",e=>{if(e.key!=="Enter")return;if(e.target&&e.target.id==="lgPass")loginUki();if(e.target&&e.target.id==="lgWPass")loginWard()});
+
+/* sejarah banci harian & katil dimuat di belakang supaya log masuk cepat */
+async function loadLazy(colls){try{syncSt("Loading history…");const L=await GS("getStore",TOKEN,colls);
+  L.forEach(x=>{if(x.coll==="hist"){if(!HIST.some(h=>h.id===x.o.id&&!h._d))HIST.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;
+    SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o)});
+  syncSt();if(["dash","analysis","reports","wards","mapping"].includes(S.tab))refresh()}catch(e){syncSt()}}
 
 liveBoot();
 
