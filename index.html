@@ -648,6 +648,14 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .planguide .ok span{background:var(--brand);color:#fff}.planguide b{display:block;font-size:13px}.planguide small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
 .guideol{margin:0;padding-left:20px;line-height:1.6}.guideol li{margin:4px 0}
 .planguide small b{display:inline;font-size:inherit}
+.planguide>div.todo{opacity:.55}
+.planguide>div.cur{border:2px solid #e0a800;background:#fff7d1;opacity:1;animation:curpulse 1.3s ease-in-out infinite}
+.planguide>div.cur span{background:#f5c518;color:#1f2a10}
+@keyframes curpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,197,24,.6)}50%{box-shadow:0 0 0 6px rgba(245,197,24,0)}}
+.btn.hl{background:#f5c518;color:#1f2a10;border:2px solid #e0a800;font-weight:800;animation:donepulse 1.1s ease-in-out infinite}
+.hlf{outline:3px solid #f5c518;outline-offset:3px;border-radius:10px;animation:donepulse 1.1s ease-in-out infinite}
+.donepulse{animation:none}.donepulse.go{animation:donepulse 1.1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.planguide>div.cur,.btn.hl,.hlf,.donepulse.go{animation:none}}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -681,7 +689,7 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
     <div id="lgStepU" hidden>
       <button class="lg-back" onclick="lgStep(0)">‹ Back</button><div class="lg-q">UKI log in</div>
       <div class="fld"><label for="lgUser">Username</label><input id="lgUser" value="uki" autocomplete="username"></div>
-      <div class="fld"><label for="lgPass">Password</label><input id="lgPass" type="password" value="uki123" autocomplete="current-password"></div>
+      <div class="fld"><label for="lgPass">Password</label><input id="lgPass" type="password" value="" autocomplete="current-password"></div>
       <div class="fld"><label for="lgIcn">Officer</label><select id="lgIcn"></select></div>
       <button class="btn btn-pri btn-block" onclick="loginUki()">Log in</button>
       <div class="err" id="lgErrU"></div>
@@ -690,10 +698,9 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
       <button class="lg-back" onclick="lgStep(0)">‹ Back</button><div class="lg-q">Ward staff log in</div>
       <div class="fld"><label for="lgWard">Wad</label><select id="lgWard"></select></div>
       <div class="fld"><label for="lgWName">Staff name</label><input id="lgWName" value="SN Nurul Aini"></div>
-      <div class="fld"><label for="lgWPass">Ward password</label><input id="lgWPass" type="password" value="1234"></div>
+      <div class="fld"><label for="lgWPass">Ward password</label><input id="lgWPass" type="password" value=""></div>
       <button class="btn btn-pri btn-block" onclick="loginWard()">Log in</button>
       <div class="err" id="lgErrW"></div>
-      <div class="hint">Demo: choose <code>W7</code>, password <code>1234</code>. W7 census for today not yet submitted.</div>
     </div>
   </div>
 </section>
@@ -1575,7 +1582,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
   const mv=MOVES.filter(m=>m.date===M.date&&(m.from===M.ward||m.to===M.ward)).sort((a,b)=>b.at-a.at);
   const wl=S.role==="ward"?[S.ward]:WARD_CFG.filter(w=>w.bld===M.bld).map(w=>w.code);
   return`${S.role==="uki"?bancStatus():""}<div class="sec-h"><div><h2>Ward mapping</h2><p>Bed status from the daily census. MDRO from UKI tags; infectious diseases &amp; devices from the ward census.</p></div>
-   ${S.role==="uki"||(S.role==="ward"&&M.ward===S.ward)?(M.edit?`<button class="btn donepulse" onclick="planDone()">${svg("map")}✓ Done arranging plan</button>`:`<button class="btn btn-ghost" onclick="openPlanUpdate()">${svg("map")}Update floor plan</button>`):""}</div>
+   ${S.role==="uki"||(S.role==="ward"&&M.ward===S.ward)?(M.edit?`<button class="btn donepulse${S.pgCur===4?" go":""}" onclick="planDone()">${svg("map")}✓ Done arranging plan</button>`:`<button class="btn btn-ghost" onclick="openPlanUpdate()">${svg("map")}Update floor plan</button>`):""}</div>
   <div class="panel">
    <div class="map-ctl">
     ${S.role==="uki"?`<div class="fld"><label for="mBld">Building</label><select id="mBld" onchange="S.map.bld=this.value;S.map.ward=WARD_CFG.find(w=>w.bld===this.value).code;refresh()"><option value="MB"${M.bld==="MB"?" selected":""}>Main Building</option><option value="WCC"${M.bld==="WCC"?" selected":""}>WCC (Women &amp; Children)</option></select></div>`:""}
@@ -1589,7 +1596,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
     <div class="map-canvas" id="mapCanvas">${M.edit?planEditor(W):mapDraw(W,byBed)}</div>
     <aside class="side">
      <h3>${esc(M.ward)} · ${fmt(M.date)}</h3>
-     ${draft?mapDraftSide(W):M.date===TODAY&&WCFG[M.ward]?`<div class="sidebtns"><button class="btn ${c?"btn-ghost":"btn-pri"} btn-sm" onclick="mapEdit()">${svg("map")}${c?"Edit in mapping":"Fill census on mapping"}</button><button class="btn btn-ghost btn-sm" onclick="${S.role==="uki"?`ukiCensus('${esc(M.ward)}')`:"go('census')"}">${svg("up")}Table / Excel import</button></div>${c?'<div class="hint" style="margin:0">Or tap a bed to <b>change bed</b>, transfer ward or discharge directly.</div>':""}`:""}
+     ${draft?mapDraftSide(W):M.date===TODAY&&WCFG[M.ward]?`<div class="sidebtns"><button class="btn ${c?"btn-ghost":"btn-pri"} btn-sm" onclick="mapEdit()">${svg("map")}${c?"Edit in mapping":"Fill census on mapping"}</button><button class="btn btn-ghost btn-sm" onclick="${S.role==="uki"?`ukiCensus('${esc(M.ward)}')`:"go('census')"}">${svg("list")}Fill as a list instead</button></div><div class="hint" style="margin:0 0 6px">Two ways to submit today's census: <b>on the plan</b> (tap beds) or <b>as a list</b> in the Daily census tab (import Excel / copy yesterday).</div>${c?'<div class="hint" style="margin:0">Or tap a bed to <b>change bed</b>, transfer ward or discharge directly.</div>':""}`:""}
      ${extN&&!draft?`<div class="extinfo"><b>Extra beds</b>${extB.map(b=>{const e=EXTMETA[b];return`<span>${esc(b)}${e?` · ${e.near?"near bed "+esc(e.near):""}${e.note?" · "+esc(e.note):""}`:""}${byBed[b]?"":" · empty"}</span>`}).join("")}</div>`:""}
      ${extN&&!draft?`<div class="banner warn" style="padding:8px 12px">${svg("bed")}<div><b>${extN} extra beds</b> today (besides ${W.beds.length} regular beds).</div></div>`:""}<div class="census"><div><b>${imp?rows.length:occ+"/"+W.beds.length}</b>${imp?"Marked beds":"Occupied"}</div><div><b>${imp?"—":n("e")}</b>Empty</div><div><b style="color:var(--crit)">${n("r")}</b>MDRO</div><div><b style="color:var(--warn)">${n("a")}</b>Contact</div><div><b style="color:var(--air)">${air}</b>Airborne</div><div><b style="color:var(--drop)">${drop}</b>Droplet</div></div>
      <h3>Device</h3><div class="pills">${DEVS.map(([k,l])=>`<span class="pill p-mut">${l} <b class="mono">${dev[k]||0}</b></span>`).join("")}</div>
@@ -1632,25 +1639,27 @@ WARD_CFG.forEach(w=>{w.beds0=w.beds.slice()});
 let PLANDATE="";
 function planFor(code,date){const P=MAPS[code];if(!P)return null;if(!date||!P.from||date>=P.from)return P;const H=(P.hist||[]).filter(h=>!h.from||h.from<=date).sort((a,b)=>(b.from||"").localeCompare(a.from||""));return H[0]||P}
 function applyPlanBeds(){const d=(S.tab==="mapping"&&!S.map.edit)?(S.map.date||TODAY):TODAY;PLANDATE=d;WARD_CFG.forEach(w=>{const P=planFor(w.code,d);w.beds=P&&Array.isArray(P.beds)&&P.beds.length?P.beds.slice():w.beds0.slice()})}
-function newPlan(code,img){const old=MAPS[code];const hist=((old&&old.hist)||[]).slice();if(old&&old.img){const o={...old};delete o.hist;if(!o.beds)o.beds=(WCFG[code].beds0||WCFG[code].beds).slice();hist.push(o)}
+function newPlan(code,img){S.pg={code,new:1,want:1};const old=MAPS[code];const hist=((old&&old.hist)||[]).slice();if(old&&old.img){const o={...old};delete o.hist;if(!o.beds)o.beds=(WCFG[code].beds0||WCFG[code].beds).slice();hist.push(o)}
   MAPS[code]={img,pos:{},beds:old&&old.beds?old.beds.slice():undefined,from:TODAY,by:S.icn||S.staff||"",v:(old&&old.v)||0,hist}}
 function undoPlan(code){const P=MAPS[code];if(!P)return;const H=(P.hist||[]).slice();if(H.length){const prev=H.pop();MAPS[code]={...prev,hist:H,v:P.v}}else delete MAPS[code];refresh()}
 function parseBeds(t){const out=[];String(t||"").split(/[,;\n]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{const m=x.match(/^(.*?)(\d+)\s*-\s*(\d+)$/);if(m&&+m[3]>=+m[2]&&+m[3]-+m[2]<200){for(let i=+m[2];i<=+m[3];i++)out.push((m[1]||"")+i)}else out.push(x)});return[...new Set(out)]}
-function setPlanBeds(){const W=WCFG[S.map.ward];const L=parseBeds($("bedListIn").value);if(!L.length){toast("Enter at least one bed.");return}const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=L;applyPlanBeds();toast(`${L.length} beds set for ${W.code}.`);refresh()}
+function setPlanBeds(){const W=WCFG[S.map.ward];const L=parseBeds($("bedListIn").value);if(!L.length){toast("Enter at least one bed.");return}S.pg=Object.assign(S.pg||{},{beds:1});const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=L;applyPlanBeds();toast(`${L.length} beds set for ${W.code}.`);refresh()}
 async function planFromFile(f){if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const pg=await pdf.getPage(1);const vp=pg.getViewport({scale:2});const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;return cv.toDataURL("image/jpeg",.85)}
   return await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=e=>res(e.target.result);rd.onerror=rej;rd.readAsDataURL(f)})}
 function compactBeds(B){const out=[];let i=0;while(i<B.length){const m=String(B[i]).match(/^(.*?)(\d+)$/);if(!m){out.push(B[i]);i++;continue}let j=i;while(j+1<B.length){const n=String(B[j+1]).match(/^(.*?)(\d+)$/);if(n&&n[1]===m[1]&&+n[2]===+String(B[j]).match(/(\d+)$/)[1]+1)j++;else break}out.push(j>i?`${m[1]}${m[2]}-${String(B[j]).match(/(\d+)$/)[1]}`:B[i]);i=j+1}return out.join(", ")}
 function planEditor(W){const P=MAPS[W.code]||{img:"",pos:{}};const arm=S.map.arm;const placed=W.beds.filter(b=>(P.pos||{})[b]).length;
-  const st=[["Upload the new floor plan",!!P.img,"Tap <b>Change plan image</b> / <b>Upload plan image</b> (photo or PDF)."],["Check the bed list",!!P.img,"Edit the numbers if needed, then tap <b>Apply bed list</b>."],["Set “Plan in use from”",!!P.from,"Dates before this keep the old plan."],["Place every bed",P.img&&placed===W.beds.length,`Tap a bed number below, then tap its position on the plan (${placed}/${W.beds.length} placed).`],["Tap “Done arranging plan”",false,"The yellow button at the top right."]];
-  return`<div class="planguide">${st.map(([t,ok,d],i)=>`<div class="${ok?"ok":""}"><span>${ok?"✓":i+1}</span><div><b>${t}</b><small>${d}</small></div></div>`).join("")}</div>
+  const G=S.pg||{};const fresh=G.code===W.code&&G.new;
+  const st=[["Upload the new floor plan",!!P.img&&(!G.want||fresh),"Tap the yellow <b>Upload / Change plan image</b> button (photo or PDF)."],["Check the bed list",!!P.img&&(!fresh||G.beds),"Edit the numbers if needed, then tap <b>Apply bed list</b>."],["Set “Plan in use from”",!!P.from&&(!fresh||G.from),"Pick the date the new layout started. Dates before it keep the old plan."],["Place every bed",!!P.img&&placed===W.beds.length,`Tap a bed number below the plan, then tap its position on the plan (${placed}/${W.beds.length} placed).`],["Tap “Done arranging plan”",false,"The yellow button at the top right."]];
+  const cur=st.findIndex(x=>!x[1]);S.pgCur=cur;
+  return`<div class="planguide">${st.map(([t,ok,d],i)=>`<div class="${ok?"ok":i===cur?"cur":"todo"}"><span>${ok?"✓":i+1}</span><div><b>${i===cur?"Now: ":""}${t}</b><small>${d}</small></div></div>`).join("")}</div>
    ${(P.hist||[]).length?`<div class="hint" style="margin:0 0 8px">Older plan(s) kept for dates before ${P.from?fmt(P.from):"this plan"}: ${(P.hist||[]).map(h=>h.from?"from "+fmt(h.from):"original").join(", ")}.</div>`:""}
-   <div class="planbar"><button class="btn btn-ghost btn-sm" onclick="$('planIn').click()">${svg("up")}${P.img?"Change plan image":"Upload plan image"}</button>
+   <div class="planbar"><button class="btn ${cur===0?"hl":"btn-ghost"} btn-sm" onclick="$('planIn').click()">${svg("up")}${P.img?"Change plan image":"Upload plan image"}</button>
    ${P.img?`<button class="btn btn-ghost btn-sm" style="color:var(--crit)" onclick="undoPlan('${W.code}')">${(P.hist||[]).length?"Remove this plan (back to previous)":"Remove plan"}</button>`:""}
    <span class="hint" style="margin:0">${P.img?"Choose a bed below, then tap on the plan to place it. Drag a marker to move it.":"Use a PNG/JPG image or PDF of the ward floor plan."}</span></div>
-   <div class="mrow" style="align-items:flex-end;margin:10px 0"><div class="fld" style="flex:3"><label for="bedListIn">Bed list for ${esc(W.code)} (use ranges, e.g. 1-42, ISO 1, ISO 2)</label><input id="bedListIn" value="${esc(compactBeds(W.beds))}"></div><div class="fld" style="flex:none"><button class="btn btn-ghost" onclick="setPlanBeds()">Apply bed list</button></div>
-    <div class="fld" style="flex:1"><label for="planFrom">Plan in use from</label><input id="planFrom" type="date" value="${esc(P.from||"")}" onchange="(MAPS['${W.code}']=MAPS['${W.code}']||{img:'',pos:{}}).from=this.value"></div></div>
+   <div class="mrow" style="align-items:flex-end;margin:10px 0"><div class="fld" style="flex:3"><label for="bedListIn">Bed list for ${esc(W.code)} (use ranges, e.g. 1-42, ISO 1, ISO 2)</label><input id="bedListIn" value="${esc(compactBeds(W.beds))}"></div><div class="fld" style="flex:none"><button class="btn ${cur===1?"hl":"btn-ghost"}" onclick="setPlanBeds()">Apply bed list</button></div>
+    <div class="fld${cur===2?" hlf":""}" style="flex:1"><label for="planFrom">Plan in use from</label><input id="planFrom" type="date" value="${esc(P.from||"")}" onchange="(MAPS['${W.code}']=MAPS['${W.code}']||{img:'',pos:{}}).from=this.value;S.pg=Object.assign(S.pg||{},{from:1});refresh()"></div></div>
    ${P.img?`<div class="stage edit${arm?" arm":""}" id="stage"><img src="${P.img}" alt="Floor plan ${esc(W.code)}" id="planImg">${W.beds.concat(EXTS).filter(b=>P.pos[b]).map(b=>`<button class="bed-m ${isExt(b)?"st-ext":"st-g"}" style="left:${P.pos[b][0]}%;top:${P.pos[b][1]}%" data-pb="${esc(b)}">${esc(b.replace("ISO ",""))}</button>`).join("")}</div>
-   <div class="bchips">${W.beds.concat(EXTS).map(b=>`<button aria-pressed="${arm===b}" class="${P.pos[b]?"placed":""}" onclick="S.map.arm=S.map.arm==='${esc(b)}'?'':'${esc(b)}';refresh()">${esc(b)}</button>`).join("")}</div>
+   <div class="bchips${cur===3?" hlf":""}">${W.beds.concat(EXTS).map(b=>`<button aria-pressed="${arm===b}" class="${P.pos[b]?"placed":""}" onclick="S.map.arm=S.map.arm==='${esc(b)}'?'':'${esc(b)}';refresh()">${esc(b)}</button>`).join("")}</div>
    <div class="addrow"><input id="newBed" placeholder="New bed number, e.g. 45" aria-label="New bed"><button class="btn btn-ghost" onclick="addBed()">+ Add permanent bed</button></div>
    <div class="hint">${W.beds.filter(b=>P.pos[b]).length}/${W.beds.length} beds placed. <b>EXT 1–4</b> are positions for extra beds (e.g. corridor); place them so extension beds appear on the plan when the ward uses them.</div>`:`<div class="empty-row">No plan for ${esc(W.code)}.</div>`}
    <input type="file" id="planIn" accept="image/*,application/pdf,.pdf" hidden>`}
@@ -2709,12 +2718,12 @@ paintThm();
   document.addEventListener("mousemove",e=>{if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;D.w.scrollLeft=D.sl-dx;if(D.sc)D.sc.scrollTop=D.st-dy;else window.scrollTo(window.scrollX,D.st-dy)});
   document.addEventListener("mouseup",()=>{if(!D)return;D.w.classList.remove("dragging");D=null});
   document.addEventListener("click",e=>{if(moved){moved=false;e.stopPropagation();e.preventDefault()}},true)})();
-/* ===== butang mata: tunjuk / sembunyi kata laluan ===== */
+/* ===== butang mata: tunjuk / sembunyi kata laluan (event delegation: tetap berfungsi walaupun borang log masuk dibina semula) ===== */
 (function(){const EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
   OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-  function add(){document.querySelectorAll('input[type="password"]:not([data-eye]),input[data-eye="t"]:not([data-eyed])').forEach(i=>{if(i.dataset.eyed)return;i.dataset.eye="t";i.dataset.eyed="1";
-    const w=document.createElement("span");w.className="pwwrap";i.parentNode.insertBefore(w,i);w.appendChild(i);const b=document.createElement("button");b.type="button";b.className="pweye";b.setAttribute("aria-label","Show password");b.innerHTML=EYE;
-    b.onclick=()=>{const show=i.type==="password";i.type=show?"text":"password";b.innerHTML=show?OFF:EYE;b.setAttribute("aria-label",show?"Hide password":"Show password");i.focus()};w.appendChild(b)})}
+  function add(){document.querySelectorAll('input[type="password"],input[data-pw]').forEach(i=>{if(i.parentNode&&i.parentNode.classList&&i.parentNode.classList.contains("pwwrap"))return;i.setAttribute("data-pw","1");
+    const w=document.createElement("span");w.className="pwwrap";i.parentNode.insertBefore(w,i);w.appendChild(i);const b=document.createElement("button");b.type="button";b.className="pweye";b.setAttribute("aria-label","Show password");b.innerHTML=EYE;w.appendChild(b)})}
+  document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest(".pweye");if(!b)return;e.preventDefault();const i=b.parentNode.querySelector("input");if(!i)return;const show=i.type==="password";i.type=show?"text":"password";b.innerHTML=show?OFF:EYE;b.setAttribute("aria-label",show?"Hide password":"Show password");i.focus()});
   add();new MutationObserver(add).observe(document.body,{childList:true,subtree:true})})();
 
 /* ===== Carian fungsi: taip "PD211", "JKNS", "import"… dan terus ke tempatnya ===== */
@@ -2772,7 +2781,7 @@ async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;
     if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});refresh()}toast(n?`${n} new cases pulled from ${d.name}.`:`LAB_SURVEILLANCE checked · no new cases.`)}catch(e){toast("Auto-pull failed: "+(e.message||e))}}
 FIND.push({t:"Link Google Sheets (pull LAB_SURVEILLANCE / PD211 / census without downloading)",k:"link google sheet pull tarik auto sambung lab surveillance pd211 census",d:"Read the source Google Sheets directly",run:()=>{go("master");openImport();setTimeout(openLinks,300)}});
 
-function openPlanUpdate(){const w=S.role==="ward"?S.ward:(S.map.ward||WARDS[0]);if(S.tab!=="mapping")S.planBack=S.tab;S.map.ward=w;S.map.bld=(WCFG[w]||{}).bld||"MB";S.map.date=TODAY;S.mapEd=false;S.map.edit=true;S.map.arm="";go("mapping");setTimeout(()=>{window.scrollTo(0,0)},50);
+function openPlanUpdate(){const w=S.role==="ward"?S.ward:(S.map.ward||WARDS[0]);if(S.tab!=="mapping")S.planBack=S.tab;S.map.ward=w;S.map.bld=(WCFG[w]||{}).bld||"MB";S.map.date=TODAY;S.mapEd=false;S.map.edit=true;S.map.arm="";S.pg={code:w,want:1};go("mapping");setTimeout(()=>{window.scrollTo(0,0)},50);
   openModal(`<div class="m-head"><div class="hx"><h3>Update the floor plan · ${esc(w)}</h3><p>Follow these steps. The checklist stays at the top of the plan.</p></div>${xBtn()}</div>
   <div class="m-body"><ol class="guideol"><li><b>Upload the new plan</b> — photo or PDF (tap <i>Change plan image</i>).</li><li><b>Check the bed list</b> — e.g. <i>1-35, 37-40, 42</i>, then <i>Apply bed list</i>.</li><li><b>Plan in use from</b> — the date the new layout started (e.g. 16/10). Earlier dates keep the old plan.</li><li><b>Place each bed</b> — tap a bed number below the plan, then tap its position on the plan. Drag to adjust.</li><li><b>Tap the yellow “Done arranging plan”</b> button at the top right.</li></ol></div>
   <div class="m-foot"><button class="btn btn-pri" onclick="closeModal()">OK, start</button></div>`)}
