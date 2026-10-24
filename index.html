@@ -2918,12 +2918,14 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
   window.toast=function(){t.apply(this,arguments);syncSoon()};window.go=function(){g.apply(this,arguments);syncSoon()}})();
 
 /* ---------- load ---------- */
+/* one-time fix: W7 new plan (from 16/10/2026) had bed 42 typed instead of 36 */
+function fixW7Bed(){let n=0;CENSUS.forEach(c=>{if(c.ward==="W7"&&c.date>="2026-10-16"&&!(c.rows||[]).some(r=>r.bed==="36"))(c.rows||[]).forEach(r=>{if(r.bed==="42"){r.bed="36";n++}})});if(n)syncSoon()}
 function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
   (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
-async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS,true)}catch(e){}snapAll();syncSt();
+async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS,true)}catch(e){}snapAll();syncSt();fixW7Bed();
   /* floor-plan images not yet on this device: fetch in the background, redraw when ready */
   if(driveIds(MAPS,new Set()).size)hydrate(MAPS).then(()=>{if($("modalBg").hidden&&["mapping","census","wards","dash"].includes(S.tab))refresh()}).catch(()=>{});
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
