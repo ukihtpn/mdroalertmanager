@@ -761,7 +761,9 @@ const DOC_TOKEN=(new URLSearchParams(location.search).get("f")||"").replace(/[^A
 const WEBAPP_URL=location.origin+location.pathname;
 /* google.script.run → fetch(API_URL) */
 window.google={script:{get run(){let ok=()=>{},bad=()=>{};const o=new Proxy({},{get:(t,k)=>k==="withSuccessHandler"?(h=>{ok=h;return o}):k==="withFailureHandler"?(h=>{bad=h;return o}):(...args)=>{
-  fetch(API_URL,{method:"POST",body:JSON.stringify({fn:k,args}),redirect:"follow"}).then(r=>r.json()).then(async r=>{if(r.okz){const bin=Uint8Array.from(atob(r.okz),c=>c.charCodeAt(0));r.ok=JSON.parse(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text())}return r}).then(r=>r.err?bad(new Error(r.err)):ok(r.ok)).catch(e=>bad(new Error("No connection to the server ("+e.message+")")))}});return o}}};
+  const RD=/^(login|getAll|getVersion|getChanges|getBlobs|getStore|getLinks|getDoctorCase|setAuditor|logout)$/.test(k);
+  const go=n=>{const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),RD?45000:120000);return fetch(API_URL,{method:"POST",body:JSON.stringify({fn:k,args}),redirect:"follow",signal:ac.signal}).then(r=>r.text()).then(t=>{clearTimeout(tm);try{return JSON.parse(t)}catch(e){throw new Error(/too many|Service invoked|busy|timed out/i.test(t)?"server busy":"bad reply")}}).catch(e=>{clearTimeout(tm);if(RD&&n<1)return new Promise(r=>setTimeout(r,1500)).then(()=>go(n+1));throw e})};
+  go(0).then(async r=>{if(r.okz){const bin=Uint8Array.from(atob(r.okz),c=>c.charCodeAt(0));r.ok=JSON.parse(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text())}return r}).then(r=>r.err?bad(new Error(r.err)):ok(r.ok)).catch(e=>bad(new Error("No connection to the server ("+e.message+")")))}});return o}}};
 if(!/^https:\/\/script\.google\.com\//.test(API_URL))document.addEventListener("DOMContentLoaded",()=>{document.body.innerHTML='<div class="apiset"><h2>First-time setup</h2><p>Paste the Apps Script web app URL (ending with <code>/exec</code>).</p><input id="apiU" placeholder="https://script.google.com/macros/s/…/exec"><button onclick="try{localStorage.setItem(\'mdro_api\',document.getElementById(\'apiU\').value.trim())}catch(e){};location.reload()">Save</button><p style="color:#666;font-size:13px">Or edit API_URL_DEFAULT in index.html so users do not need to paste it.</p></div>'});
 </script>
 <script src="plans.js"></script>
@@ -2925,8 +2927,8 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
   /* floor-plan images not yet on this device: fetch in the background, redraw when ready */
   if(driveIds(MAPS,new Set()).size)hydrate(MAPS).then(()=>{if($("modalBg").hidden&&["mapping","census","wards","dash"].includes(S.tab))refresh()}).catch(()=>{});
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
-  start();setInterval(poll,60000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
-async function poll(){if(!TOKEN||SYNC.busy)return;try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}}
+  start();clearInterval(window._pollT);window._pollT=setInterval(poll,90000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
+async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
   (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
@@ -2936,7 +2938,7 @@ function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up
 
 /* ---------- login ---------- */
 async function liveLogin(o,errEl){$(errEl).textContent="";syncSt("Logging in…");const st=$(errEl).closest("[id^=lgStep]")||document;const bt=st.querySelector(".btn-pri");const bl=bt?bt.innerHTML:"";if(bt){bt.disabled=true;bt.innerHTML='<span class="spin"></span> Logging in…'}const unb=()=>{if(bt&&bt.isConnected){bt.disabled=false;bt.innerHTML=bl}};
-  try{const r=await GS("login",{...o,days:CENSUS_DAYS});TOKEN=r.token;syncSt();
+  try{const r=await GS("login",{...o,days:CENSUS_DAYS});if(!r||!r.token)throw new Error("empty reply from server, please try again");if(!r.user&&r.data&&r.data.user)r.user=r.data.user;if(!r.user)throw new Error("server reply has no user, check that Code.gs is the latest and deployed as a New version");if(r.dataErr){console.warn("login data:",r.dataErr);delete r.data}TOKEN=r.token;syncSt();
     if(r.user.role==="uki"&&(r.user.auditors||[]).length){PREF=r.data?Promise.resolve(r.data):GS("getAll",TOKEN,CENSUS_DAYS,{lite:true}).catch(()=>null);pickAuditor(r.user);return}
     saveSess(r.user);await boot(r.user,r.data)}
   catch(e){syncSt();unb();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Wrong password.":"Error: "+(e.message||e)}}
