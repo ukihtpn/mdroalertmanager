@@ -672,6 +672,8 @@ b.pw-ward{color:#9a6c00}b.pw-uki{color:var(--brand)}
 .segf button{border:1.5px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink,#222)}
 .segf button b{color:var(--c);margin-left:3px}
 .segf button.on{background:var(--c);border-color:var(--c);color:#fff}.segf button.on b{color:#fff}
+.sdn{font-family:inherit;font-size:11px;font-weight:600;margin-top:3px;max-width:170px;line-height:1.3}
+.sdn.crit{color:var(--crit)}.sdn.warn{color:var(--warn)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1405,7 +1407,7 @@ function pendWard(w){const o0=wardPend(w);const pm=S.pwM??"";const pf=S.pwF||"";
     .sort((a,b)=>({none:0,pend:1,done:2}[a.d.st]-{none:0,pend:1,done:2}[b.d.st])||b.c.sample_date.localeCompare(a.c.sample_date));
   return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Cases · ${esc(w)}</h3><p>${cc[""]} cases ${pm===""?YEAR:MONTHS[+pm]+" "+YEAR} · <b style="color:var(--crit)">${cc.none}</b> incomplete · <b style="color:var(--warn)">${cc.pend}</b> pending · <b style="color:var(--ok)">${cc.done}</b> complete. Showing: <b>${pf?{none:"Incomplete",pend:"Pending",done:"Complete"}[pf]:"All"}</b>${pm===""?"":" · "+MONTHS[+pm]}. MDRO forms incomplete: ${o.fn+o.fs+o.ff}.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${o.isW?`<button class="btn btn-ghost btn-sm" onclick="${o.cen?`openMap('${esc(w)}')`:`ukiCensus('${esc(w)}')`}">${svg("map")}${o.cen?"Mapping":"Fill in today's census"}</button>`:""}<button class="btn btn-ghost btn-sm" onclick="S.mlWard='${esc(w)}';S.mlOv='';S.mlMonth='';S.mlCls='';go('master')">${svg("list")}Masterlist ${esc(w)}</button><button class="btn btn-ghost btn-sm" onclick="S.dw='';refresh()">All wards</button></div></div>
-   <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 16px 10px;align-items:flex-end"><div class="fld" style="width:240px;margin:0"><label for="pwM">Month (sample date)</label><select id="pwM" onchange="S.pwM=this.value;refresh()"><option value="">All months ${YEAR}</option>${MONTHS.map((m,i)=>`<option value="${i}"${String(pm)===String(i)?" selected":""}>${m} ${pmCnt[i]?`· ${pmCnt[i]} to complete`:""}</option>`).join("")}</select></div>
+   <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 16px 10px;align-items:flex-end"><div class="fld" style="width:200px;margin:0"><label for="pwW">Ward</label><select id="pwW" onchange="S.dw=this.value;refresh()">${dashWards().map(x=>`<option value="${esc(x)}"${x===w?" selected":""}>${esc(x)}</option>`).join("")}</select></div><div class="fld" style="width:240px;margin:0"><label for="pwM">Month (sample date)</label><select id="pwM" onchange="S.pwM=this.value;refresh()"><option value="">All months ${YEAR}</option>${MONTHS.map((m,i)=>`<option value="${i}"${String(pm)===String(i)?" selected":""}>${m} ${pmCnt[i]?`· ${pmCnt[i]} to complete`:""}</option>`).join("")}</select></div>
     <div class="fld" style="margin:0"><label>Data status</label><div class="segf">${[["","All","var(--brand)"],["none","Incomplete","var(--crit)"],["pend","Pending","var(--warn)"],["done","Complete","var(--ok)"]].map(([v,l,c])=>`<button type="button" class="${pf===v?"on":""}" style="--c:${c}" onclick="S.pwF='${v}';refresh()">${l} <b>${cc[v]}</b></button>`).join("")}</div></div></div>
    ${top.length?`<div style="padding:4px 16px 14px"><div class="lbl" style="margin-top:0">Most frequently empty columns</div><div class="pills">${top.map(([k,v])=>`<span class="pill p-mut">${esc(COL[k][2])} <b class="mono">${v}</b></span>`).join("")}</div></div>`:""}
    <div class="tbl-wrap"><table><thead><tr><th>Patient / RN</th><th>Organism · sample</th><th>Masterlist data · empty columns</th><th>MDRO form</th><th>Class</th><th>UKI review</th></tr></thead><tbody>
@@ -1551,7 +1553,7 @@ function drawCharts(){if(typeof Chart==="undefined"){document.querySelectorAll("
   const gs=S.an.org?[S.an.org]:MAIN_ORG;
   CH.org=new Chart($("cOrg"),{type:"bar",data:{labels:L,datasets:gs.map(g=>({label:g,data:full(M.map(r=>r.byG[g]||0)),backgroundColor:cssv(MORG_COL[g]),borderColor:cssv("--panel"),borderWidth:{top:2},borderRadius:3,stack:"s"}))},options:{...B,scales:{...B.scales,x:{...B.scales.x,stacked:true},y:{...B.scales.y,stacked:true}}}});
   const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
-  const cnt=(arr,key)=>{const o={};arr.forEach(c=>{const k=c[key]||"Not assessed";o[k]=(o[k]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1])};
+  const cnt=(arr,key)=>{const o={};arr.forEach(c=>{const k=c[key]||"Not recorded (empty)";o[k]=(o[k]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1])};
   const hbar=(id,E)=>CH[id]=new Chart($(id),{type:"bar",data:{labels:E.map(e=>e[0]),datasets:[{label:"Cases",data:E.map(e=>e[1]),backgroundColor:brand,borderRadius:3,barThickness:14}]},options:{...B,indexAxis:"y",interaction:{mode:"nearest",intersect:true,axis:"y"},plugins:{...B.plugins,legend:{display:false}},scales:{x:{...B.scales.y},y:{...B.scales.x,ticks:{color:cssv("--mut"),autoSkip:false,font:{size:11}}}}}});
   hbar("cWard",cnt(CS,"ward").slice(0,10));hbar("cSpec",cnt(CS,"spec").slice(0,10));CH.cls=new Chart($("cHai"),{type:"bar",data:{labels:L,datasets:CLS_ORDER.map((k,i)=>({label:CLS[k].l,data:full(M.map(r=>r.k[k])),backgroundColor:cssv(CLS[k].c),borderColor:cssv("--panel"),borderWidth:{top:2},borderRadius:3,stack:"s"}))},options:{...B,scales:{...B.scales,x:{...B.scales.x,stacked:true},y:{...B.scales.y,stacked:true}}}});
   drawEpi(C,B);
@@ -1770,7 +1772,7 @@ function doBedMove(){const w=S.map.ward;const c=censusOf(w,TODAY);const i=c.rows
   c.rows.splice(i,1);closeModal();refresh();toast(BM.mode==="TRANSFER"?`${r.name} transferred to ${BM.to}. Will appear in the census ${BM.to}.`:`${r.name} removed from the census ${w}.`)}
 
 /* ================= UKI: masterlist ================= */
-function mlRows(){const q=S.mlQ.toUpperCase();return CASES.filter(c=>(!S.mlOv||overall(c)===S.mlOv)&&(!S.mlCls||cls(c)===S.mlCls)&&(!S.mlMonth||c.month===S.mlMonth)&&(!S.mlWard||c.ward===S.mlWard)&&(!S.mlOrg||c.subtype===S.mlOrg)&&(!q||[c.name,c.rn,c.ic,c.ward,c.subtype,c.organism].join(" ").toUpperCase().includes(q))).sort((a,b)=>a.sample_date.localeCompare(b.sample_date))}
+function mlRows(){const q=S.mlQ.toUpperCase();return CASES.filter(c=>(!S.mlOv||overall(c)===S.mlOv)&&(!S.mlCls||cls(c)===S.mlCls)&&(!S.mlMonth||(isD(c.sample_date)?c.month||MONTHS[+c.sample_date.slice(5,7)-1]:MONTHS[+mlKey(c).slice(5)-1])===S.mlMonth)&&(!S.mlWard||c.ward===S.mlWard)&&(!S.mlOrg||c.subtype===S.mlOrg)&&(!q||[c.name,c.rn,c.ic,c.ward,c.subtype,c.organism].join(" ").toUpperCase().includes(q))).sort((a,b)=>String(a.sample_date||"").localeCompare(String(b.sample_date||"")))}
 function rMaster(){const L=mlRows();const opt=(arr,cur,all)=>`<option value="">${all}</option>`+arr.map(v=>`<option${v===cur?" selected":""}>${esc(v)}</option>`).join("");
   const vis=COLS.filter(c=>!["notes","kkm","outbreak_code","cre_gene"].includes(c[0])).map(c=>c[0]);if(S.mlCls===undefined)S.mlCls="";
   return`<div class="sec-h"><div><h2>Lab surveillance masterlist</h2><p>Same as the MASTERLIST sheet in Excel. Tap a row to update. Cases tagged <b>Active</b> appear as MDRO in the ward census.</p></div>
@@ -1932,16 +1934,21 @@ function dataPill(c){const d=dataStatus(c);return`<span class="pill ${OV[d.st].p
 function revPill(c){const r=(c.reviews||[])[0];return r?`<span class="pill p-ok">Reviewed ${fmt(r.date)}</span>`:'<span class="pill p-mut">Not reviewed</span>'}
 
 /* ================= Masterlist ikut bulan (sesi) ================= */
-function rMasterGroups(L){const by={};L.forEach(c=>{const k=c.sample_date.slice(0,7);(by[k]=by[k]||[]).push(c)});const keys=Object.keys(by).sort().reverse();
+const isD=v=>/^\d{4}-\d{2}-\d{2}/.test(String(v||""));
+function mlKey(c){return isD(c.sample_date)?c.sample_date.slice(0,7):isD(c.lab_date)?c.lab_date.slice(0,7):"0000-00"}
+function sdNote(c){if(!isD(c.sample_date))return isD(c.lab_date)?'<div class="sdn crit">No sample date · placed by lab date</div>':'<div class="sdn crit">No sample / lab date</div>';
+  if(isD(c.lab_date)&&c.sample_date<addDays(c.lab_date,-90))return`<div class="sdn warn">Sample ${fmt(c.sample_date)} · much earlier than lab, check year?</div>`;
+  if(isD(c.lab_date)&&c.sample_date>c.lab_date)return`<div class="sdn warn">Sample ${fmt(c.sample_date)} after lab date, check</div>`;return""}
+function rMasterGroups(L){const by={};L.forEach(c=>{const k=mlKey(c);(by[k]=by[k]||[]).push(c)});const keys=Object.keys(by).sort().reverse();
   if(!S.mlOpen)S.mlOpen={[TODAY.slice(0,7)]:true};
-  return keys.length?keys.map(k=>{const R=by[k].sort((a,b)=>({none:0,pend:1,done:2}[overall(a)]-{none:0,pend:1,done:2}[overall(b)])||b.sample_date.localeCompare(a.sample_date));const n={done:0,pend:0,none:0};R.forEach(c=>n[overall(c)]++);const tot=R.length;
+  return keys.length?keys.map(k=>{const R=by[k].sort((a,b)=>({none:0,pend:1,done:2}[overall(a)]-{none:0,pend:1,done:2}[overall(b)])||String(b.sample_date||b.lab_date||"").localeCompare(String(a.sample_date||a.lab_date||"")));const n={done:0,pend:0,none:0};R.forEach(c=>n[overall(c)]++);const tot=R.length;
    return`<details class="panel grp" ${S.mlOpen[k]?"open":""} ontoggle="S.mlOpen['${k}']=this.open">
-    <summary><div class="gh"><b>${MONTHS[+k.slice(5)-1]} ${k.slice(0,4)}</b><span>${tot} cases</span></div>
+    <summary><div class="gh"><b>${k==="0000-00"?"No sample / lab date":MONTHS[+k.slice(5)-1]+" "+k.slice(0,4)}</b><span>${tot} cases</span></div>
      <div class="gbar" aria-hidden="true"><i style="width:${n.done/tot*100}%;background:var(--ok)"></i><i style="width:${n.pend/tot*100}%;background:var(--warn)"></i><i style="width:${n.none/tot*100}%;background:var(--crit)"></i></div>
      <div class="gc"><span class="pill p-ok">${n.done} complete</span><span class="pill p-warn">${n.pend} pending</span><span class="pill p-crit">${n.none} incomplete</span></div></summary>
-    <div class="tbl-wrap"><table class="grpt"><thead><tr><th></th><th>Patient / RN</th><th>Ward · bed (positive)</th><th>Organism · specimen</th><th>Lab</th><th>Masterlist data</th><th>Classification</th><th>MDRO form</th><th>UKI review</th><th></th></tr></thead><tbody>
+    <div class="tbl-wrap"><table class="grpt"><thead><tr><th></th><th>Patient / RN</th><th>Ward · bed (positive)</th><th>Organism · specimen</th><th>Lab date</th><th>Masterlist data</th><th>Classification</th><th>MDRO form</th><th>UKI review</th><th></th></tr></thead><tbody>
     ${R.map(c=>{const o=overall(c);return`<tr class="ov-${o}"><td><span class="ovdot" title="${OV[o].l}" style="background:var(${OV[o].c})"></span></td><td class="nm"><button class="namebtn${c.tag==="Aktif"?" mdro":""}" onclick="openProfile('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn)} · ${esc(c.case_status)}</span></td>
-      <td>${esc(c.ward)}${c.bed?" · "+esc(c.bed):""}</td><td><b>${esc(c.subtype)}</b> · ${esc(c.spec)}</td><td class="mono">${fmt(c.lab_date)}</td><td>${dataPill(c)}</td><td>${clsPill(c)}</td><td>${fPill(c)}</td><td>${revPill(c)}</td>
+      <td>${esc(c.ward)}${c.bed?" · "+esc(c.bed):""}</td><td><b>${esc(c.subtype)}</b> · ${esc(c.spec)}</td><td class="mono">${isD(c.lab_date)?fmt(c.lab_date):"—"}${sdNote(c)}</td><td>${dataPill(c)}</td><td>${clsPill(c)}</td><td>${fPill(c)}</td><td>${revPill(c)}</td>
       <td><div class="acts"><button class="btn btn-${o==="done"?"ghost":"pri"} btn-sm" onclick="openReview('${c.id}')">${(c.reviews||[]).length?"Review":"Review"}</button><button class="btn btn-ghost btn-sm" onclick="openCase('${c.id}')">Record</button></div></td></tr>`}).join("")}
     </tbody></table></div></details>`}).join(""):`<div class="panel empty-row">No records for this filter.</div>`}
 
