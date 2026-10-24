@@ -638,6 +638,16 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .linkbox{margin:14px 0 0;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;background:var(--panel)}
 .linkrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}.linkrow:first-of-type{border-top:0}
 .linkrow b{display:block;font-size:13.5px}.linkrow small{color:var(--mut);font-size:12px}
+.donepulse{background:#f5c518;color:#1f2a10;border:2px solid #e0a800;font-weight:800;animation:donepulse 1.1s ease-in-out infinite}
+.donepulse:hover{background:#ffd633}
+@keyframes donepulse{0%,100%{box-shadow:0 0 0 0 rgba(245,197,24,.75)}50%{box-shadow:0 0 0 10px rgba(245,197,24,0)}}
+@media (prefers-reduced-motion:reduce){.donepulse{animation:none}}
+.planguide{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:0 0 12px}
+.planguide>div{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.planguide span{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;background:var(--warn-soft);color:var(--warn)}
+.planguide .ok span{background:var(--brand);color:#fff}.planguide b{display:block;font-size:13px}.planguide small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.guideol{margin:0;padding-left:20px;line-height:1.6}.guideol li{margin:4px 0}
+.planguide small b{display:inline;font-size:inherit}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1005,7 +1015,7 @@ function tabsFor(){
 function renderNav(){{const fb=$("findBtn");if(fb)fb.hidden=S.role!=="uki"}const T=tabsFor();
   $("snav").innerHTML=T.map(([id,l,i,c])=>`<button class="snav" aria-selected="${S.tab===id}" onclick="go('${id}')">${svg(i)}${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("");
   $("tabs").innerHTML=T.map(([id,l,i,c])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" onclick="go('${id}')">${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("")}
-function go(t){applyPlanBeds();S.tab=t;destroyCharts();renderNav();const R={reports:rReports,dash:rDash,formsU:rFormsUki,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
+function go(t){if(t!=="mapping"&&S.map&&S.map.edit){S.map.edit=false;S.map.arm=""}S.tab=t;applyPlanBeds();S.tab=t;destroyCharts();renderNav();const R={reports:rReports,dash:rDash,formsU:rFormsUki,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
   $("main").innerHTML=`<div class="page on" id="pg">${R[t]()}</div>`;after(t);window.scrollTo(0,0)}
 function after(t){if(t==="register")wireRegister();if(t==="census")paintEd();if(t==="analysis")drawCharts();if(t==="mapping")afterMap()}
 function refresh(){applyPlanBeds();dqBump();renderNav();const y=window.scrollY;go(S.tab);window.scrollTo(0,y)}
@@ -1565,7 +1575,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
   const mv=MOVES.filter(m=>m.date===M.date&&(m.from===M.ward||m.to===M.ward)).sort((a,b)=>b.at-a.at);
   const wl=S.role==="ward"?[S.ward]:WARD_CFG.filter(w=>w.bld===M.bld).map(w=>w.code);
   return`${S.role==="uki"?bancStatus():""}<div class="sec-h"><div><h2>Ward mapping</h2><p>Bed status from the daily census. MDRO from UKI tags; infectious diseases &amp; devices from the ward census.</p></div>
-   ${S.role==="uki"||(S.role==="ward"&&M.ward===S.ward)?`<button class="btn btn-ghost" onclick="S.map.edit=!S.map.edit;S.map.arm='';refresh()">${svg("map")}${M.edit?"Done arranging plan":"Update floor plan"}</button>`:""}</div>
+   ${S.role==="uki"||(S.role==="ward"&&M.ward===S.ward)?(M.edit?`<button class="btn donepulse" onclick="planDone()">${svg("map")}✓ Done arranging plan</button>`:`<button class="btn btn-ghost" onclick="openPlanUpdate()">${svg("map")}Update floor plan</button>`):""}</div>
   <div class="panel">
    <div class="map-ctl">
     ${S.role==="uki"?`<div class="fld"><label for="mBld">Building</label><select id="mBld" onchange="S.map.bld=this.value;S.map.ward=WARD_CFG.find(w=>w.bld===this.value).code;refresh()"><option value="MB"${M.bld==="MB"?" selected":""}>Main Building</option><option value="WCC"${M.bld==="WCC"?" selected":""}>WCC (Women &amp; Children)</option></select></div>`:""}
@@ -1593,7 +1603,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
     return`<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Recent movements</h3><p>Ward transfers &amp; discharges of MDRO patients.</p></div><button class="btn btn-ghost btn-sm" onclick="go('moves')">View all</button></div><div class="moves">${R.map(mvHTML).join("")||'<div class="hint" style="margin:0">None.</div>'}</div></div>`})()}`}
 function bedTip(b,r,s){const e=EXTMETA[b];const xl=e?` (extra${e.near?", near bed "+e.near:""}${e.note?", "+e.note:""})`:"";if(!r)return`Bed ${b}${xl} · ${IMPMODE?"no infection records":"empty"}`;return`Bed ${b}${xl} · ${r.name||"imported data"}`+(s.orgs.length?` · MDRO ${s.orgs.join(", ")}`:"")+((r.inf||[]).length?` · ${(r.inf).map(k=>infLabel(k,S.role)).join(", ")}`:"")+((r.dev||[]).length?` · ${r.dev.join(", ")}`:"")}
 function extPos(P,b,list){if(P.pos[b])return P.pos[b];const e=EXTMETA[b];if(!e||!P.pos[e.near])return null;const k=list.filter(x=>EXTMETA[x]&&EXTMETA[x].near===e.near).indexOf(b);const p=P.pos[e.near];return[Math.min(97,p[0]+3.8*(k+1)),p[1]]}
-function mapDraw(W,byBed){const P=MAPS[W.code];const focus=S.map.focus;const extUsed=[...new Set(Object.keys(byBed).filter(isExt).concat(Object.keys(EXTMETA)))].sort(bedNat);
+function mapDraw(W,byBed){const P=planFor(W.code,PLANDATE);const focus=S.map.focus;const extUsed=[...new Set(Object.keys(byBed).filter(isExt).concat(Object.keys(EXTMETA)))].sort(bedNat);
   if(P&&P.img){const pos=b=>isExt(b)?extPos(P,b,extUsed):P.pos[b];const extOff=extUsed.filter(b=>!pos(b));return`<div class="stage" id="stage"><img src="${P.img}" alt="Floor plan ${esc(W.code)}">`+W.beds.concat(extUsed).filter(b=>pos(b)).map(b=>{const r=byBed[b],s=rowState(r);const q=pos(b);
       return`<button class="bed-m st-${s.st}${s.ring?" rg-"+s.ring:""}${isExt(b)?" xb":""}${focus===b?" focus":""}" style="left:${q[0]}%;top:${q[1]}%" data-bed="${esc(b)}" title="${esc(bedTip(b,r,s))}" aria-label="${esc(bedTip(b,r,s))}">${esc(b.replace("ISO ","I").replace("EXT ","E"))}</button>`}).join("")+`</div>${extOff.length?extStrip(extOff,byBed):""}
       ${W.beds.some(b=>!P.pos[b])?`<div class="hint">Beds not yet placed on the plan: ${W.beds.filter(b=>!P.pos[b]).map(esc).join(", ")}</div>`:""}`}
@@ -1619,15 +1629,23 @@ function sizeMarkers(){const st=$("stage");if(st)st.style.setProperty("--m",Math
 addEventListener("resize",sizeMarkers);
 /* floor plan editor (UKI) */
 WARD_CFG.forEach(w=>{w.beds0=w.beds.slice()});
-function applyPlanBeds(){WARD_CFG.forEach(w=>{const P=MAPS[w.code];w.beds=P&&Array.isArray(P.beds)&&P.beds.length?P.beds.slice():w.beds0.slice()})}
+let PLANDATE="";
+function planFor(code,date){const P=MAPS[code];if(!P)return null;if(!date||!P.from||date>=P.from)return P;const H=(P.hist||[]).filter(h=>!h.from||h.from<=date).sort((a,b)=>(b.from||"").localeCompare(a.from||""));return H[0]||P}
+function applyPlanBeds(){const d=(S.tab==="mapping"&&!S.map.edit)?(S.map.date||TODAY):TODAY;PLANDATE=d;WARD_CFG.forEach(w=>{const P=planFor(w.code,d);w.beds=P&&Array.isArray(P.beds)&&P.beds.length?P.beds.slice():w.beds0.slice()})}
+function newPlan(code,img){const old=MAPS[code];const hist=((old&&old.hist)||[]).slice();if(old&&old.img){const o={...old};delete o.hist;if(!o.beds)o.beds=(WCFG[code].beds0||WCFG[code].beds).slice();hist.push(o)}
+  MAPS[code]={img,pos:{},beds:old&&old.beds?old.beds.slice():undefined,from:TODAY,by:S.icn||S.staff||"",v:(old&&old.v)||0,hist}}
+function undoPlan(code){const P=MAPS[code];if(!P)return;const H=(P.hist||[]).slice();if(H.length){const prev=H.pop();MAPS[code]={...prev,hist:H,v:P.v}}else delete MAPS[code];refresh()}
 function parseBeds(t){const out=[];String(t||"").split(/[,;\n]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{const m=x.match(/^(.*?)(\d+)\s*-\s*(\d+)$/);if(m&&+m[3]>=+m[2]&&+m[3]-+m[2]<200){for(let i=+m[2];i<=+m[3];i++)out.push((m[1]||"")+i)}else out.push(x)});return[...new Set(out)]}
 function setPlanBeds(){const W=WCFG[S.map.ward];const L=parseBeds($("bedListIn").value);if(!L.length){toast("Enter at least one bed.");return}const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=L;applyPlanBeds();toast(`${L.length} beds set for ${W.code}.`);refresh()}
 async function planFromFile(f){if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const pg=await pdf.getPage(1);const vp=pg.getViewport({scale:2});const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;return cv.toDataURL("image/jpeg",.85)}
   return await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=e=>res(e.target.result);rd.onerror=rej;rd.readAsDataURL(f)})}
 function compactBeds(B){const out=[];let i=0;while(i<B.length){const m=String(B[i]).match(/^(.*?)(\d+)$/);if(!m){out.push(B[i]);i++;continue}let j=i;while(j+1<B.length){const n=String(B[j+1]).match(/^(.*?)(\d+)$/);if(n&&n[1]===m[1]&&+n[2]===+String(B[j]).match(/(\d+)$/)[1]+1)j++;else break}out.push(j>i?`${m[1]}${m[2]}-${String(B[j]).match(/(\d+)$/)[1]}`:B[i]);i=j+1}return out.join(", ")}
-function planEditor(W){const P=MAPS[W.code]||{img:"",pos:{}};const arm=S.map.arm;
-  return`<div class="planbar"><button class="btn btn-ghost btn-sm" onclick="$('planIn').click()">${svg("up")}${P.img?"Change plan image":"Upload plan image"}</button>
-   ${P.img?`<button class="btn btn-ghost btn-sm" style="color:var(--crit)" onclick="delete MAPS['${W.code}'];refresh()">Remove plan</button>`:""}
+function planEditor(W){const P=MAPS[W.code]||{img:"",pos:{}};const arm=S.map.arm;const placed=W.beds.filter(b=>(P.pos||{})[b]).length;
+  const st=[["Upload the new floor plan",!!P.img,"Tap <b>Change plan image</b> / <b>Upload plan image</b> (photo or PDF)."],["Check the bed list",!!P.img,"Edit the numbers if needed, then tap <b>Apply bed list</b>."],["Set “Plan in use from”",!!P.from,"Dates before this keep the old plan."],["Place every bed",P.img&&placed===W.beds.length,`Tap a bed number below, then tap its position on the plan (${placed}/${W.beds.length} placed).`],["Tap “Done arranging plan”",false,"The yellow button at the top right."]];
+  return`<div class="planguide">${st.map(([t,ok,d],i)=>`<div class="${ok?"ok":""}"><span>${ok?"✓":i+1}</span><div><b>${t}</b><small>${d}</small></div></div>`).join("")}</div>
+   ${(P.hist||[]).length?`<div class="hint" style="margin:0 0 8px">Older plan(s) kept for dates before ${P.from?fmt(P.from):"this plan"}: ${(P.hist||[]).map(h=>h.from?"from "+fmt(h.from):"original").join(", ")}.</div>`:""}
+   <div class="planbar"><button class="btn btn-ghost btn-sm" onclick="$('planIn').click()">${svg("up")}${P.img?"Change plan image":"Upload plan image"}</button>
+   ${P.img?`<button class="btn btn-ghost btn-sm" style="color:var(--crit)" onclick="undoPlan('${W.code}')">${(P.hist||[]).length?"Remove this plan (back to previous)":"Remove plan"}</button>`:""}
    <span class="hint" style="margin:0">${P.img?"Choose a bed below, then tap on the plan to place it. Drag a marker to move it.":"Use a PNG/JPG image or PDF of the ward floor plan."}</span></div>
    <div class="mrow" style="align-items:flex-end;margin:10px 0"><div class="fld" style="flex:3"><label for="bedListIn">Bed list for ${esc(W.code)} (use ranges, e.g. 1-42, ISO 1, ISO 2)</label><input id="bedListIn" value="${esc(compactBeds(W.beds))}"></div><div class="fld" style="flex:none"><button class="btn btn-ghost" onclick="setPlanBeds()">Apply bed list</button></div>
     <div class="fld" style="flex:1"><label for="planFrom">Plan in use from</label><input id="planFrom" type="date" value="${esc(P.from||"")}" onchange="(MAPS['${W.code}']=MAPS['${W.code}']||{img:'',pos:{}}).from=this.value"></div></div>
@@ -1637,7 +1655,7 @@ function planEditor(W){const P=MAPS[W.code]||{img:"",pos:{}};const arm=S.map.arm
    <div class="hint">${W.beds.filter(b=>P.pos[b]).length}/${W.beds.length} beds placed. <b>EXT 1–4</b> are positions for extra beds (e.g. corridor); place them so extension beds appear on the plan when the ward uses them.</div>`:`<div class="empty-row">No plan for ${esc(W.code)}.</div>`}
    <input type="file" id="planIn" accept="image/*,application/pdf,.pdf" hidden>`}
 function wirePlanEditor(){const W=WCFG[S.map.ward];
-  $("planIn").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const img=await planFromFile(f);const old=MAPS[W.code]||{};MAPS[W.code]={img,pos:old.pos||{},beds:old.beds,from:TODAY,by:S.icn||S.staff||"",v:old.v};toast("Plan uploaded. Check the bed list, then place each bed on the plan.");refresh()}catch(err){toast("Could not read the file: "+(err.message||err))}};
+  $("planIn").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const img=await planFromFile(f);newPlan(W.code,img);toast("Plan uploaded. Check the bed list, then place each bed on the plan.");refresh()}catch(err){toast("Could not read the file: "+(err.message||err))}};
   const st=$("stage");if(!st)return;const P=MAPS[W.code];
   const pct=e=>{const r=st.getBoundingClientRect();return[Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
   st.addEventListener("click",e=>{if(e.target.dataset.pb||!S.map.arm)return;P.pos[S.map.arm]=pct(e);const i=W.beds.indexOf(S.map.arm);const nx=W.beds.slice(i+1).find(b=>!P.pos[b]);S.map.arm=nx||"";refresh()});
@@ -2442,7 +2460,7 @@ $("fileIn").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return
 function askPlanFromFile(f){openModal(`<div class="m-head"><div class="hx"><h3>This is an image / PDF, not a patient list</h3><p>${esc(f.name)}</p></div>${xBtn()}</div>
   <div class="m-body"><p>The patient list must be an <b>Excel / CSV</b> file. Is this a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">No, cancel</button><button class="btn btn-pri" id="usePlanBtn">Yes, use as the new floor plan</button></div>`);
-  $("usePlanBtn").onclick=async()=>{const w=S.role==="ward"?S.ward:S.map.ward;try{const img=await planFromFile(f);const old=MAPS[w]||{};MAPS[w]={img,pos:old.pos||{},beds:old.beds,from:TODAY,by:S.icn||S.staff||"",v:old.v};closeModal();openPlanUpdate();toast("New plan loaded. Check the bed list, then place each bed on the plan.")}catch(err){toast("Could not read the file: "+(err.message||err))}}}
+  $("usePlanBtn").onclick=async()=>{const w=S.role==="ward"?S.ward:S.map.ward;try{const img=await planFromFile(f);newPlan(w,img);closeModal();openPlanUpdate();toast("New plan loaded. Check the bed list, then place each bed on the plan.")}catch(err){toast("Could not read the file: "+(err.message||err))}}}
 function clearList(){if(!S.ed)return;S.ed.rows=[];S.ed.pre=1;refresh();toast("Patient list cleared.")}
 function submitCensus(){const W=WCFG[S.ward];
   if(!S.ed.layout){toast("Step 1: first answer whether the bed arrangement changed today.");if(S.tab!=="census")go("census");return}
@@ -2754,7 +2772,13 @@ async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;
     if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});refresh()}toast(n?`${n} new cases pulled from ${d.name}.`:`LAB_SURVEILLANCE checked · no new cases.`)}catch(e){toast("Auto-pull failed: "+(e.message||e))}}
 FIND.push({t:"Link Google Sheets (pull LAB_SURVEILLANCE / PD211 / census without downloading)",k:"link google sheet pull tarik auto sambung lab surveillance pd211 census",d:"Read the source Google Sheets directly",run:()=>{go("master");openImport();setTimeout(openLinks,300)}});
 
-function openPlanUpdate(){const w=S.role==="ward"?S.ward:S.map.ward;S.map.ward=w;S.map.bld=(WCFG[w]||{}).bld||"MB";S.map.date=TODAY;S.mapEd=false;S.map.edit=true;S.map.arm="";go("mapping");setTimeout(()=>{window.scrollTo(0,0)},50)}
+function openPlanUpdate(){const w=S.role==="ward"?S.ward:(S.map.ward||WARDS[0]);if(S.tab!=="mapping")S.planBack=S.tab;S.map.ward=w;S.map.bld=(WCFG[w]||{}).bld||"MB";S.map.date=TODAY;S.mapEd=false;S.map.edit=true;S.map.arm="";go("mapping");setTimeout(()=>{window.scrollTo(0,0)},50);
+  openModal(`<div class="m-head"><div class="hx"><h3>Update the floor plan · ${esc(w)}</h3><p>Follow these steps. The checklist stays at the top of the plan.</p></div>${xBtn()}</div>
+  <div class="m-body"><ol class="guideol"><li><b>Upload the new plan</b> — photo or PDF (tap <i>Change plan image</i>).</li><li><b>Check the bed list</b> — e.g. <i>1-35, 37-40, 42</i>, then <i>Apply bed list</i>.</li><li><b>Plan in use from</b> — the date the new layout started (e.g. 16/10). Earlier dates keep the old plan.</li><li><b>Place each bed</b> — tap a bed number below the plan, then tap its position on the plan. Drag to adjust.</li><li><b>Tap the yellow “Done arranging plan”</b> button at the top right.</li></ol></div>
+  <div class="m-foot"><button class="btn btn-pri" onclick="closeModal()">OK, start</button></div>`)}
+function planDone(){const W=WCFG[S.map.ward];const P=MAPS[W.code]||{};const miss=W.beds.filter(b=>!(P.pos||{})[b]);S.map.edit=false;S.map.arm="";
+  toast(miss.length?`Plan saved. ${miss.length} beds not yet placed (${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}) — they will not show on the map.`:"Plan saved. All beds placed.");
+  const back=S.planBack;S.planBack="";if(back&&back!=="mapping")go(back);else refresh()}
 FIND.push({t:"Upload a new ward floor plan (image / PDF)",k:"floor plan pelan lantai mapping upload gambar pdf katil bed list",d:"Change plan & bed numbers",run:()=>openPlanUpdate()});
 
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
