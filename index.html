@@ -665,6 +665,13 @@ th.pw-ward{background:#fff4d6!important;color:#7a5a00!important}th.pw-uki{backgr
 b.pw-ward{color:#9a6c00}b.pw-uki{color:var(--brand)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) th.pw-ward{background:#3a3114!important;color:#f5d27a!important}:root:not([data-theme="light"]) th.pw-uki{background:#123430!important;color:#8fe0cf!important}}
 :root[data-theme="dark"] th.pw-ward{background:#3a3114!important;color:#f5d27a!important}:root[data-theme="dark"] th.pw-uki{background:#123430!important;color:#8fe0cf!important}
+.kpi.click{cursor:pointer;transition:border-color .15s,box-shadow .15s}.kpi.click:hover{box-shadow:0 0 0 2px var(--brand-soft);border-color:var(--brand)}
+.fbox{background:var(--brand-soft);border-radius:12px;padding:12px 14px}.fml{font-size:15px;margin:2px 0 6px;line-height:1.5}
+.lk-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut,#667);margin:6px 0 0}
+.segf{display:flex;flex-wrap:wrap;gap:6px}
+.segf button{border:1.5px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink,#222)}
+.segf button b{color:var(--c);margin-left:3px}
+.segf button.on{background:var(--c);border-color:var(--c);color:#fff}.segf button.on b{color:#fff}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1001,7 +1008,7 @@ function totalsOf(c){const t={adm:+c.adm||0,tin:+c.tin||0,pd:c.rows.length,c:{},
     (r.dev||[]).forEach(d=>{if(d==="CVL")t.cvl++;if(d==="TRACHY")t.trachy++;if(d==="VENTILATOR")t.vent++;if(d==="CBD/SPC")t.cbd++})});
   t.remarks=[c.remarks,Object.entries(t.oth).map(([k,v])=>k+": "+v).join(", ")].filter(Boolean).join(" · ");return t}
 function dayRows(){/* census-derived totals override synthetic history */
-  const out=HIST.map(h=>({...h}));CENSUS.forEach(c=>{const t=totalsOf(c);out.push({date:c.date,ward:c.ward,adm:t.adm,tin:t.tin,pd:t.pd,cvl:t.cvl,vent:t.vent,trachy:t.trachy,cbd:t.cbd,c:t.c})});return out}
+  const has=new Set(CENSUS.map(c=>c.ward+"|"+c.date));const out=HIST.filter(h=>!has.has(h.ward+"|"+h.date)).map(h=>({...h}));CENSUS.forEach(c=>{const t=totalsOf(c);out.push({date:c.date,ward:c.ward,adm:t.adm,tin:t.tin,pd:t.pd,cvl:t.cvl,vent:t.vent,trachy:t.trachy,cbd:t.cbd,c:t.c})});return out}
 
 /* ================= session ================= */
 const S={dw:"",smRem:"",smPos:"bottom",role:null,tab:null,icn:"",ward:"",staff:"",ed:null,mlQ:"",mlMonth:"",mlView:"grp",mlOv:"",mlWard:"",mlOrg:"",mvQ:"",bwDate:TODAY,bwOpen:"",
@@ -1025,7 +1032,7 @@ const svg=(k,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 function tabsFor(){
   if(S.role==="uki"){const pend=ACTIVE().filter(c=>c.form_done!=="YES"&&recentLab(c)).length;const miss=WARDS.filter(w=>!censusOf(w,TODAY)).length;
     const fpu=formCases().filter(c=>fstat(c)!=="verified").length;
-    return[["dash","Dashboard","dash"],["reports","Generate report","chart"],["register","Register case","form"],["formsU","MDRO form","form",fpu],["analysis","Analysis","chart"],["mapping","Mapping","map"],["master","Masterlist","list",pend],["wards","Ward census","table",miss],["moves","Movements","move"]]}
+    return[["dash","Dashboard","dash"],["master","Masterlist","list",pend],["register","Register case","form"],["analysis","Analysis","chart"],["formsU","MDRO form","form",fpu],["mapping","Mapping","map"],["wards","Ward census","table",miss],["moves","Movements","move"],["reports","Generate report","chart"]]}
   const fp=wardCases().filter(c=>fstat(c)!=="verified").length;const done=!!censusOf(S.ward,TODAY);
   return[["census","Daily census","up",done?0:"!"],["mapping","Mapping","map"],["forms","MDRO form","form",fp]]}
 function renderNav(){{const fb=$("findBtn");if(fb)fb.hidden=S.role!=="uki"}const T=tabsFor();
@@ -1389,23 +1396,23 @@ function pendTable(){const ord=w=>{const i=WARD_CFG.findIndex(x=>x.code===w);ret
      <td data-l="Data incomplete">${n(o.none,`S.mlWard='${esc(o.w)}';S.mlOv='none';S.mlMonth='';S.mlCls='';go('master')`,"c")}</td><td data-l="Pending data">${n(o.pend,`S.mlWard='${esc(o.w)}';S.mlOv='pend';S.mlMonth='';S.mlCls='';go('master')`)}</td>
      <td data-l="Not classified">${n(o.unrev,`S.mlWard='${esc(o.w)}';S.mlCls='UNREV';S.mlOv='';S.mlMonth='';go('master')`,"w")}</td><td data-l="Not reviewed by UKI">${n(o.norev,`S.dw='${esc(o.w)}';refresh()`)}</td></tr>`}).join("")}
    </tbody></table></div></div>`}
-function pendWard(w){const o0=wardPend(w);const pm=S.pwM??"";const pf=S.pwF||"";const o={...o0,D:o0.D.filter(x=>(pm===""||+String(x.c.sample_date).slice(5,7)-1===+pm)&&(!pf||x.d.st===pf))};
+function pendWard(w){const o0=wardPend(w);const pm=S.pwM??"";const pf=S.pwF||"";const DM=o0.D.filter(x=>pm===""||+String(x.c.sample_date).slice(5,7)-1===+pm);const cc={"":DM.length,none:0,pend:0,done:0};DM.forEach(x=>cc[x.d.st]++);const o={...o0,D:DM.filter(x=>!pf||x.d.st===pf)};
   o.none=o.D.filter(x=>x.d.st==="none").length;o.pend=o.D.filter(x=>x.d.st==="pend").length;o.done=o.D.filter(x=>x.d.st==="done").length;
   const pmCnt=Array(12).fill(0);o0.D.forEach(x=>{if(x.d.st!=="done")pmCnt[+String(x.c.sample_date).slice(5,7)-1]++});
   const miss={};o.D.forEach(x=>x.d.miss.forEach(k=>miss[k]=(miss[k]||0)+1));
   const top=Object.entries(miss).sort((a,b)=>b[1]-a[1]).slice(0,10);const fc=formCases(w);
   const L=o.D.map(x=>({...x,f:fc.includes(x.c)?fstat(x.c):"",rv:x.c.case_status==="NEW"&&x.c.sample_date>=addDays(TODAY,-60)&&["INF","COL"].includes(cls(x.c))&&!(x.c.reviews||[]).length}))
-    .filter(x=>x.d.st!=="done"||(x.f&&x.f!=="verified")||cls(x.c)==="UNREV"||x.rv).sort((a,b)=>({none:0,pend:1,done:2}[a.d.st]-{none:0,pend:1,done:2}[b.d.st])||b.c.sample_date.localeCompare(a.c.sample_date));
-  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Pending · ${esc(w)}</h3><p>${o.D.length} cases ${pm===""?YEAR:MONTHS[+pm]+" "+YEAR} · <b style="color:var(--crit)">${o.none}</b> incomplete · <b style="color:var(--warn)">${o.pend}</b> pending · <b style="color:var(--ok)">${o.done}</b> complete. MDRO forms incomplete: ${o.fn+o.fs+o.ff}.</p></div>
+    .sort((a,b)=>({none:0,pend:1,done:2}[a.d.st]-{none:0,pend:1,done:2}[b.d.st])||b.c.sample_date.localeCompare(a.c.sample_date));
+  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Cases · ${esc(w)}</h3><p>${cc[""]} cases ${pm===""?YEAR:MONTHS[+pm]+" "+YEAR} · <b style="color:var(--crit)">${cc.none}</b> incomplete · <b style="color:var(--warn)">${cc.pend}</b> pending · <b style="color:var(--ok)">${cc.done}</b> complete. Showing: <b>${pf?{none:"Incomplete",pend:"Pending",done:"Complete"}[pf]:"All"}</b>${pm===""?"":" · "+MONTHS[+pm]}. MDRO forms incomplete: ${o.fn+o.fs+o.ff}.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${o.isW?`<button class="btn btn-ghost btn-sm" onclick="${o.cen?`openMap('${esc(w)}')`:`ukiCensus('${esc(w)}')`}">${svg("map")}${o.cen?"Mapping":"Fill in today's census"}</button>`:""}<button class="btn btn-ghost btn-sm" onclick="S.mlWard='${esc(w)}';S.mlOv='';S.mlMonth='';S.mlCls='';go('master')">${svg("list")}Masterlist ${esc(w)}</button><button class="btn btn-ghost btn-sm" onclick="S.dw='';refresh()">All wards</button></div></div>
    <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 16px 10px;align-items:flex-end"><div class="fld" style="width:240px;margin:0"><label for="pwM">Month (sample date)</label><select id="pwM" onchange="S.pwM=this.value;refresh()"><option value="">All months ${YEAR}</option>${MONTHS.map((m,i)=>`<option value="${i}"${String(pm)===String(i)?" selected":""}>${m} ${pmCnt[i]?`· ${pmCnt[i]} to complete`:""}</option>`).join("")}</select></div>
-    <div class="fld" style="width:200px;margin:0"><label for="pwF">Data status</label><select id="pwF" onchange="S.pwF=this.value;refresh()"><option value="">All</option><option value="none"${pf==="none"?" selected":""}>Incomplete</option><option value="pend"${pf==="pend"?" selected":""}>Pending</option><option value="done"${pf==="done"?" selected":""}>Complete</option></select></div></div>
+    <div class="fld" style="margin:0"><label>Data status</label><div class="segf">${[["","All","var(--brand)"],["none","Incomplete","var(--crit)"],["pend","Pending","var(--warn)"],["done","Complete","var(--ok)"]].map(([v,l,c])=>`<button type="button" class="${pf===v?"on":""}" style="--c:${c}" onclick="S.pwF='${v}';refresh()">${l} <b>${cc[v]}</b></button>`).join("")}</div></div></div>
    ${top.length?`<div style="padding:4px 16px 14px"><div class="lbl" style="margin-top:0">Most frequently empty columns</div><div class="pills">${top.map(([k,v])=>`<span class="pill p-mut">${esc(COL[k][2])} <b class="mono">${v}</b></span>`).join("")}</div></div>`:""}
    <div class="tbl-wrap"><table><thead><tr><th>Patient / RN</th><th>Organism · sample</th><th>Masterlist data · empty columns</th><th>MDRO form</th><th>Class</th><th>UKI review</th></tr></thead><tbody>
    ${L.length?L.slice(0,80).map(x=>{const c=x.c;return`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name||"—")}</button><span class="mono">RN ${esc(c.rn||"—")}</span></td>
      <td><b>${esc(c.subtype||"—")}</b><div class="hint" style="margin:2px 0 0">${esc(c.spec||c.spec_other||"")} · ${fmt(c.sample_date)}</div></td>
      <td>${dataPill(c)}${x.d.miss.length?`<div class="hint" style="margin:3px 0 0;max-width:340px">${esc(x.d.miss.slice(0,6).map(k=>COL[k][2]).join(", "))}${x.d.miss.length>6?` +${x.d.miss.length-6}`:""}</div>`:""}</td>
-     <td>${x.f?fPill(c):'<span class="pz">—</span>'}</td><td>${clsPill(c)}</td><td>${x.rv?'<span class="pill p-warn">Not reviewed</span>':revPill(c)}</td></tr>`}).join(""):`<tr><td colspan="6" class="empty-row">No pending items for ${esc(w)}.</td></tr>`}
+     <td>${x.f?fPill(c):'<span class="pz">—</span>'}</td><td>${clsPill(c)}</td><td>${x.rv?'<span class="pill p-warn">Not reviewed</span>':revPill(c)}</td></tr>`}).join(""):`<tr><td colspan="6" class="empty-row">No cases for ${esc(w)} with this filter.</td></tr>`}
    </tbody></table></div>${L.length>80?`<div class="hint">Showing 80 of ${L.length}. Open the masterlist for the full list.</div>`:""}</div>`}
 /* UKI isi / kemas kini banci bagi pihak wad */
 function ukiCensus(w){if(!WCFG[w]){toast(w+" no census bed list.");return}S.ward=w;S.staff=S.icn+" · UKI";S.ed=null;S.map.ward=w;S.map.bld=WCFG[w].bld;go("census")}
@@ -1464,17 +1471,18 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
     <div class="fld"><label for="aMonth">Month</label><select id="aMonth" onchange="S.an.month=+this.value;refresh()"><option value="-1"${sm===-1?" selected":""}>All months (Jan–Dec)</option>${opt(MONTHS,sm,"",(v,i)=>i)}</select></div>
   </div>
   <div class="kpis">
-    <div class="kpi" style="border:2px solid var(--brand)"><span>Rate per 100 admissions</span><b>${o.adm?o.rate.toFixed(2):"—"}</b><i>${o.cases} cases ÷ ${o.adm.toLocaleString()} admissions × 100</i></div>
-    <div class="kpi"><span>Admissions</span><b>${o.adm.toLocaleString()}</b><i>source ${o.src} · + ${o.tin} transfers in</i></div>
-    <div class="kpi"><span>Notified (NEW)</span><b>${o.notified}</b><i>${monLbl(sm)}${sm>CUR_M?" · no data yet":""}</i></div>
-    <div class="kpi"><span>HAI this hospital</span><b>${o.k.INF+o.k.COL}</b><i>Inf ${o.k.INF} · Col ${o.k.COL} · ${o.adm?((o.k.INF+o.k.COL)/o.adm*100).toFixed(2):"—"} per 100</i></div>
-    <div class="kpi"><span>HAI other MOH / hospital</span><b>${o.k.OTHER}</b><i>${o.adm?(o.k.OTHER/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
-    <div class="kpi"><span>Community (not HCAI)</span><b>${o.k.COMM}</b><i>${o.adm?(o.k.COMM/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
-    <div class="kpi"><span>Not counted</span><b>${o.k.UNREV+o.k.CONT}</b><i>${o.k.UNREV} awaiting review · ${o.k.CONT} contaminant (REPEAT never counted)</i></div>
-    <div class="kpi"><span>Per 1,000 patient days</span><b>${o.pd?o.r1k.toFixed(2):"—"}</b><i>${o.bor!=null?"BOR "+o.bor.toFixed(1)+"%":"requires patient days (PD211)"}</i></div>
-
-    <div class="kpi"><span>Patient days</span><b>${o.pd?o.pd.toLocaleString():"—"}</b><i>CVL ${o.cvl} · ventilator ${o.vent}</i></div>
-    <div class="kpi"><span>Device utilisation</span><b>${o.pd?o.du.toFixed(2):"—"}</b><i>${o.pd?"CVL days ÷ patient days":"requires daily patient counts"}</i></div>
+    <div class="kpi click" style="border:2px solid var(--brand)" onclick="kpiInfo('rate')"><span>Rate per 100 admissions ⓘ</span><b>${o.adm?o.rate.toFixed(2):"—"}</b><i>${o.cases} cases ÷ ${o.adm.toLocaleString()} admissions × 100</i></div>
+    <div class="kpi click" onclick="kpiInfo('adm')"><span>Admissions ⓘ</span><b>${o.adm.toLocaleString()}</b><i>source ${o.src} · + ${o.tin} transfers in</i></div>
+    <div class="kpi click" onclick="kpiInfo('notified')"><span>Notified (NEW) ⓘ</span><b>${o.notified}</b><i>${monLbl(sm)}${sm>CUR_M?" · no data yet":""}</i></div>
+    <div class="kpi click" onclick="kpiInfo('own')"><span>HAI this hospital ⓘ</span><b>${o.k.INF+o.k.COL}</b><i>Inf ${o.k.INF} · Col ${o.k.COL} · ${o.adm?((o.k.INF+o.k.COL)/o.adm*100).toFixed(2):"—"} per 100</i></div>
+    <div class="kpi click" onclick="kpiInfo('other')"><span>HAI other MOH / hospital ⓘ</span><b>${o.k.OTHER}</b><i>${o.adm?(o.k.OTHER/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
+    <div class="kpi click" onclick="kpiInfo('comm')"><span>Community (not HCAI) ⓘ</span><b>${o.k.COMM}</b><i>${o.adm?(o.k.COMM/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
+    <div class="kpi click" onclick="kpiInfo('notcounted')"><span>Not counted ⓘ</span><b>${o.k.UNREV+o.k.CONT}</b><i>${o.k.UNREV} awaiting review · ${o.k.CONT} contaminant (REPEAT never counted)</i></div>
+    <div class="kpi click" onclick="kpiInfo('r1k')"><span>Per 1,000 patient days ⓘ</span><b>${o.pd?o.r1k.toFixed(2):"—"}</b><i>${o.bor!=null?"BOR "+o.bor.toFixed(1)+"%":"requires patient days (PD211)"}</i></div>
+    <div class="kpi click" onclick="kpiInfo('pd')"><span>Patient days ⓘ</span><b>${o.pd?o.pd.toLocaleString():"—"}</b><i>source ${o.src}</i></div>
+    <div class="kpi click" onclick="kpiInfo('cvl')"><span>Central line (CVL) days ⓘ</span><b>${o.cvl.toLocaleString()}</b><i>${o.pd?"utilisation "+o.du.toFixed(2):"from daily census"}</i></div>
+    <div class="kpi click" onclick="kpiInfo('vent')"><span>Ventilator days ⓘ</span><b>${o.vent.toLocaleString()}</b><i>${o.pd?"utilisation "+(o.vent/o.pd).toFixed(2):"from daily census"}</i></div>
+    <div class="kpi click" onclick="kpiInfo('du')"><span>Device utilisation (CVL) ⓘ</span><b>${o.pd?o.du.toFixed(2):"—"}</b><i>${o.pd?"CVL days ÷ patient days":"requires patient days"}</i></div>
   </div></div>
   <div class="panel chart"><h3>Monthly incidence per 100 admissions · ${YEAR}${sm>=0?" (data to "+MON3[sm]+")":""} · ${bl}${orgLbl()?" · "+esc(orgLbl()):""}${S.an.ward?" · "+S.an.ward:""}</h3><div class="cbox tall"><canvas id="cSpc" aria-label="Monthly incidence chart"></canvas></div><div class="note" id="nSpc"></div></div>
   <div class="panel chart"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0">NEW cases by ${(S.an.epi||"week")==="week"?"epidemiological week":"month"} · Jan–Dec ${YEAR}${orgLbl()?" · "+esc(orgLbl()):""}${S.an.ward?" · "+S.an.ward:""}</h3>
@@ -1788,7 +1796,7 @@ function fieldHTML(k,c,pre){pre=pre||"cf_";const[key,,label,type,opts]=COL[k];co
   return`<div class="fld"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}"></div>`}
 function caseFields(c,pre,wiz){if(wiz)return wizFields(c,pre);return`<div class="mrow"><div class="fld"><label for="${pre}tag">Tag MDRO</label><select id="${pre}tag"><option${c.tag!=="Clearance"?" selected":""} value="Aktif">Active</option><option${c.tag==="Clearance"?" selected":""}>Clearance</option></select></div><div class="fld"><label for="${pre}month">Month (auto)</label><input id="${pre}month" value="${esc(c.month||"")}" disabled></div><div class="fld"><label for="${pre}group">Group (auto)</label><input id="${pre}group" value="${esc(c.group||"")}" disabled></div></div>
    ${SECTIONS.map(([t,w,keys])=>`<fieldset class="fsec"><legend>${t}</legend>${w?`<p class="who">${w}</p>`:""}<div class="fg">${keys.map(k=>k==="cls"?clsBlock(pre,c):fieldHTML(k,c,pre)).join("")}</div></fieldset>`).join("")}`}
-function lookupHTML(pre){return`<div class="fld lookup" style="margin:0"><label for="${pre}lkQ">Search for a patient in the census (name / RN / IC No.)</label><input id="${pre}lkQ" placeholder="e.g. name or RN" oninput="lookup(this.value,'${pre}')" autocomplete="off"><div class="lk-res" id="${pre}lkRes"></div></div>`}
+function lookupHTML(pre){return`<div class="fld lookup" style="margin:0"><label for="${pre}lkQ">Search patient: today's census + previous MDRO records / JKNS (name / RN / IC No.)</label><input id="${pre}lkQ" placeholder="e.g. name or RN" oninput="lookup(this.value,'${pre}')" autocomplete="off"><div class="lk-res" id="${pre}lkRes"></div></div>`}
 function syncAuto(pre,isNew){const sp=$(pre+"spec").value;const cb=$(pre+"cls");if(cb&&/BLOOD/.test(sp)&&!cb.dataset.t){setCls(pre,"t","INFECTION",true)}const sd=$(pre+"sample_date").value;$(pre+"month").value=sd?MONTHS[+sd.slice(5,7)-1]:"";$(pre+"group").value=GROUP[$(pre+"subtype").value]||"";
   if(!isNew)return;const t={name:$(pre+"name").value,rn:$(pre+"rn").value,ic:$(pre+"ic").value};const prev=CASES.filter(x=>t.name&&same(x,t)&&x.subtype===$(pre+"subtype").value);
   const n=$(pre+"dupNote");if(!n)return;if(prev.length){n.hidden=false;n.innerHTML=`${svg("list")}<div>This patient already has ${prev.length} record(s) of <b>${esc(prev[0].subtype)}</b> (latest sample ${fmt(prev[0].sample_date)}). You will be asked whether this sample is <b>NEW</b> or <b>REPEAT</b> when you save.</div>`}else n.hidden=true}
@@ -1808,9 +1816,14 @@ function openCase(id){if(!id){go("register");return}
   wireSync("cf_",false);wireAttInputs(id);dataStatus(c).miss.forEach(k=>{const e=$("cf_"+k);if(e)(e.closest(".fld")||e).classList.add("missing")})}
 function lookup(q,pre){pre=pre||"cf_";q=q.trim().toUpperCase();const box=$(pre+"lkRes");if(q.length<3){box.innerHTML="";return}
   const res=[];WARDS.forEach(w=>{const c=latestCensus(w);if(!c)return;c.rows.forEach(r=>{if([r.name,r.rn,r.ic].join(" ").toUpperCase().includes(q)){const l=locate(r);if(l.st==="IN"&&l.ward===w)res.push({...pick(r),bed:r.bed,ward:w,date:c.date})}})});
-  box.innerHTML=res.slice(0,6).map(r=>`<button type="button" data-r="${jattr(r)}" onclick="fillFrom(JSON.parse(this.dataset.r),'${pre}')"><span><b>${esc(r.name)}</b><br><small>RN ${esc(r.rn)} · ${esc(r.ic)}</small></span><span class="pill p-ok">${esc(r.ward)} · bed ${esc(r.bed)}</span></button>`).join("")||'<div class="hint" style="margin:0">Not in the latest census. Fill in the details manually below.</div>'}
-function fillFrom(r,pre){pre=pre||"cf_";$(pre+"name").value=r.name;$(pre+"rn").value=r.rn;$(pre+"ic").value=r.ic;$(pre+"ward").value=r.ward;$(pre+"bed").value=r.bed;const d=WCFG[r.ward];if(d){const m={MEDIKAL:"Medical",SURGIKAL:"Surgery","SURGIKAL, ORTHO":"Surgery","ORTHO, SURGIKAL":"Orthopaedics",ANAEST:"Anaesthesiology",PEADS:"Paediatric","O&G":"Obstetric & Gynae",PSIKIATRI:"Psychiatry"}[d.disc];if(m&&!$(pre+"dept").value)$(pre+"dept").value=m}
-  $(pre+"lkRes").innerHTML=`<div class="banner info">${svg("bed")}<div>Filled from census ${esc(r.ward)} (${fmt(r.date)}).</div></div>`;$(pre+"name").dispatchEvent(new Event("change"));if(pre==="rg_")saveDraft()}
+  const qn=q.replace(/[^A-Z0-9]/g,"");const seen=new Map();
+  CASES.forEach(c=>{const hay=[c.name,c.rn,c.ic].join(" ").toUpperCase();if(!(hay.includes(q)||(qn.length>=3&&hay.replace(/[^A-Z0-9]/g,"").includes(qn))))return;const k=normR(c.rn)||normR(c.ic)||normN(c.name);const o=seen.get(k);if(!o)seen.set(k,{c,n:1,orgs:new Set([c.subtype]),jk:c.src==="jkns"||c.jkns==="YES"});else{o.n++;o.orgs.add(c.subtype);if(c.sample_date>o.c.sample_date)o.c=c;if(c.src==="jkns")o.jk=true}});
+  const prev=[...seen.values()].sort((a,b)=>b.c.sample_date.localeCompare(a.c.sample_date)).slice(0,8);
+  const cen=res.slice(0,6).map(r=>`<button type="button" data-r="${jattr(r)}" onclick="fillFrom(JSON.parse(this.dataset.r),'${pre}')"><span><b>${esc(r.name)}</b><br><small>RN ${esc(r.rn)} · ${esc(r.ic)}</small></span><span class="pill p-ok">${esc(r.ward)} · bed ${esc(r.bed)}</span></button>`).join("");
+  const pv=prev.map(o=>{const c=o.c;const r={name:c.name,rn:c.rn||"",ic:c.ic||"",ward:c.ward||"",bed:c.bed||"",date:c.sample_date,src:"rec",dept:c.dept||""};return`<button type="button" data-r="${jattr(r)}" onclick="fillFrom(JSON.parse(this.dataset.r),'${pre}')"><span><b>${esc(c.name)}</b><br><small>RN ${esc(c.rn||"—")} · ${esc(c.ic||"—")}</small><br><small>${esc([...o.orgs].join(", "))} · latest ${fmt(c.sample_date)} · ${esc(c.ward||"")}</small></span><span class="pill ${o.jk?"p-brand":"p-mut"}">${o.n} record${o.n>1?"s":""}${o.jk?" · JKNS":""}</span></button>`}).join("");
+  box.innerHTML=(cen?`<div class="lk-h">In today's census</div>${cen}`:"")+(pv?`<div class="lk-h">Previous MDRO records (masterlist / JKNS)</div>${pv}`:"")||'<div class="hint" style="margin:0">Not found in the census or previous MDRO records (masterlist / JKNS). Fill in the details manually below.</div>'}
+function fillFrom(r,pre){pre=pre||"cf_";$(pre+"name").value=r.name;$(pre+"rn").value=r.rn;$(pre+"ic").value=r.ic;if(r.src==="rec"){const cl=locate(r);if(cl&&cl.st==="IN"&&cl.date>=addDays(TODAY,-2)){r.ward=cl.ward;r.bed=cl.bed||"";r.src="cen"}}if(r.src!=="rec"||!$(pre+"ward").value)$(pre+"ward").value=r.ward;if(r.src!=="rec")$(pre+"bed").value=r.bed;if(r.dept&&$(pre+"dept")&&!$(pre+"dept").value)$(pre+"dept").value=r.dept;const d=WCFG[r.ward];if(d){const m={MEDIKAL:"Medical",SURGIKAL:"Surgery","SURGIKAL, ORTHO":"Surgery","ORTHO, SURGIKAL":"Orthopaedics",ANAEST:"Anaesthesiology",PEADS:"Paediatric","O&G":"Obstetric & Gynae",PSIKIATRI:"Psychiatry"}[d.disc];if(m&&!$(pre+"dept").value)$(pre+"dept").value=m}
+  $(pre+"lkRes").innerHTML=`<div class="banner info">${svg("bed")}<div>${r.src==="rec"?`Filled from previous MDRO record (latest sample ${fmt(r.date)}, ${esc(r.ward)}). Patient not in today's census, so check the ward and bed.`:`Filled from census ${esc(r.ward)} (${fmt(r.date)}).`}</div></div>`;$(pre+"name").dispatchEvent(new Event("change"));if(pre==="rg_")saveDraft()}
 function collectCase(pre){const g=k=>{const e=$(pre+k);return!e?"":e.type==="checkbox"?e.checked:e.value.trim()};
   const need=[["name","Patient name"],["ward","Ward"],["spec","Specimen type"],["sample_date","Sample date"],["subtype","Organism subtype"]].filter(([k])=>!g(k));
   if(!g("rn")&&!g("ic"))need.push(["rn","RN or IC No."]);
@@ -2799,6 +2812,27 @@ function planDone(){const W=WCFG[S.map.ward];const P=MAPS[W.code]||{};const miss
   toast(miss.length?`Plan saved. ${miss.length} beds not yet placed (${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}) — they will not show on the map.`:"Plan saved. All beds placed.");
   const back=S.planBack;S.planBack="";if(back&&back!=="mapping")go(back);else refresh()}
 FIND.push({t:"Upload a new ward floor plan (image / PDF)",k:"floor plan pelan lantai mapping upload gambar pdf katil bed list",d:"Change plan & bed numbers",run:()=>openPlanUpdate()});
+
+/* ===== tekan kad Analysis: tunjuk formula & sumber data dengan angka sebenar ===== */
+function kpiInfo(k){const{M}=aggMonth();const sm=S.an.month;const o=sm===-1?sumMons(M):fullYear(M)[sm];const scope=`${S.an.ward||"All wards"} · ${monLbl(sm)}${sm===-1?"":" "+YEAR}${orgLbl()?" · "+orgLbl():""}`;const f=(a,d=2)=>Number(a||0).toFixed(d);const n=v=>Number(v||0).toLocaleString();
+  const srcAdm=`<b>PD211</b> (monthly ward statistics) when imported for that month; otherwise the total of <b>new admissions</b> in each ward's daily census.`;
+  const devSrc=`Each day a ward submits its census, every patient ticked with the device counts as <b>1 day</b> (once-a-day snapshot). Older days come from the imported <b>CENSUS HARIAN</b> daily totals. Days without a census are not counted.`;
+  const I={rate:["Rate per 100 admissions",`Cases counted ÷ admissions × 100`,`${o.cases} ÷ ${n(o.adm)} × 100 = <b>${o.adm?f(o.rate):"—"}</b>`,`<b>Cases counted</b> depends on <i>Rate based on</i>: ${esc(BASIS_L[curBasis()])}. Only NEW cases by sample date; REPEAT, contaminant and not-yet-classified cases are excluded.<br><b>Admissions</b>: ${srcAdm}`],
+   adm:["Admissions",`Sum of admissions for the ward(s) and month(s) selected`,`= <b>${n(o.adm)}</b> (source: ${esc(o.src)})`,srcAdm+` Transfers in (${o.tin}) are shown separately and not added.`],
+   notified:["Notified (NEW)",`Count of NEW cases in the masterlist`,`= <b>${o.notified}</b>`,`All NEW cases by sample date for the filters selected (any classification). REPEAT cases are not counted.`],
+   own:["HAI this hospital",`Infection (HAI own hospital) + Colonization (HAI own hospital)`,`${o.k.INF} + ${o.k.COL} = <b>${o.k.INF+o.k.COL}</b> → ${o.k.INF+o.k.COL} ÷ ${n(o.adm)} × 100 = <b>${o.adm?f((o.k.INF+o.k.COL)/o.adm*100):"—"}</b> per 100`,`From masterlist columns <i>HAI = HAI - own hospital</i> and <i>INFECTION vs COLONIZER</i>.`],
+   other:["HAI other MOH / hospital",`Cases with HAI = HAI - other facility`,`= <b>${o.k.OTHER}</b> → ${o.k.OTHER} ÷ ${n(o.adm)} × 100 = <b>${o.adm?f(o.k.OTHER/o.adm*100):"—"}</b> per 100`,`Acquired at another MOH facility or private hospital, detected here.`],
+   comm:["Community (not HCAI)",`Cases with HAI = NOT HCAI`,`= <b>${o.k.COMM}</b> → ${o.k.COMM} ÷ ${n(o.adm)} × 100 = <b>${o.adm?f(o.k.COMM/o.adm*100):"—"}</b> per 100`,`Positive within 48 hours of admission with no healthcare exposure.`],
+   notcounted:["Not counted",`Awaiting review + contaminant`,`${o.k.UNREV} + ${o.k.CONT} = <b>${o.k.UNREV+o.k.CONT}</b>`,`<b>Awaiting review</b>: HAI or infection/colonizer not filled in yet — classify them so they enter the rate. <b>Contaminant</b> is never counted. REPEAT cases are excluded everywhere.`],
+   r1k:["Per 1,000 patient days",`Cases counted ÷ patient days × 1,000`,`${o.cases} ÷ ${n(o.pd)} × 1,000 = <b>${o.pd?f(o.r1k):"—"}</b>`,`Patient days from PD211 (or daily census patient counts). BOR = patient days ÷ (operational beds × days in month) × 100${o.bor!=null?` = <b>${f(o.bor,1)}%</b>`:""}.`],
+   pd:["Patient days",`Sum of patient days for the ward(s) and month(s) selected`,`= <b>${o.pd?n(o.pd):"—"}</b> (source: ${esc(o.src)})`,`<b>PD211</b> “Jumlah hari pesakit” when imported; otherwise the number of patients in each daily census (1 patient = 1 day).`],
+   cvl:["Central line (CVL) days",`Σ (patients with CVL ticked in each day's census)`,`= <b>${n(o.cvl)}</b> CVL days`,devSrc+` Example: 3 patients with CVL for 5 days = 15 CVL days.`],
+   vent:["Ventilator days",`Σ (patients on ventilator ticked in each day's census)`,`= <b>${n(o.vent)}</b> ventilator days${o.pd?` · utilisation ${n(o.vent)} ÷ ${n(o.pd)} = <b>${f(o.vent/o.pd)}</b>`:""}`,devSrc],
+   du:["Device utilisation ratio (CVL)",`CVL days ÷ patient days`,`${n(o.cvl)} ÷ ${n(o.pd)} = <b>${o.pd?f(o.du):"—"}</b>`,`Share of patient days with a central line (0.10 = 10% of patient days). CVL days: ${devSrc}`]};
+  const x=I[k];if(!x)return;
+  openModal(`<div class="m-head"><div class="hx"><h3>${x[0]}</h3><p>${esc(scope)}</p></div>${xBtn()}</div>
+   <div class="m-body"><div class="fbox"><div class="lbl" style="margin-top:0">Formula</div><div class="fml">${x[1]}</div><div class="lbl">With the current filters</div><div class="fml">${x[2]}</div></div><div class="lbl">Where the data comes from</div><p style="margin:4px 0 0;line-height:1.55">${x[3]}</p></div>
+   <div class="m-foot"><button class="btn btn-pri" onclick="closeModal()">OK</button></div>`)}
 
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
