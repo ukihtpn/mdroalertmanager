@@ -635,6 +635,9 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .findres button{display:block;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 14px;cursor:pointer;font:inherit;color:var(--ink)}
 .findres button:hover,.findres button:first-child{border-color:var(--brand);background:var(--brand-soft)}
 .findres b{display:block;font-size:14.5px}.findres small{color:var(--mut);font-size:12.5px}
+.linkbox{margin:14px 0 0;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;background:var(--panel)}
+.linkrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}.linkrow:first-of-type{border-top:0}
+.linkrow b{display:block;font-size:13.5px}.linkrow small{color:var(--mut);font-size:12px}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1002,10 +1005,10 @@ function tabsFor(){
 function renderNav(){{const fb=$("findBtn");if(fb)fb.hidden=S.role!=="uki"}const T=tabsFor();
   $("snav").innerHTML=T.map(([id,l,i,c])=>`<button class="snav" aria-selected="${S.tab===id}" onclick="go('${id}')">${svg(i)}${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("");
   $("tabs").innerHTML=T.map(([id,l,i,c])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" onclick="go('${id}')">${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("")}
-function go(t){S.tab=t;destroyCharts();renderNav();const R={reports:rReports,dash:rDash,formsU:rFormsUki,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
+function go(t){applyPlanBeds();S.tab=t;destroyCharts();renderNav();const R={reports:rReports,dash:rDash,formsU:rFormsUki,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
   $("main").innerHTML=`<div class="page on" id="pg">${R[t]()}</div>`;after(t);window.scrollTo(0,0)}
 function after(t){if(t==="register")wireRegister();if(t==="census")paintEd();if(t==="analysis")drawCharts();if(t==="mapping")afterMap()}
-function refresh(){dqBump();renderNav();const y=window.scrollY;go(S.tab);window.scrollTo(0,y)}
+function refresh(){applyPlanBeds();dqBump();renderNav();const y=window.scrollY;go(S.tab);window.scrollTo(0,y)}
 
 /* ================= UKI: dashboard ================= */
 function stat(c,ico,label,n,sub,act){return`<${act?"button":"div"} class="stat" style="--c:var(${c})"${act?` onclick="${act}"`:""}><span class="ico">${svg(ico)}</span><div class="tx"><span class="top">${label}</span><span class="n">${n}</span><span class="sub">${sub}</span></div></${act?"button":"div"}>`}
@@ -1245,9 +1248,10 @@ function openReconcile(){const J=S.jkRec;const p=recPlan();const lbl=k=>(COLS.fi
    <div class="banner info" style="margin-top:12px">${svg("list")}<div>After reconciling, <b>Jan–${MON3[J.upto]} ${YEAR} locked</b>. Subsequent LAB_SURVEILLANCE imports will not add cases for these months. Analysis and monthly reports Jan–${MON3[J.upto]} will match JKNS.</div></div></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="applyReconcile()">Reconcile &amp; lock up to ${MON3[J.upto]} ${YEAR}</button></div>`,true)}
 function applyReconcile(){const J=S.jkRec;const p=recPlan();const tagOf=d=>d&&d>=addDays(TODAY,-180)?"Aktif":"Clearance";
-  p.add.forEach(({o})=>{const c=Object.assign({id:uid("K"),jkns:"YES",spec_other:"",organism:"",indication:"",hai:"",infcol:"",habsi:"",pbsi:"",sbsi:"",form_done:"",icn_lab:S.icn||"",icn_ward:"",icn_db:S.icn||"",dod:"",pt_status:"",notes:"Added from the JKNS file ("+J.file+")",outbreak:"",outbreak_code:"",cre_gene:"",kkm:false,bed:"",tag:tagOf(o.sample_date),src:"jkns"},o);
+  const fin=p.lim;p.add.forEach(({o})=>{const c=Object.assign({jk_final:fin,id:uid("K"),jkns:"YES",spec_other:"",organism:"",indication:"",hai:"",infcol:"",habsi:"",pbsi:"",sbsi:"",form_done:"",icn_lab:S.icn||"",icn_ward:"",icn_db:S.icn||"",dod:"",pt_status:"",notes:"Added from the JKNS file ("+J.file+")",outbreak:"",outbreak_code:"",cre_gene:"",kkm:false,bed:"",tag:tagOf(o.sample_date),src:"jkns"},o);
     c.month=MONTHS[+c.sample_date.slice(5,7)-1];c.group=GROUP[c.subtype]||"";CASES.push(c)});
-  p.upd.forEach(({c,ch})=>{Object.assign(c,ch);if(ch.subtype)c.group=GROUP[c.subtype]||"";if(ch.sample_date)c.month=MONTHS[+c.sample_date.slice(5,7)-1]});
+  p.R&&Object.values(jkPair(p.R,CASES.filter(c=>c.sample_date&&c.sample_date.startsWith(String(YEAR))&&c.hai!=="CONTAMINATION"))).forEach(c=>{c.jk_final=fin;if(!c.jkns)c.jkns="YES";if(!c.form_done)c.form_done="YES"});
+  p.upd.forEach(({c,ch})=>{Object.assign(c,ch);c.jk_final=fin;if(!c.jkns)c.jkns="YES";if(!c.form_done)c.form_done="YES";if(ch.subtype)c.group=GROUP[c.subtype]||"";if(ch.sample_date)c.month=MONTHS[+c.sample_date.slice(5,7)-1]});
   let nx=0;p.extra.forEach(c=>{const d=J.dec[c.id];if(d==="REPEAT"){c.case_status="REPEAT";nx++}else if(d==="CONT"){c.hai="CONTAMINATION";nx++}});
   const id="FINAL|"+YEAR;FINAL=FINAL.filter(x=>x.id!==id);FINAL.push({id,year:YEAR,upto:p.lim,at:Date.now(),by:S.icn||"UKI",file:J.file});
   S.jkRec=null;closeModal();refresh();toast(`Done: ${p.add.length} cases added, ${p.upd.length} cases updated${nx?`, ${nx} changed`:""}. Jan–${MON3[+p.lim.slice(5,7)-1]} ${YEAR} locked per JKNS.`)}
@@ -1300,7 +1304,7 @@ const DQ={REP:{l:"Possible REPEAT / double entry",s:"crit"},STAT:{l:"NEW/REPEAT 
   ORG:{l:"Organism does not match subtype",s:"crit"},DATE:{l:"Illogical dates",s:"crit"},WARD:{l:"Sample ward empty",s:"warn"},BSI:{l:"BSI: primary/secondary not filled in",s:"warn"},OUT:{l:"HA-BSI: 1-month outcome not filled in",s:"warn"},
   RN:{l:"RN empty / unusual format",s:"mut"},IC:{l:"IC / passport unusual format",s:"mut"}};
 let DQC=null;function dqIssues(){const key=CASES.length+"|"+(window.__dqv||0);if(DQC&&DQC.k===key&&DQC.t===TODAY)return DQC.v;
-  const yr=String(YEAR);const C=CASES.filter(c=>c.sample_date&&c.sample_date.startsWith(yr));const out=[];const add=(c,code,msg)=>{if((c.dq_ok||[]).includes(code))return;out.push({c,code,msg})};
+  const yr=String(YEAR);const C=CASES.filter(c=>c.sample_date&&c.sample_date.startsWith(yr));const out=[];const add=(c,code,msg)=>{if((c.dq_ok||[]).includes(code))return;if(c.jk_final&&code!=="DATE"&&code!=="ORG")return;out.push({c,code,msg})};
   const NEW=CASES.filter(c=>c.case_status==="NEW"&&c.hai!=="CONTAMINATION"&&c.sample_date).sort((a,b)=>a.sample_date.localeCompare(b.sample_date));
   const IX=new Map(NEW.map((x,i)=>[x,i]));const dd=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);const org=c=>normOrg(c.organism||"");
   C.forEach(c=>{const isNew=c.case_status==="NEW",cont=c.hai==="CONTAMINATION";
@@ -1540,6 +1544,19 @@ function mapCensus(){const M=S.map;if(mapEditing()){EXTMETA=Object.fromEntries((
   const c=censusOf(M.ward,M.date);const ih=!c&&BEDHIST[M.ward+"|"+M.date];
   if(ih)return{c:null,lc:null,imp:true,rows:Object.entries(ih).map(([bed,t])=>({bed,name:"",imp:true,mdro:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))};
   const lc=c||latestCensus(M.ward,M.date);EXTMETA=Object.fromEntries(((lc&&lc.date===M.date&&lc.ext)||[]).map(e=>[e.bed,e]));return{c,lc,rows:lc?lc.rows:[]}}
+function mapPatientList(W,rows,M,draft){const R=rows.filter(r=>r.name||r.imp).slice().sort((a,b)=>bedIdx(W.code,a.bed)-bedIdx(W.code,b.bed));
+  const q=(S.mlpQ||"").toUpperCase();const V=R.filter(r=>!q||[r.name,r.rn,r.ic,r.bed].join(" ").toUpperCase().includes(q));
+  const prev=latestCensus(W.code,addDays(M.date,-1));const was=new Set(prev?prev.rows.map(r=>normN(r.name)+"|"+normR(r.rn)):[]);
+  return`<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Patient list · ${esc(W.code)} · ${fmt(M.date)}</h3><p>${R.length} patients${draft?" (draft, not yet submitted)":""}. Tap a name for the patient profile. <span class="pill p-crit">MDRO</span> from UKI tags.</p></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="search" placeholder="Search name / RN / bed" value="${esc(S.mlpQ||"")}" oninput="S.mlpQ=this.value;clearTimeout(window._mlp);window._mlp=setTimeout(refresh,350)" style="padding:8px 10px;min-width:200px"><button class="btn btn-ghost btn-sm" onclick="dlMapList()">${svg("up")}Excel</button></div></div>
+   <div class="tbl-wrap"><table id="mapList"><thead><tr><th>Bed</th><th>Patient / RN</th><th>IC</th><th>MDRO</th><th>Infectious disease</th><th>Device</th><th>Status</th></tr></thead><tbody>
+   ${V.map(r=>{const st=rowState(r);const org=st.orgs||[];const cs=r.name?mdroOf(r):[];const isNew=prev&&r.name&&!was.has(normN(r.name)+"|"+normR(r.rn));
+     return`<tr><td class="mono"><b>${esc(r.bed||"—")}</b></td><td class="nm">${cs.length?`<button class="namebtn mdro" onclick="openProfile('${cs[0].id}')">${esc(r.name)}</button>`:`<b>${esc(r.name||"Imported data")}</b>`}<span class="mono">RN ${esc(r.rn||"—")}</span></td><td class="mono">${esc(r.ic||"—")}</td>
+      <td>${org.length?`<div class="pills">${org.map(o=>`<span class="pill p-crit">${esc(o)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td><td>${(r.inf||[]).length?`<div class="pills">${r.inf.map(k=>`<span class="pill ${INFP[k]==="air"?"p-brand":INFP[k]==="drop"?"p-drop":"p-warn"}">${esc(k)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td>
+      <td>${(r.dev||[]).length?esc(r.dev.join(", ")):'<span class="pz">—</span>'}</td><td>${r._in?`<span class="pill p-drop">Transfer in from ${esc(r._in)}</span>`:isNew?'<span class="pill p-brand">New today</span>':'<span class="pz">—</span>'}</td></tr>`}).join("")||`<tr><td colspan="7" class="empty-row">${R.length?"No match.":"No patients for this date."}</td></tr>`}</tbody></table></div></div>`}
+function dlMapList(){const t=$("mapList");if(!t||!window.XLSX){toast("Cannot generate Excel here.");return}const ws=XLSX.utils.table_to_sheet(t);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Patients");
+  saveFile(`Patient-list-${S.map.ward.replace(/\s/g,"")}-${S.map.date}.xlsx`,new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}))}
+function mapCopyYesterday(){const l=latestCensus(S.ward,addDays(TODAY,-1));if(!l){toast("No earlier census for this ward.");return}S.ed.rows=currentIn(S.ward).map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])]}));if(l.ext&&l.ext.length)S.ed.ext=JSON.parse(JSON.stringify(l.ext));S.ed.pre=1;refresh();toast(`Copied ${S.ed.rows.length} patients from ${fmt(l.date)}. Tap a bed to change, move or remove a patient.`)}
 function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S.ward].bld}
   const W=WCFG[M.ward];const{c,lc,imp,rows,draft}=mapCensus();IMPMODE=!!imp;const byBed=Object.fromEntries(rows.map(r=>[r.bed,r]));
   const extB=[...new Set(rows.filter(r=>isExt(r.bed)).map(r=>r.bed).concat(Object.keys(EXTMETA)))].sort(bedNat);const extN=extB.length;const ST=W.beds.concat(extB).map(b=>rowState(byBed[b]));const n=k=>ST.filter(s=>s.st===k).length;const occ=W.beds.length+extN-n("e");
@@ -1548,7 +1565,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
   const mv=MOVES.filter(m=>m.date===M.date&&(m.from===M.ward||m.to===M.ward)).sort((a,b)=>b.at-a.at);
   const wl=S.role==="ward"?[S.ward]:WARD_CFG.filter(w=>w.bld===M.bld).map(w=>w.code);
   return`${S.role==="uki"?bancStatus():""}<div class="sec-h"><div><h2>Ward mapping</h2><p>Bed status from the daily census. MDRO from UKI tags; infectious diseases &amp; devices from the ward census.</p></div>
-   ${S.role==="uki"?`<button class="btn btn-ghost" onclick="S.map.edit=!S.map.edit;S.map.arm='';refresh()">${svg("map")}${M.edit?"Done arranging plan":"Arrange floor plan"}</button>`:""}</div>
+   ${S.role==="uki"||(S.role==="ward"&&M.ward===S.ward)?`<button class="btn btn-ghost" onclick="S.map.edit=!S.map.edit;S.map.arm='';refresh()">${svg("map")}${M.edit?"Done arranging plan":"Update floor plan"}</button>`:""}</div>
   <div class="panel">
    <div class="map-ctl">
     ${S.role==="uki"?`<div class="fld"><label for="mBld">Building</label><select id="mBld" onchange="S.map.bld=this.value;S.map.ward=WARD_CFG.find(w=>w.bld===this.value).code;refresh()"><option value="MB"${M.bld==="MB"?" selected":""}>Main Building</option><option value="WCC"${M.bld==="WCC"?" selected":""}>WCC (Women &amp; Children)</option></select></div>`:""}
@@ -1557,7 +1574,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
     <span class="hint" style="margin:0 0 4px">${draft?`<span class="pill p-warn">Draft · not submitted</span> Tap a bed to add / edit a patient`:imp?`<span class="pill p-brand">Excel import data</span> Infection status by bed (no patient names)`:c?`Census submitted ${fmtT(c.at)} by ${esc(c.by)}`:lc?`<span class="pill p-warn">Census ${fmt(M.date)} not submitted</span> Showing census ${fmt(lc.date)}`:'<span class="pill p-warn">No census</span>'}</span>
    </div>
    <div class="legend"><span><i class="sw st-g"></i>Patient</span><span><i class="sw st-r"></i>MDRO (tag UKI)</span><span><i class="sw st-a"></i>Contact (AGE, rotavirus, C.diff, HFMD)</span><span><i class="sw st-g" style="box-shadow:0 0 0 2px var(--air)"></i>Airborne (PTB, TRO PTB, VZV)</span><span><i class="sw st-g" style="box-shadow:0 0 0 2px var(--drop)"></i>Droplet (influenza, RSV, COVID-19)</span><span><i class="sw st-e"></i>Empty</span></div>
-   ${draft?`<div class="banner warn" style="margin:0 0 12px">${svg("map")}<div><b>Fill mode on mapping · ${esc(M.ward)}</b> Tap an empty bed to add a patient, tap an occupied bed to edit, change bed or remove. When done, tap <b>Submit census</b>.</div></div>`:""}
+   ${draft?`<div class="banner warn" style="margin:0 0 12px">${svg("map")}<div><b>Fill mode on mapping · ${esc(M.ward)}</b> Tap an empty bed to add a patient, tap an occupied bed to edit, change bed or remove. When done, tap <b>Submit census</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="mapCopyYesterday()">Copy yesterday's patients</button></div></div></div>`:""}
    <div class="map-body">
     <div class="map-canvas" id="mapCanvas">${M.edit?planEditor(W):mapDraw(W,byBed)}</div>
     <aside class="side">
@@ -1571,6 +1588,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
     </aside>
    </div>
   </div>
+  ${mapPatientList(W,rows,M,draft)}
   ${(()=>{const w=S.role==="ward"?S.ward:"";const R=[...MOVES].filter(m=>(!w||m.from===w||m.to===w)&&m.type!=="BED"&&(m.type!=="DISCHARGE"||mdroOf(m).length)).sort((a,b)=>b.at-a.at).slice(0,8);
     return`<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Recent movements</h3><p>Ward transfers &amp; discharges of MDRO patients.</p></div><button class="btn btn-ghost btn-sm" onclick="go('moves')">View all</button></div><div class="moves">${R.map(mvHTML).join("")||'<div class="hint" style="margin:0">None.</div>'}</div></div>`})()}`}
 function bedTip(b,r,s){const e=EXTMETA[b];const xl=e?` (extra${e.near?", near bed "+e.near:""}${e.note?", "+e.note:""})`:"";if(!r)return`Bed ${b}${xl} · ${IMPMODE?"no infection records":"empty"}`;return`Bed ${b}${xl} · ${r.name||"imported data"}`+(s.orgs.length?` · MDRO ${s.orgs.join(", ")}`:"")+((r.inf||[]).length?` · ${(r.inf).map(k=>infLabel(k,S.role)).join(", ")}`:"")+((r.dev||[]).length?` · ${r.dev.join(", ")}`:"")}
@@ -1600,17 +1618,26 @@ function afterMap(){const cv=$("mapCanvas");if(!cv)return;sizeMarkers();
 function sizeMarkers(){const st=$("stage");if(st)st.style.setProperty("--m",Math.max(16,Math.min(34,st.clientWidth*.033))+"px")}
 addEventListener("resize",sizeMarkers);
 /* floor plan editor (UKI) */
+WARD_CFG.forEach(w=>{w.beds0=w.beds.slice()});
+function applyPlanBeds(){WARD_CFG.forEach(w=>{const P=MAPS[w.code];w.beds=P&&Array.isArray(P.beds)&&P.beds.length?P.beds.slice():w.beds0.slice()})}
+function parseBeds(t){const out=[];String(t||"").split(/[,;\n]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{const m=x.match(/^(.*?)(\d+)\s*-\s*(\d+)$/);if(m&&+m[3]>=+m[2]&&+m[3]-+m[2]<200){for(let i=+m[2];i<=+m[3];i++)out.push((m[1]||"")+i)}else out.push(x)});return[...new Set(out)]}
+function setPlanBeds(){const W=WCFG[S.map.ward];const L=parseBeds($("bedListIn").value);if(!L.length){toast("Enter at least one bed.");return}const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=L;applyPlanBeds();toast(`${L.length} beds set for ${W.code}.`);refresh()}
+async function planFromFile(f){if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const pg=await pdf.getPage(1);const vp=pg.getViewport({scale:2});const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;return cv.toDataURL("image/jpeg",.85)}
+  return await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=e=>res(e.target.result);rd.onerror=rej;rd.readAsDataURL(f)})}
+function compactBeds(B){const out=[];let i=0;while(i<B.length){const m=String(B[i]).match(/^(.*?)(\d+)$/);if(!m){out.push(B[i]);i++;continue}let j=i;while(j+1<B.length){const n=String(B[j+1]).match(/^(.*?)(\d+)$/);if(n&&n[1]===m[1]&&+n[2]===+String(B[j]).match(/(\d+)$/)[1]+1)j++;else break}out.push(j>i?`${m[1]}${m[2]}-${String(B[j]).match(/(\d+)$/)[1]}`:B[i]);i=j+1}return out.join(", ")}
 function planEditor(W){const P=MAPS[W.code]||{img:"",pos:{}};const arm=S.map.arm;
   return`<div class="planbar"><button class="btn btn-ghost btn-sm" onclick="$('planIn').click()">${svg("up")}${P.img?"Change plan image":"Upload plan image"}</button>
    ${P.img?`<button class="btn btn-ghost btn-sm" style="color:var(--crit)" onclick="delete MAPS['${W.code}'];refresh()">Remove plan</button>`:""}
-   <span class="hint" style="margin:0">${P.img?"Choose a bed below, then tap on the plan to place it. Drag a marker to move it.":"Use a PNG/JPG image of the ward floor plan."}</span></div>
+   <span class="hint" style="margin:0">${P.img?"Choose a bed below, then tap on the plan to place it. Drag a marker to move it.":"Use a PNG/JPG image or PDF of the ward floor plan."}</span></div>
+   <div class="mrow" style="align-items:flex-end;margin:10px 0"><div class="fld" style="flex:3"><label for="bedListIn">Bed list for ${esc(W.code)} (use ranges, e.g. 1-42, ISO 1, ISO 2)</label><input id="bedListIn" value="${esc(compactBeds(W.beds))}"></div><div class="fld" style="flex:none"><button class="btn btn-ghost" onclick="setPlanBeds()">Apply bed list</button></div>
+    <div class="fld" style="flex:1"><label for="planFrom">Plan in use from</label><input id="planFrom" type="date" value="${esc(P.from||"")}" onchange="(MAPS['${W.code}']=MAPS['${W.code}']||{img:'',pos:{}}).from=this.value"></div></div>
    ${P.img?`<div class="stage edit${arm?" arm":""}" id="stage"><img src="${P.img}" alt="Floor plan ${esc(W.code)}" id="planImg">${W.beds.concat(EXTS).filter(b=>P.pos[b]).map(b=>`<button class="bed-m ${isExt(b)?"st-ext":"st-g"}" style="left:${P.pos[b][0]}%;top:${P.pos[b][1]}%" data-pb="${esc(b)}">${esc(b.replace("ISO ",""))}</button>`).join("")}</div>
    <div class="bchips">${W.beds.concat(EXTS).map(b=>`<button aria-pressed="${arm===b}" class="${P.pos[b]?"placed":""}" onclick="S.map.arm=S.map.arm==='${esc(b)}'?'':'${esc(b)}';refresh()">${esc(b)}</button>`).join("")}</div>
    <div class="addrow"><input id="newBed" placeholder="New bed number, e.g. 45" aria-label="New bed"><button class="btn btn-ghost" onclick="addBed()">+ Add permanent bed</button></div>
    <div class="hint">${W.beds.filter(b=>P.pos[b]).length}/${W.beds.length} beds placed. <b>EXT 1–4</b> are positions for extra beds (e.g. corridor); place them so extension beds appear on the plan when the ward uses them.</div>`:`<div class="empty-row">No plan for ${esc(W.code)}.</div>`}
-   <input type="file" id="planIn" accept="image/*" hidden>`}
+   <input type="file" id="planIn" accept="image/*,application/pdf,.pdf" hidden>`}
 function wirePlanEditor(){const W=WCFG[S.map.ward];
-  $("planIn").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{MAPS[W.code]={img:ev.target.result,pos:(MAPS[W.code]||{}).pos||{}};toast("Plan uploaded. Place the beds.");refresh()};rd.readAsDataURL(f)};
+  $("planIn").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const img=await planFromFile(f);const old=MAPS[W.code]||{};MAPS[W.code]={img,pos:old.pos||{},beds:old.beds,from:TODAY,by:S.icn||S.staff||"",v:old.v};toast("Plan uploaded. Check the bed list, then place each bed on the plan.");refresh()}catch(err){toast("Could not read the file: "+(err.message||err))}};
   const st=$("stage");if(!st)return;const P=MAPS[W.code];
   const pct=e=>{const r=st.getBoundingClientRect();return[Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
   st.addEventListener("click",e=>{if(e.target.dataset.pb||!S.map.arm)return;P.pos[S.map.arm]=pct(e);const i=W.beds.indexOf(S.map.arm);const nx=W.beds.slice(i+1).find(b=>!P.pos[b]);S.map.arm=nx||"";refresh()});
@@ -1843,7 +1870,7 @@ function openPasteReport(pre){const back=pre==="rg_";
   document.body.appendChild(wrap);setTimeout(()=>$("repTx").focus(),30)}
 
 /* ================= status keseluruhan kes (untuk semakan UKI) ================= */
-function dataStatus(c){const v=k=>String(c[k]??"").trim();const U=k=>v(k).toUpperCase();const core=[],rev=[];
+function dataStatus(c){if(c.jk_final)return{st:"done",core:[],rev:[],miss:[]};const v=k=>String(c[k]??"").trim();const U=k=>v(k).toUpperCase();const core=[],rev=[];
   const need=(arr,k)=>{if(!v(k))arr.push(k)};["ward","dept","name","sample_date","subtype","lab_date","case_status"].forEach(k=>need(core,k));if(!v("rn")&&!v("ic"))core.push("rn");if(!v("spec")&&!v("spec_other"))core.push("spec");
   ["jkns","indication","icn_lab","hai","ward_adm","adm_date","form_done","icn_ward","icn_db","prev_enc"].forEach(k=>need(rev,k));if(WCFG[v("ward")])need(rev,"bed");if(U("hai")!=="CONTAMINATION")need(rev,"infcol");
   if(/BLOOD/.test(U("spec"))&&U("infcol")!=="COLONIZER"&&U("hai")!=="CONTAMINATION"){need(rev,"habsi");need(rev,"pbsi");need(rev,"clabsi")}if(U("pbsi")==="NO")need(rev,"sbsi");
@@ -1971,7 +1998,7 @@ const EXTS=["EXT 1","EXT 2","EXT 3","EXT 4","EXT 5","EXT 6","EXT 7","EXT 8"];let
 const isExt=b=>/^EXT \d+$/.test(String(b));
 const bedNat=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
 function extStrip(list,byBed){return`<div class="extstrip"><b>Extra beds (extension)</b><div class="bts">${list.map(b=>{const r=byBed[b],s=rowState(r);return`<button class="bed-t st-${s.st}${s.ring?" rg-"+s.ring:""}" data-bed="${esc(b)}"><span class="bn">${esc(b)}</span><span class="pn">${r?esc(r.name||""):""}</span>${r&&s.orgs.length?`<span class="tg">${s.orgs.map(esc).join(" · ")}</span>`:""}</button>`}).join("")}</div></div>`}
-function addBed(){const W=WCFG[S.map.ward];const v=$("newBed").value.trim().toUpperCase();if(!v)return;if(W.beds.includes(v)){toast("Bed "+v+" already exists.");return}W.beds.push(v);S.map.arm=v;toast("Bed "+v+" added. Tap on the plan to place it.");refresh()}
+function addBed(){const W=WCFG[S.map.ward];const v=$("newBed").value.trim().toUpperCase();if(!v)return;if(W.beds.includes(v)){toast("Bed "+v+" already exists.");return}const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=W.beds.concat(v);applyPlanBeds();S.map.arm=v;toast("Bed "+v+" added. Tap on the plan to place it.");refresh()}
 
 /* ================= langkah demi langkah (Daftar kes) ================= */
 const STEP_REQ=[["name",["rn","ic"],"ward","dept"],[["spec","spec_other"],"sample_date","lab_date","subtype","case_status"],[],[]];
@@ -2172,8 +2199,10 @@ function openImport(){IMP=null;
   <div class="m-body"><div class="drop imp-drop" id="impDrop"><button class="btn btn-pri" onclick="$('impIn').click()">${svg("up")}Choose Excel file</button><span>or drag a file here · .xlsx / .xls</span></div>
    <input type="file" id="impIn" accept=".xlsx,.xls,.xlsm" hidden>
    <div class="hint" style="margin:0">Sheets read: <b>JUMLAH MDRO &amp; PENYAKIT BERJANGKIT</b> (daily totals per ward), bed sheet for each ward (DATE + BED 1, BED 2…), <b>MASTERLIST</b>, and monthly statistics <b>PD211 / PER-PD 104C</b> (sheets 1–12). Other sheets are skipped.</div>
+   <div id="impLinks">${linkedHTML()}</div>
    <div id="impRes"></div></div>
   <div class="m-foot" id="impFoot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`,true);
+  if(liveOK()&&S.role==="uki")loadLinks().then(()=>{const e=$("impLinks");if(e)e.innerHTML=linkedHTML()});
   $("impIn").onchange=e=>{const f=e.target.files[0];if(f)readImport(f)};
   const d=$("impDrop");["dragenter","dragover"].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add("on")}));["dragleave","drop"].forEach(ev=>d.addEventListener(ev,()=>d.classList.remove("on")));
   d.addEventListener("drop",e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)readImport(f)})}
@@ -2688,6 +2717,32 @@ function paintFind(){const q=($("findQ")?.value||"").toLowerCase().trim();const 
   $("findRes").innerHTML=L.map(({f,i})=>`<button type="button" onclick="closeModal();FIND[${i}].run()"><b>${esc(f.t)}</b><small>${esc(f.d)}</small></button>`).join("")||'<div class="hint">No match. Try "import", "JKNS", "report".</div>'}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&S.role==="uki"){e.preventDefault();openFind()}});
 
+/* ===== Google Sheet berpaut: tarik terus LAB_SURVEILLANCE / CENSUS HARIAN / PD211 tanpa muat turun ===== */
+let LINKS=null;const LINK_L={lab:"LAB_SURVEILLANCE (masterlist)",census:"CENSUS HARIAN (daily census)",pd211:"STATISTIK PD211"};
+const liveOK=()=>typeof GS==="function"&&typeof LIVE!=="undefined";
+async function loadLinks(){if(!liveOK()||S.role!=="uki")return null;try{LINKS=await GS("getLinks",TOKEN)}catch(e){LINKS=null}return LINKS}
+function linkedHTML(){if(!liveOK())return`<div class="hint" style="margin:12px 0 0">Linked Google Sheets are available in the live app.</div>`;
+  if(!LINKS)return`<div class="linkbox"><b>Linked Google Sheets</b><div class="hint" style="margin:4px 0 0">Loading…</div></div>`;
+  return`<div class="linkbox"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Or pull directly from a linked Google Sheet</b><button class="linkbtn" onclick="openLinks()">${Object.keys(LINK_L).some(k=>LINKS[k]&&LINKS[k].url)?"Change links":"Link Google Sheets"}</button></div>
+   ${Object.keys(LINK_L).map(k=>{const L=LINKS[k]||{};return`<div class="linkrow"><div><b>${LINK_L[k]}</b><small>${L.url?`${esc(L.name||"Linked")}${L.at?` · last pulled ${esc(L.at)}`:""}`:"Not linked"}</small></div>${L.url?`<button class="btn btn-pri btn-sm" onclick="pullLinked('${k}')">Pull now</button>`:`<button class="btn btn-ghost btn-sm" onclick="openLinks()">Link</button>`}</div>`}).join("")}
+   ${LINKS.auto&&LINKS.lab&&LINKS.lab.url?`<div class="hint" style="margin:6px 0 0">Auto-pull is on: new LAB_SURVEILLANCE cases are added each time UKI opens the app.</div>`:""}</div>`}
+function openLinks(){const L=LINKS||{};openModal(`<div class="m-head"><div class="hx"><h3>Link Google Sheets</h3><p>Paste the link of each Google Sheet (from the browser address bar). The app reads it directly; no download needed. The Google account that owns the app must be able to open the sheet.</p></div>${xBtn()}</div>
+  <div class="m-body">${Object.keys(LINK_L).map(k=>`<div class="fld"><label for="lk_${k}">${LINK_L[k]}</label><input id="lk_${k}" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc((L[k]&&L[k].url)||"")}"></div>`).join("")}
+   <label class="imph" style="font-weight:600;margin-top:6px"><input type="checkbox" id="lk_auto"${L.auto?" checked":""}> Auto-pull new LAB_SURVEILLANCE cases when UKI opens the app</label>
+   <div class="hint">PD211 and CENSUS HARIAN are pulled when you tap <b>Pull now</b>, so you can review before saving. If the sheet is an uploaded Excel (.xlsx) file, first use <b>File → Save as Google Sheets</b> and link the new copy.</div></div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="saveLinks()">Save links</button></div>`)}
+async function saveLinks(){const o={auto:$("lk_auto").checked};Object.keys(LINK_L).forEach(k=>o[k]=$("lk_"+k).value.trim());toast("Checking links…");
+  try{LINKS=await GS("setLinks",TOKEN,o);closeModal();toast("Links saved.");openImport()}catch(e){toast((e.message||String(e)).replace(/^Error:\s*/,""))}}
+function wbFromPull(d){const wb={SheetNames:[],Sheets:{}};d.sheets.forEach(s=>{wb.SheetNames.push(s.name);wb.Sheets[s.name]=XLSX.utils.aoa_to_sheet(s.v.length?s.v:[[""]])});return wb}
+async function pullLinked(kind){if(!$("impRes")){openImport()}$("impRes").innerHTML=`<div class="banner info">${svg("up")}<div>Pulling <b>${esc(LINK_L[kind])}</b> from Google Sheets… this can take up to a minute for large sheets.</div></div>`;
+  try{const d=await GS("pullSheet",TOKEN,kind);IMP=analyseWb(wbFromPull(d),d.name+" (Google Sheet)");IMP.buf=null;IMP.jkns=false;renderImp();loadLinks().then(()=>{const e=$("impLinks");if(e)e.innerHTML=linkedHTML()})}
+  catch(e){$("impRes").innerHTML=`<div class="banner crit">${svg("list")}<div>Could not pull the sheet: ${esc((e.message||String(e)).replace(/^Error:\s*/,""))}</div></div>`}}
+async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;S._autoPulled=1;const L=await loadLinks();if(!L||!L.auto||!L.lab||!L.lab.url)return;
+  try{const d=await GS("pullSheet",TOKEN,"lab");const R=analyseWb(wbFromPull(d),d.name);let n=0,f=0;
+    R.master.forEach(o=>{if(isFinal(o.sample_date)){f++;return}if(CASES.some(c=>same(c,o)&&c.sample_date===o.sample_date&&c.subtype===o.subtype&&c.spec===o.spec&&(c.spec_other||"")===(o.spec_other||"")&&c.lab_date===o.lab_date&&(c.ward||"")===(o.ward||"")))return;CASES.push(o);n++});
+    if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});refresh()}toast(n?`${n} new cases pulled from ${d.name}.`:`LAB_SURVEILLANCE checked · no new cases.`)}catch(e){toast("Auto-pull failed: "+(e.message||e))}}
+FIND.push({t:"Link Google Sheets (pull LAB_SURVEILLANCE / PD211 / census without downloading)",k:"link google sheet pull tarik auto sambung lab surveillance pd211 census",d:"Read the source Google Sheets directly",run:()=>{go("master");openImport();setTimeout(openLinks,300)}});
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
@@ -2744,13 +2799,13 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
 
 /* ---------- load ---------- */
 function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
-  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o});
+  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
 async function boot(user){syncSt("Loading data…");const d=await GS("getAll",TOKEN,CENSUS_DAYS);loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
-  start();setInterval(poll,60000)}
+  start();setInterval(poll,60000);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
 async function poll(){if(!TOKEN||SYNC.busy)return;try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
