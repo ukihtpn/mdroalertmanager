@@ -2317,7 +2317,7 @@ function rCensus(){if(!S.ed||S.ed.ward!==S.ward)edInit();const W=WCFG[S.ward];
     <div class="fld" style="grid-column:1/-1;min-width:0"><label for="edRem">Notes (remarks)</label><input id="edRem" value="${esc(S.ed.remarks)}" oninput="S.ed.remarks=this.value" placeholder="Optional"></div></div></div>
   ${layoutPanel()}
   <div class="panel stepbox" id="st2box"><div class="stephd"><span>3</span><div><b>Load the patient name list</b><p>${S.ed.rows.some(r=>r.name)?"Yesterday's list has been loaded. Import today's Excel to replace the list":"Import today's Excel or paste the list"} (bed, disease and device columns are optional), or review directly in Step 4.</p></div></div>
-   <div class="btnrow"><button class="btn btn-pri" onclick="$('fileIn').click()">${svg("up")}Import Excel / CSV</button><button class="btn btn-ghost" onclick="openPaste()">Paste</button><button class="btn btn-ghost" onclick="useLast()" ${last?"":"disabled"}>${last?"Use list from "+fmt(last.date):"Use yesterday's list"}</button></div>
+   <div class="btnrow"><button class="btn btn-pri" onclick="$('fileIn').click()">${svg("up")}Import Excel / CSV</button><button class="btn btn-ghost" onclick="openPaste()">Paste</button>${S.ed&&S.ed.rows.length?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="clearList()">Clear list</button>`:""}<button class="btn btn-ghost" onclick="useLast()" ${last?"":"disabled"}>${last?"Use list from "+fmt(last.date):"Use yesterday's list"}</button></div>
    <div class="hint" style="margin:10px 0 0">Want to try? Download a sample Excel (dummy data for this ward): <button class="linkbtn" onclick="sampleXlsx(true)">with bed</button> · <button class="linkbtn" onclick="sampleXlsx(false)">without bed</button></div>
    <div class="hint" id="st2" style="margin:8px 0 0"></div></div>
   <div class="panel stepbox" id="st3box"><div class="stephd"><span>4</span><div><b>Patient list · fill in beds</b><p>Enter the bed number for each name. Tap <b>Disease / device / MDRO</b> to add patient details.</p></div></div>
@@ -2432,8 +2432,18 @@ function openPaste(){openModal(`<div class="m-head"><div class="hx"><h3>Paste pa
   <div class="m-body"><textarea class="paste" id="pasteTx" aria-label="Patient list" placeholder="Bed&#9;Name&#9;RN&#9;IC No&#9;Disease&#9;Device&#10;1&#9;AHMAD BIN ALI&#9;612345&#9;560101-10-1234&#9;&#9;CBD&#10;R2&#9;LIM AH KOW&#9;612999&#9;600101-10-4321&#9;PTB&#9;"></textarea></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="doPaste()">Use this list</button></div>`)}
 function doPaste(){const t=$("pasteTx").value;const grid=t.split(/\r?\n/).map(l=>l.includes("\t")?l.split("\t"):l.split(/,|;/));const rows=parseGrid(grid);if(!rows.length){toast("No valid rows. Make sure there is a name column.");return}closeModal();loadRows(rows,"pasted")}
-$("fileIn").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
-  rd.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const rows=parseGrid(XLSX.utils.sheet_to_json(ws,{header:1,raw:false}));if(!rows.length){toast("The file has no patient name column.");return}loadRows(rows,f.name)}catch(err){toast("The file could not be read. Use .xlsx or .csv.")}e.target.value=""};rd.readAsArrayBuffer(f)});
+$("fileIn").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;e.target.value="";
+  if(/^image\//.test(f.type)||/pdf/i.test(f.type)||/\.(jpe?g|png|gif|webp|heic|pdf)$/i.test(f.name)){askPlanFromFile(f);return}
+  if(!/\.(xlsx|xls|xlsm|csv|txt)$/i.test(f.name)){toast("Choose an Excel (.xlsx) or CSV file for the patient list.");return}
+  const rd=new FileReader();
+  rd.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const rows=parseGrid(XLSX.utils.sheet_to_json(ws,{header:1,raw:false}));
+    const bad=rows.filter(r=>{const n=String(r.name||"").trim();return n.length>80||!/^[A-Za-z0-9][A-Za-z0-9 .,'@\/()&\-]*$/.test(n)}).length;
+    if(!rows.length||bad>rows.length*.2){toast("This file does not look like a patient list. Use an Excel / CSV file with a name column.");return}loadRows(rows,f.name)}catch(err){toast("The file could not be read. Use .xlsx or .csv.")}};rd.readAsArrayBuffer(f)});
+function askPlanFromFile(f){openModal(`<div class="m-head"><div class="hx"><h3>This is an image / PDF, not a patient list</h3><p>${esc(f.name)}</p></div>${xBtn()}</div>
+  <div class="m-body"><p>The patient list must be an <b>Excel / CSV</b> file. Is this a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p></div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">No, cancel</button><button class="btn btn-pri" id="usePlanBtn">Yes, use as the new floor plan</button></div>`);
+  $("usePlanBtn").onclick=async()=>{const w=S.role==="ward"?S.ward:S.map.ward;try{const img=await planFromFile(f);const old=MAPS[w]||{};MAPS[w]={img,pos:old.pos||{},beds:old.beds,from:TODAY,by:S.icn||S.staff||"",v:old.v};closeModal();openPlanUpdate();toast("New plan loaded. Check the bed list, then place each bed on the plan.")}catch(err){toast("Could not read the file: "+(err.message||err))}}}
+function clearList(){if(!S.ed)return;S.ed.rows=[];S.ed.pre=1;refresh();toast("Patient list cleared.")}
 function submitCensus(){const W=WCFG[S.ward];
   if(!S.ed.layout){toast("Step 1: first answer whether the bed arrangement changed today.");if(S.tab!=="census")go("census");return}
   if(!S.ed.chk){toast("Step 6: confirm that infectious diseases and devices have been checked for every patient.");if(S.tab!=="census")go("census");else{const b=$("st4box");if(b)b.scrollIntoView({behavior:"smooth",block:"end"})}return}
