@@ -661,6 +661,10 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .audl button:not(:disabled):hover{border-color:var(--brand);background:var(--brand-soft)}
 .audl button:not(:disabled):active{transform:scale(.98)}
 .audl button.audsel{background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important}
+th.pw-ward{background:#fff4d6!important;color:#7a5a00!important}th.pw-uki{background:#e3f1ee!important;color:#0b6a5e!important}
+b.pw-ward{color:#9a6c00}b.pw-uki{color:var(--brand)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) th.pw-ward{background:#3a3114!important;color:#f5d27a!important}:root:not([data-theme="light"]) th.pw-uki{background:#123430!important;color:#8fe0cf!important}}
+:root[data-theme="dark"] th.pw-ward{background:#3a3114!important;color:#f5d27a!important}:root[data-theme="dark"] th.pw-uki{background:#123430!important;color:#8fe0cf!important}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1376,9 +1380,9 @@ function wardPend(w){const yr=String(YEAR);const C=CASES.filter(c=>c.ward===w&&c
   o.score=o.none*3+o.fn*2+o.ff*2+o.fs+o.unrev*2+o.norev+o.pend*.2+(o.isW&&!o.cen?5:0);return o}
 function pendTable(){const ord=w=>{const i=WARD_CFG.findIndex(x=>x.code===w);return i<0?999:(WARD_CFG[i].bld==="MB"?0:100)+i};const L=dashWards().map(wardPend).filter(o=>o.isW||o.score>0).sort((a,b)=>ord(a.w)-ord(b.w)||a.w.localeCompare(b.w));let lastB="";
   const n=(v,act,cls_)=>v?`<button class="pnum ${cls_||""}" onclick="${act}">${v}</button>`:'<span class="pz">—</span>';
-  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Pending items by ward</h3></div></div>
-   <div class="tbl-wrap"><table class="num pendt mc"><thead><tr><th rowspan="2">Ward</th><th rowspan="2">Today's census</th><th rowspan="2">MDRO form<br>incomplete</th><th colspan="2">Masterlist data ${YEAR}</th><th rowspan="2">Not classified<br>Inf / Col</th><th rowspan="2">Not reviewed<br>by UKI</th></tr>
-   <tr><th>Incomplete</th><th>Pending</th></tr></thead><tbody>
+  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Pending items by ward</h3><p><b class="pw-ward">Ward / doctor to do</b>: submit today's census, complete MDRO forms. <b class="pw-uki">UKI to do</b>: complete masterlist data, classify infection / colonizer, review cases. Tap a number to open the list.</p></div></div>
+   <div class="tbl-wrap"><table class="num pendt mc"><thead><tr><th rowspan="2">Ward</th><th colspan="2" class="pw-ward">Ward / doctor to do</th><th colspan="4" class="pw-uki">UKI to do</th></tr>
+   <tr><th class="pw-ward">Today's census</th><th class="pw-ward">MDRO form<br>incomplete</th><th class="pw-uki">Masterlist data<br>incomplete</th><th class="pw-uki">Masterlist data<br>pending</th><th class="pw-uki">Not classified<br>Inf / Col</th><th class="pw-uki">Not reviewed<br>by UKI</th></tr></thead><tbody>
    ${L.map(o=>{const b=(WCFG[o.w]||{}).bld||"X";const gh=b!==lastB?(lastB=b,`<tr class="grp"><td colspan="7">${b==="MB"?"Main Building":b==="WCC"?"WCC (Women &amp; Children)":"Other locations (ETD / clinic)"}</td></tr>`):"";return gh+`<tr><td class="mh"><button class="namebtn" onclick="S.dw='${esc(o.w)}';refresh()">${esc(o.w)}</button></td>
      <td data-l="Today's census">${o.isW?(o.cen?`<span class="pill p-ok">${fmtT(o.cen.at)}</span>`:`<button class="pill p-warn" onclick="ukiCensus('${esc(o.w)}')">Not yet · fill in</button>`):'<span class="pz">—</span>'}</td>
      <td data-l="MDRO form incomplete">${n(o.fn+o.fs+o.ff,"go('formsU')","w")}</td>
@@ -1431,10 +1435,12 @@ function orgFilterHTML(){let o=S.an.org||"";if(o&&!MAIN_ORG.includes(o)){o=S.an.
   const names=o==="Others"?[...new Set(CASES.filter(c=>c.case_status==="NEW"&&morg(c)==="Others").flatMap(c=>normOrg(c.organism||c.subtype).split(" + ")).filter(Boolean))].sort():[];
   return`<div class="fld"><label for="aOrg">Organism</label><select id="aOrg" onchange="S.an.org=this.value;S.an.oname='';refresh()"><option value="">All MDROs</option>${MAIN_ORG.map(g=>`<option value="${g}"${o===g?" selected":""}>${g==="Others"?"Others (other MDROs)":g}</option>`).join("")}</select></div>
    ${o==="Others"?`<div class="fld"><label for="aOname">Others organism</label><select id="aOname" onchange="S.an.oname=this.value;refresh()"><option value="">All Others (${names.length})</option>${names.map(n=>`<option${S.an.oname===n?" selected":""}>${esc(n)}</option>`).join("")}</select></div>`:""}`}
-function basisOk(c){const B=S.an.basis||"new";const k=cls(c);return B==="new"?k!=="CONT":B==="inf"?k==="INF":["INF","COL"].includes(k)}
-const BASIS_L={new:"NEW cases (Infection + Colonizer, excluding contaminant)",infcol:"Infection + colonization (HAI this hospital)",inf:"Infection only (HAI this hospital)"};
+const BASIS_SET={own:["INF","COL"],other:["OTHER"],comm:["COMM"],all:["INF","COL","OTHER","COMM"]};
+const curBasis=()=>BASIS_SET[S.an.basis]?S.an.basis:"own";
+function basisOk(c){return BASIS_SET[curBasis()].includes(cls(c))}
+const BASIS_L={own:"Infection + colonizer · HAI this hospital",other:"Infection + colonizer · HAI from other MOH / other hospital",comm:"Community (not HCAI, <48 h)",all:"All classified (this hospital + other facility + community)"};
 function aggMonth(){const W=S.an.ward,G=S.an.org;const D=dayRows().filter(r=>(!W||r.ward===W)&&r.date.startsWith(String(YEAR)));
-  const B=S.an.basis||"new";const inB=basisOk;
+  const B=curBasis();const inB=basisOk;
   const M=Array.from({length:CUR_M+1},(_,m)=>({m,adm:0,tin:0,pd:0,cvl:0,vent:0,cases:0,notified:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0])),byG:{}}));
   D.forEach(r=>{const o=M[+r.date.slice(5,7)-1];if(!o)return;o.adm+=r.adm;o.tin+=r.tin;o.pd+=r.pd||0;o.cvl+=r.cvl;o.vent+=r.vent});
   const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&(!W||c.ward===W)&&orgOk(c));
@@ -1448,24 +1454,23 @@ function sumMons(M){const o=emptyMon(-1);let bopd=0,pdB=0;const src=new Set();M.
    if(r.bop){bopd+=r.bop*new Date(YEAR,r.m+1,0).getDate();pdB+=r.pd}if(r.src&&r.src!=="—")src.add(r.src)});
   o.rInf=o.adm?o.k.INF/o.adm*100:0;o.rIC=o.adm?(o.k.INF+o.k.COL)/o.adm*100:0;o.rate=o.adm?o.cases/o.adm*100:0;o.r1k=o.pd?o.cases/o.pd*1000:0;o.du=o.pd?o.cvl/o.pd:0;o.bor=bopd?pdB/bopd*100:null;o.src=[...src].join(" + ")||"—";return o}
 function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear(M);const o=sm===-1?sumMons(M):MF[sm];const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
-  const BL=BASIS_L;const bl=BL[S.an.basis||"new"];
+  const BL=BASIS_L;const bl=BL[curBasis()];
   const opt=(arr,cur,all,val)=>(all?`<option value="">${all}</option>`:"")+arr.map((v,i)=>`<option value="${val?val(v,i):v}"${String(val?val(v,i):v)===String(cur)?" selected":""}>${esc(v)}</option>`).join("");
   return`<div class="sec-h"><div><h2>Analysis</h2><p>NEW cases from the masterlist divided by admissions and patient days${MONTHLY.length?" (PD211 when available, otherwise daily census)":" from the daily census"}. Data Jan–${MON3[CUR_M]} ${YEAR}${HIST.some(h=>h.src==="import")||MONTHLY.length?"":" (sample)"}.</p></div></div>
   <div class="panel"><div class="an-ctl">
     <div class="fld"><label for="aWard">Ward</label><select id="aWard" onchange="S.an.ward=this.value;refresh()">${opt(WARDS,S.an.ward,"All wards")}</select></div>
     ${orgFilterHTML()}
-    <div class="fld"><label for="aBasis">Rate based on</label><select id="aBasis" onchange="S.an.basis=this.value;refresh()">${Object.entries(BL).map(([k,v])=>`<option value="${k}"${(S.an.basis||"new")===k?" selected":""}>${v}</option>`).join("")}</select></div>
+    <div class="fld"><label for="aBasis">Rate based on</label><select id="aBasis" onchange="S.an.basis=this.value;refresh()">${Object.entries(BL).map(([k,v])=>`<option value="${k}"${curBasis()===k?" selected":""}>${v}</option>`).join("")}</select></div>
     <div class="fld"><label for="aMonth">Month</label><select id="aMonth" onchange="S.an.month=+this.value;refresh()"><option value="-1"${sm===-1?" selected":""}>All months (Jan–Dec)</option>${opt(MONTHS,sm,"",(v,i)=>i)}</select></div>
   </div>
   <div class="kpis">
     <div class="kpi" style="border:2px solid var(--brand)"><span>Rate per 100 admissions</span><b>${o.adm?o.rate.toFixed(2):"—"}</b><i>${o.cases} cases ÷ ${o.adm.toLocaleString()} admissions × 100</i></div>
     <div class="kpi"><span>Admissions</span><b>${o.adm.toLocaleString()}</b><i>source ${o.src} · + ${o.tin} transfers in</i></div>
     <div class="kpi"><span>Notified (NEW)</span><b>${o.notified}</b><i>${monLbl(sm)}${sm>CUR_M?" · no data yet":""}</i></div>
-    <div class="kpi"><span>Infection (HAI)</span><b>${o.k.INF}</b><i>${o.rInf.toFixed(2)} per 100 admissions</i></div>
-    <div class="kpi"><span>Colonization (HAI)</span><b>${o.k.COL}</b><i>Inf + col: ${o.rIC.toFixed(2)} per 100</i></div>
-    <div class="kpi"><span>Contamination</span><b>${o.k.CONT}</b><i>not counted in the rate</i></div>
-    <div class="kpi"><span>Other HCAI · not HCAI</span><b>${o.k.OTHER} · ${o.k.COMM}</b><i>${o.k.UNREV} awaiting review</i></div>
-    
+    <div class="kpi"><span>HAI this hospital</span><b>${o.k.INF+o.k.COL}</b><i>Inf ${o.k.INF} · Col ${o.k.COL} · ${o.adm?((o.k.INF+o.k.COL)/o.adm*100).toFixed(2):"—"} per 100</i></div>
+    <div class="kpi"><span>HAI other MOH / hospital</span><b>${o.k.OTHER}</b><i>${o.adm?(o.k.OTHER/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
+    <div class="kpi"><span>Community (not HCAI)</span><b>${o.k.COMM}</b><i>${o.adm?(o.k.COMM/o.adm*100).toFixed(2):"—"} per 100 admissions</i></div>
+    <div class="kpi"><span>Not counted</span><b>${o.k.UNREV+o.k.CONT}</b><i>${o.k.UNREV} awaiting review · ${o.k.CONT} contaminant (REPEAT never counted)</i></div>
     <div class="kpi"><span>Per 1,000 patient days</span><b>${o.pd?o.r1k.toFixed(2):"—"}</b><i>${o.bor!=null?"BOR "+o.bor.toFixed(1)+"%":"requires patient days (PD211)"}</i></div>
 
     <div class="kpi"><span>Patient days</span><b>${o.pd?o.pd.toLocaleString():"—"}</b><i>CVL ${o.cvl} · ventilator ${o.vent}</i></div>
@@ -1534,7 +1539,7 @@ function drawCharts(){if(typeof Chart==="undefined"){document.querySelectorAll("
     {label:"+2 SD",data:L.map(()=>+(mean+2*sd).toFixed(2)),borderColor:warn,borderDash:[6,4],borderWidth:1.5,pointRadius:0},
     {label:"+3 SD",data:L.map(()=>+(mean+3*sd).toFixed(2)),borderColor:crit,borderDash:[2,3],borderWidth:1.5,pointRadius:0}]},
     options:{...B,scales:{...B.scales,y:{...B.scales.y,ticks:{...B.scales.y.ticks,precision:undefined},title:{display:true,text:"per 100 admissions",color:cssv("--mut")}}}}});
-  const unc=M.reduce((a,r)=>a+r.notified-r.cases-r.k.CONT,0);$("nSpc").innerHTML=(unc>0&&(S.an.basis||"new")!=="new"?`<b style="color:var(--warn)">${unc} NEW cases not yet classified as infection/colonization (awaiting UKI review) — not counted in this rate.</b> Choose "NEW cases" under <i>Rate based on</i> to count all NEW cases. `:"")+`Mean <b>${mean.toFixed(2)}</b>, SD ${sd.toFixed(2)} (months Jan–${MON3[Math.max(0,lastM-1)]}${sm>=0?`, compared with ${MON3[sm]}`:""}). ${lastM===CUR_M?`${MON3[CUR_M]} is incomplete, so its rate may change. `:""}${over.length?`Above +2 SD: <b>${over.map(r=>MON3[r.m]).join(", ")}</b>.`:"No month above +2 SD."}`;
+  const unc=M.reduce((a,r)=>a+(r.k.UNREV||0),0);$("nSpc").innerHTML=(unc>0?`<b style="color:var(--warn)">${unc} NEW cases not yet classified (awaiting UKI review) — not counted until classified.</b> `:"")+`Mean <b>${mean.toFixed(2)}</b>, SD ${sd.toFixed(2)} (months Jan–${MON3[Math.max(0,lastM-1)]}${sm>=0?`, compared with ${MON3[sm]}`:""}). ${lastM===CUR_M?`${MON3[CUR_M]} is incomplete, so its rate may change. `:""}${over.length?`Above +2 SD: <b>${over.map(r=>MON3[r.m]).join(", ")}</b>.`:"No month above +2 SD."}`;
   const gs=S.an.org?[S.an.org]:MAIN_ORG;
   CH.org=new Chart($("cOrg"),{type:"bar",data:{labels:L,datasets:gs.map(g=>({label:g,data:full(M.map(r=>r.byG[g]||0)),backgroundColor:cssv(MORG_COL[g]),borderColor:cssv("--panel"),borderWidth:{top:2},borderRadius:3,stack:"s"}))},options:{...B,scales:{...B.scales,x:{...B.scales.x,stacked:true},y:{...B.scales.y,stacked:true}}}});
   const CS=C.filter(c=>sm===-1||+c.sample_date.slice(5,7)-1===sm);
