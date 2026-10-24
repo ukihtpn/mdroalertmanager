@@ -675,6 +675,9 @@ b.pw-ward{color:#9a6c00}b.pw-uki{color:var(--brand)}
 .sdn{font-family:inherit;font-size:11px;font-weight:600;margin-top:3px;max-width:170px;line-height:1.3}
 .sdn.crit{color:var(--crit)}.sdn.warn{color:var(--warn)}
 .tapnote{color:var(--brand);font-weight:700;margin-left:6px;animation:tapb 1.6s ease-in-out infinite}@keyframes tapb{50%{opacity:.45}}
+.othf{margin:10px 0 0;padding:10px 12px;border:1.5px solid var(--warn);border-radius:10px;background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.othf label{color:var(--warn)}
+.errf{border-color:var(--crit)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--crit) 20%,transparent)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1002,6 +1005,8 @@ let IMPMODE=false;
 function rowState(r){if(!r)return{st:IMPMODE?"u":"e",ring:"",orgs:[]};const o=r.imp?r.mdro:allOrgs(r);const pr=(r.inf||[]).map(tagPrec);
   const ring=pr.includes("air")?"air":pr.includes("drop")?"drop":"";
   return{st:o.length?"r":pr.includes("contact")?"a":"g",ring,orgs:o,pr}}
+const OTHM=["MRO others","ESBL others"];
+function infTxt(r,k,role){return k==="OTHERS"&&r&&r.oth?(role!=="uki"&&tagPrec(k)==="std"?"SP":"OTHERS")+": "+r.oth:infLabel(k,role)}
 function infLabel(k,role){return tagPrec(k)==="std"&&role!=="uki"?"SP":k}
 /* JUMLAH row from a census */
 function totalsOf(c){const t={adm:+c.adm||0,tin:+c.tin||0,pd:c.rows.length,c:{},cvl:0,trachy:0,vent:0,cbd:0,oth:{}};
@@ -1590,7 +1595,7 @@ function mapPatientList(W,rows,M,draft){const R=rows.filter(r=>r.name||r.imp).sl
    <div class="tbl-wrap"><table id="mapList"><thead><tr><th>Bed</th><th>Patient / RN</th><th>IC</th><th>MDRO</th><th>Infectious disease</th><th>Device</th><th>Status</th></tr></thead><tbody>
    ${V.map(r=>{const st=rowState(r);const org=st.orgs||[];const cs=r.name?mdroOf(r):[];const isNew=prev&&r.name&&!was.has(normN(r.name)+"|"+normR(r.rn));
      return`<tr><td class="mono"><b>${esc(r.bed||"—")}</b></td><td class="nm">${cs.length?`<button class="namebtn mdro" onclick="openProfile('${cs[0].id}')">${esc(r.name)}</button>`:`<b>${esc(r.name||"Imported data")}</b>`}<span class="mono">RN ${esc(r.rn||"—")}</span></td><td class="mono">${esc(r.ic||"—")}</td>
-      <td>${org.length?`<div class="pills">${org.map(o=>`<span class="pill p-crit">${esc(o)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td><td>${(r.inf||[]).length?`<div class="pills">${r.inf.map(k=>`<span class="pill ${INFP[k]==="air"?"p-brand":INFP[k]==="drop"?"p-drop":"p-warn"}">${esc(k)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td>
+      <td>${org.length?`<div class="pills">${org.map(o=>`<span class="pill p-crit">${esc(o)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td><td>${(r.inf||[]).length?`<div class="pills">${r.inf.map(k=>`<span class="pill ${INFP[k]==="air"?"p-brand":INFP[k]==="drop"?"p-drop":"p-warn"}">${esc(k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td>
       <td>${(r.dev||[]).length?esc(r.dev.join(", ")):'<span class="pz">—</span>'}</td><td>${r._in?`<span class="pill p-drop">Transfer in from ${esc(r._in)}</span>`:isNew?'<span class="pill p-brand">New today</span>':'<span class="pz">—</span>'}</td></tr>`}).join("")||`<tr><td colspan="7" class="empty-row">${R.length?"No match.":"No patients for this date."}</td></tr>`}</tbody></table></div></div>`}
 function dlMapList(){const t=$("mapList");if(!t||!window.XLSX){toast("Cannot generate Excel here.");return}const ws=XLSX.utils.table_to_sheet(t);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Patients");
   saveFile(`Patient-list-${S.map.ward.replace(/\s/g,"")}-${S.map.date}.xlsx`,new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}))}
@@ -1629,7 +1634,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
   ${mapPatientList(W,rows,M,draft)}
   ${(()=>{const w=S.role==="ward"?S.ward:"";const R=[...MOVES].filter(m=>(!w||m.from===w||m.to===w)&&m.type!=="BED"&&(m.type!=="DISCHARGE"||mdroOf(m).length)).sort((a,b)=>b.at-a.at).slice(0,8);
     return`<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Recent movements</h3><p>Ward transfers &amp; discharges of MDRO patients.</p></div><button class="btn btn-ghost btn-sm" onclick="go('moves')">View all</button></div><div class="moves">${R.map(mvHTML).join("")||'<div class="hint" style="margin:0">None.</div>'}</div></div>`})()}`}
-function bedTip(b,r,s){const e=EXTMETA[b];const xl=e?` (extra${e.near?", near bed "+e.near:""}${e.note?", "+e.note:""})`:"";if(!r)return`Bed ${b}${xl} · ${IMPMODE?"no infection records":"empty"}`;return`Bed ${b}${xl} · ${r.name||"imported data"}`+(s.orgs.length?` · MDRO ${s.orgs.join(", ")}`:"")+((r.inf||[]).length?` · ${(r.inf).map(k=>infLabel(k,S.role)).join(", ")}`:"")+((r.dev||[]).length?` · ${r.dev.join(", ")}`:"")}
+function bedTip(b,r,s){const e=EXTMETA[b];const xl=e?` (extra${e.near?", near bed "+e.near:""}${e.note?", "+e.note:""})`:"";if(!r)return`Bed ${b}${xl} · ${IMPMODE?"no infection records":"empty"}`;return`Bed ${b}${xl} · ${r.name||"imported data"}`+(s.orgs.length?` · MDRO ${s.orgs.join(", ")}`:"")+((r.inf||[]).length?` · ${(r.inf).map(k=>infTxt(r,k,S.role)).join(", ")}`:"")+((r.dev||[]).length?` · ${r.dev.join(", ")}`:"")}
 function extPos(P,b,list){if(P.pos[b])return P.pos[b];const e=EXTMETA[b];if(!e||!P.pos[e.near])return null;const k=list.filter(x=>EXTMETA[x]&&EXTMETA[x].near===e.near).indexOf(b);const p=P.pos[e.near];return[Math.min(97,p[0]+3.8*(k+1)),p[1]]}
 function mapDraw(W,byBed){const P=planFor(W.code,PLANDATE);const focus=S.map.focus;const extUsed=[...new Set(Object.keys(byBed).filter(isExt).concat(Object.keys(EXTMETA)))].sort(bedNat);
   if(P&&P.img){const pos=b=>isExt(b)?extPos(P,b,extUsed):P.pos[b];const extOff=extUsed.filter(b=>!pos(b));return`<div class="stage" id="stage"><img src="${P.img}" alt="Floor plan ${esc(W.code)}">`+W.beds.concat(extUsed).filter(b=>pos(b)).map(b=>{const r=byBed[b],s=rowState(r);const q=pos(b);
@@ -1645,7 +1650,7 @@ function mapDraw(W,byBed){const P=planFor(W.code,PLANDATE);const focus=S.map.foc
   const loose=[];extUsed.forEach(b=>{const e=EXTMETA[b];const g=e&&groups.find(g=>g.beds.includes(e.near));if(g)g.beds.push(b);else loose.push(b)});
   if(loose.length)groups.push({name:"Extra beds (extension)",beds:loose,ext:true});
   return`<div class="grid-ward">${groups.map(g=>`<div class="bay${g.iso?" iso":""}${g.ext?" ext":""}"><h4>${esc(g.name)}</h4><div class="bts">${g.beds.map(b=>{const r=byBed[b],s=rowState(r);
-    return`<button class="bed-t st-${s.st}${s.ring?" rg-"+s.ring:""}${isExt(b)?" xb":""}${focus===b?" focus":""}" data-bed="${esc(b)}" title="${esc(bedTip(b,r,s))}"><span class="bn">${esc(b)}</span><span class="pn">${r?esc(r.name||"Imported data"):IMPMODE?"—":"Empty"}</span>${r&&(s.orgs.length||(r.inf||[]).length)?`<span class="tg">${s.orgs.concat((r.inf||[]).map(k=>infLabel(k,S.role))).map(esc).join(" · ")}</span>`:""}${r&&(r.dev||[]).length?`<span class="tg">⌁ ${r.dev.map(d=>d==="VENTILATOR"?"VENT":d).join(" ")}</span>`:""}</button>`}).join("")}</div></div>`).join("")}</div>
+    return`<button class="bed-t st-${s.st}${s.ring?" rg-"+s.ring:""}${isExt(b)?" xb":""}${focus===b?" focus":""}" data-bed="${esc(b)}" title="${esc(bedTip(b,r,s))}"><span class="bn">${esc(b)}</span><span class="pn">${r?esc(r.name||"Imported data"):IMPMODE?"—":"Empty"}</span>${r&&(s.orgs.length||(r.inf||[]).length)?`<span class="tg">${s.orgs.concat((r.inf||[]).map(k=>infTxt(r,k,S.role))).map(esc).join(" · ")}</span>`:""}${r&&(r.dev||[]).length?`<span class="tg">⌁ ${r.dev.map(d=>d==="VENTILATOR"?"VENT":d).join(" ")}</span>`:""}</button>`}).join("")}</div></div>`).join("")}</div>
    ${S.role==="uki"?`<div class="hint">This ward has no floor plan yet. Tap <b>Arrange floor plan</b> to upload a plan and place the beds.</div>`:""}`}
 function afterMap(){const cv=$("mapCanvas");if(!cv)return;sizeMarkers();
   if(S.map.edit){wirePlanEditor();return}
@@ -1717,7 +1722,7 @@ function bedInfo(p,bed,row){const C=mdroOf(p);const l=locate(p);const inf=(row&&
   if(pr.includes("contact")&&!C.length)boxes+=precBox("contact","CONTACT PRECAUTION · "+inf.filter(k=>INFP[k]==="contact").join(", "));
   openModal(`<div class="m-head"><div class="hx"><h3>${esc(p.name)}</h3><p>Bed ${esc(bed)} · RN ${esc(p.rn)} · ${esc(p.ic)}</p></div>${xBtn()}</div>
   <div class="m-body">${boxes}
-   <dl class="kv"><dt>Location</dt><dd>${locPill(l)}</dd><dt>Infectious disease</dt><dd>${inf.length?inf.map(k=>esc(infLabel(k,S.role))).join(", "):"—"}</dd><dt>Device</dt><dd>${row&&(row.dev||[]).length?row.dev.join(", "):"—"}</dd></dl>
+   <dl class="kv"><dt>Location</dt><dd>${locPill(l)}</dd><dt>Infectious disease</dt><dd>${inf.length?inf.map(k=>esc(infTxt(row,k,S.role))).join(", "):"—"}</dd><dt>Device</dt><dd>${row&&(row.dev||[]).length?row.dev.join(", "):"—"}</dd></dl>
    ${C.length?`<div class="tbl-wrap"><table><thead><tr><th>Organism</th><th>Specimen</th><th>Lab date</th><th>Form</th><th></th></tr></thead><tbody>${C.map(c=>`<tr><td><b>${esc(c.subtype)}</b></td><td>${esc(c.spec)}</td><td class="mono">${fmt(c.lab_date)}</td><td>${c.form_done==="YES"?'<span class="pill p-ok">Complete</span>':'<span class="pill p-warn">Not yet</span>'}</td><td>${S.role==="ward"?`<button class="btn btn-${c.form_done==="YES"?"ghost":"pri"} btn-sm" onclick="openForm('${c.id}')">${({none:"Send to doctor",sent:"Remind doctor",filled:"Review & verify",verified:"View"})[fstat(c)]}</button>`:`<button class="btn btn-ghost btn-sm" onclick="openCase('${c.id}')">Record</button>`}</td></tr>`).join("")}</tbody></table></div>`:""}
   ${C.length?`<div class="lbl">Patient movements</div>${trailHTML(p)}`:""}${bedActs(bed,row)}</div>`,true)}
 function mapDraftSide(W){const R=S.ed.rows.filter(r=>r.name);const nb=R.filter(r=>!r.bed);const md=R.filter(r=>orgsOf(r).length).length;const L=S.ed.layout;
@@ -1733,23 +1738,29 @@ function openExt(i){const W=WCFG[S.ward];if(i<0){addExt(true);i=S.ed.ext.length-
   openModal(`<div class="m-head"><div class="hx"><h3>Extra beds ${esc(e.bed)}</h3><p>Specify where the extra bed is placed. A marker will appear next to the chosen bed on the plan.</p></div>${xBtn()}</div>
   <div class="m-body"><div class="mrow"><div class="fld"><label for="xeN">Near bed / cubicle</label><select id="xeN"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div><div class="fld"><label for="xeT">Location note</label><input id="xeT" value="${esc(e.note||"")}" placeholder="e.g. Cubicle B / corridor"></div></div></div>
   <div class="m-foot"><button class="btn btn-ghost" style="color:var(--crit)" onclick="S.ed.ext.splice(${i},1);if(!S.ed.ext.length)S.ed.layout='same';closeModal();refresh()">Remove</button><span class="sp"></span><button class="btn btn-pri" onclick="S.ed.ext[${i}].near=$('xeN').value;S.ed.ext[${i}].note=$('xeT').value.trim();closeModal();refresh()">Save</button></div>`)}
-function edBed(bed,idx){const W=WCFG[S.ward];const R=S.ed.rows;const i=idx!=null?idx:R.findIndex(r=>r.name&&r.bed===bed);const r=i>=0?R[i]:{bed,name:"",rn:"",ic:"",inf:[],dev:[],mw:[]};bed=r.bed||bed||"";const nb=R.filter(x=>x.name&&!x.bed);S.eb={bed,i,inf:[...(r.inf||[])],dev:[...(r.dev||[])],mw:[...(r.mw||[])]};
+function edBed(bed,idx){const W=WCFG[S.ward];const R=S.ed.rows;const i=idx!=null?idx:R.findIndex(r=>r.name&&r.bed===bed);const r=i>=0?R[i]:{bed,name:"",rn:"",ic:"",inf:[],dev:[],mw:[]};bed=r.bed||bed||"";const nb=R.filter(x=>x.name&&!x.bed);S.eb={bed,i,inf:[...(r.inf||[])],dev:[...(r.dev||[])],mw:[...(r.mw||[])],oth:r.oth||"",mwo:r.mwo||""};
   const o=i>=0?orgsOf(r):[];const all=W.beds.concat((S.ed.ext||[]).map(e=>e.bed));
   openModal(`<div class="m-head"><div class="hx"><h3>${i>=0?esc(r.name||"Patient"):"Add patient"}${bed?" · bed "+esc(bed):""}</h3><p>${esc(S.ward)} · ${fmt(TODAY)}</p></div>${xBtn()}</div>
   <div class="m-body">${i<0&&nb.length?`<div class="fld"><label for="ebPick">Choose a patient without a bed</label><select id="ebPick" onchange="ebPick(this.value)"><option value="">— new patient —</option>${nb.map(x=>`<option value="${R.indexOf(x)}">${esc(x.name)}${x._in?" · from "+esc(x._in):""}</option>`).join("")}</select></div>`:""}
    <div class="mrow"><div class="fld" style="flex:2"><label for="ebN">Patient name</label><input id="ebN" value="${esc(r.name)}" autocomplete="off"></div><div class="fld"><label for="ebR">RN</label><input id="ebR" value="${esc(r.rn)}"></div><div class="fld"><label for="ebI">No. KP</label><input id="ebI" value="${esc(r.ic)}"></div>
     <div class="fld"><label for="ebMv">Bed</label><select id="ebMv"><option value="">— no bed yet —</option>${all.map(b=>{const x=R.find(y=>y.name&&y.bed===b&&y!==r);return`<option value="${esc(b)}"${b===bed?" selected":""}>${esc(b)}${x?" · "+esc(x.name)+" (change)":b===bed?"":" · empty"}</option>`}).join("")}</select></div></div>
    <div id="ebMd" style="margin:0"></div>
-   <div class="lbl">MDRO (choose the organism if known)</div><div class="devs">${SUBTYPES.map(k=>`<button class="dv md" aria-pressed="${S.eb.mw.includes(k)||o.includes(k)}"${o.includes(k)?" disabled title='Tagged by UKI'":""} onclick="ebTog('mw','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.mw.includes('${k}'))">${k}</button>`).join("")}</div>
+   <div class="lbl">MDRO (choose the organism if known)</div><div class="devs">${SUBTYPES.map(k=>`<button class="dv md" aria-pressed="${S.eb.mw.includes(k)||o.includes(k)}"${o.includes(k)?" disabled title='Tagged by UKI'":""} onclick="ebTog('mw','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.mw.includes('${k}'));ebOthShow()">${k}</button>`).join("")}</div>
+   <div class="fld othf" id="ebMwoW"${S.eb.mw.some(k=>OTHM.includes(k))?"":" hidden"}><label for="ebMwo">Specify the organism (MRO / ESBL others) *</label><input id="ebMwo" value="${esc(S.eb.mwo)}" placeholder="e.g. Pseudomonas aeruginosa (MRO), Enterobacter cloacae (ESBL)"></div>
    <div class="lbl">Device</div><div class="devs">${DEVS.map(([k,l])=>`<button class="dv" aria-pressed="${S.eb.dev.includes(k)}" onclick="ebTog('dev','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.dev.includes('${k}'))">${l}</button>`).join("")}</div>
-   <div class="lbl">Infectious disease</div><div class="chkgrid sm">${INF.map(([k,p])=>`<label><input type="checkbox" value="${k}"${S.eb.inf.includes(k)?" checked":""} onchange="ebTog('inf','${k}',this.checked)">${k}<small>${PREC_L[p]}</small></label>`).join("")}</div></div>
+   <div class="lbl">Infectious disease</div><div class="chkgrid sm">${INF.map(([k,p])=>`<label><input type="checkbox" value="${k}"${S.eb.inf.includes(k)?" checked":""} onchange="ebTog('inf','${k}',this.checked);ebOthShow()">${k}<small>${PREC_L[p]}</small></label>`).join("")}</div>
+   <div class="fld othf" id="ebOthW"${S.eb.inf.includes("OTHERS")?"":" hidden"}><label for="ebOth">Specify the infectious disease / organism (OTHERS) *</label><input id="ebOth" value="${esc(S.eb.oth)}" placeholder="e.g. Mumps, Measles, Scabies, Leptospirosis"></div></div>
   <div class="m-foot">${i>=0?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="ebRemove()">Remove</button>`:""}<span class="sp"></span><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="ebSave()">Save</button></div>`,true);
   const chk=()=>{const t={name:$("ebN").value.trim().toUpperCase(),rn:$("ebR").value.trim(),ic:$("ebI").value.trim()};const m=t.name||t.rn||t.ic?orgsOf(t):[];$("ebMd").innerHTML=m.length?`<div class="banner crit" style="margin:8px 0 0">${svg("bed")}<div><b>MDRO · ${m.join(", ")}</b> tagged by UKI · contact precautions.</div></div>`:""};["ebN","ebR","ebI"].forEach(x=>$(x).addEventListener("change",chk));chk()}
+function ebOthShow(){const a=$("ebOthW"),b=$("ebMwoW");if(a){a.hidden=!S.eb.inf.includes("OTHERS");if(!a.hidden){a.scrollIntoView({block:"nearest",behavior:"smooth"});$("ebOth").focus()}}if(b){const was=b.hidden;b.hidden=!S.eb.mw.some(k=>OTHM.includes(k));if(was&&!b.hidden)$("ebMwo").focus()}}
 function ebPick(v){if(v==="")return;const x=S.ed.rows[+v];$("ebN").value=x.name;$("ebR").value=x.rn||"";$("ebI").value=x.ic||"";S.eb.pick=+v;$("ebN").dispatchEvent(new Event("change"))}
 function ebTog(k,v,on){const a=S.eb[k];const j=a.indexOf(v);if(on&&j<0)a.push(v);if(!on&&j>=0)a.splice(j,1)}
-function ebSave(){const E=S.eb;const name=$("ebN").value.trim().toUpperCase();if(!name){toast("Enter the patient name.");return}const R=S.ed.rows;
+function ebSave(){const E=S.eb;const name=$("ebN").value.trim().toUpperCase();if(!name){toast("Enter the patient name.");return}
+  E.oth=E.inf.includes("OTHERS")?($("ebOth").value||"").trim():"";E.mwo=E.mw.some(k=>OTHM.includes(k))?($("ebMwo").value||"").trim():"";
+  if(E.inf.includes("OTHERS")&&!E.oth){toast("OTHERS ticked: please specify the disease / organism.");$("ebOth").classList.add("errf");$("ebOthW").scrollIntoView({block:"center"});$("ebOth").focus();return}
+  if(E.mw.some(k=>OTHM.includes(k))&&!E.mwo){toast("MRO / ESBL others chosen: please specify the organism.");$("ebMwo").classList.add("errf");$("ebMwoW").scrollIntoView({block:"center"});$("ebMwo").focus();return}const R=S.ed.rows;
   let r=E.i>=0?R[E.i]:E.pick!==undefined?R[E.pick]:null;if(!r){r={bed:"",name:"",rn:"",ic:"",inf:[],dev:[],mw:[]};R.push(r)}
-  const nb=$("ebMv").value;const old=r.bed;Object.assign(r,{name,rn:$("ebR").value.trim(),ic:$("ebI").value.trim(),inf:[...E.inf],dev:[...E.dev],mw:[...E.mw]});
+  const nb=$("ebMv").value;const old=r.bed;Object.assign(r,{name,rn:$("ebR").value.trim(),ic:$("ebI").value.trim(),inf:[...E.inf],dev:[...E.dev],mw:[...E.mw],oth:E.oth,mwo:E.mwo});
   if(nb!==old){const o=nb&&R.find(y=>y!==r&&y.name&&y.bed===nb);if(o)o.bed=old||"";r.bed=nb}
   S.ed.touched=true;closeModal();S.map.focus=r.bed;if(S.tab==="census")paintEd();else refresh();toast(`${name}${r.bed?" in bed "+r.bed:" no bed yet"}.${allOrgs(r).length?" Marked as MDRO.":""}`)}
 function ebRemove(){const r=S.ed.rows[S.eb.i];S.ed.rows.splice(S.eb.i,1);closeModal();if(S.tab==="census")paintEd();else refresh();toast(`${r.name} removed from the list. Choose their status (discharged / transferred) below the list.`)}
@@ -2445,7 +2456,7 @@ function setLayout(v){S.ed.layout=v;if(v==="ext"&&!S.ed.ext.length)addExt(true);
 function addExt(silent){const used=S.ed.ext.map(e=>e.bed);const b=EXTS.find(x=>!used.includes(x));if(!b)return;S.ed.ext.push({bed:b,near:"",note:""});S.ed.layout="ext";if(!silent)refresh()}
 function infCell(r,i){if(!r.name&&!r.rn)return"";const o=orgsOf(r);let h="";
   o.forEach(x=>h+=`<span class="pill p-crit">MDRO · ${esc(x)}</span>`);
-  (r.inf||[]).forEach(k=>h+=`<span class="pill ${INFP[k]==="air"?"p-air":INFP[k]==="drop"?"p-drop":INFP[k]==="contact"?"p-warn":"p-mut"}">${esc(k)}</span>`);
+  (r.inf||[]).forEach(k=>h+=`<span class="pill ${INFP[k]==="air"?"p-air":INFP[k]==="drop"?"p-drop":INFP[k]==="contact"?"p-warn":"p-mut"}">${esc(k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k)}</span>`);if((r.mw||[]).some(k=>OTHM.includes(k))&&r.mwo)h+=`<span class="pill p-crit">${esc(r.mwo)}</span>`;
   const l=locate(r);
   if(r._in||(l.st==="TR"&&l.ward===S.ward))h+=`<span class="pill p-drop">Transfer in from ${esc(r._in||l.from)}</span>`;
   else if(l.st==="IN"&&l.ward===S.ward&&r.bed&&l.bed!==r.bed)h+=`<span class="pill p-brand">Change bed ${esc(l.bed)} → ${esc(r.bed)}</span>`;
@@ -2473,8 +2484,9 @@ function sumChips(){const c={ward:S.ward,rows:S.ed.rows.filter(r=>r.name),adm:S.
 function openInf(i){const r=S.ed.rows[i];const sel=r.inf||[];
   openModal(`<div class="m-head"><div class="hx"><h3>Infectious disease</h3><p>${esc(r.name||"Patient")} · bed ${esc(r.bed||"—")}. MDRO is tagged by UKI, no need to choose here.</p></div>${xBtn()}</div>
   <div class="m-body"><div class="lbl">Main columns in daily totals</div><div class="chkgrid">${INF.filter(x=>x[2]).map(([k,p])=>`<label><input type="checkbox" value="${k}"${sel.includes(k)?" checked":""}>${k}<small>${PREC_L[p]}</small></label>`).join("")}</div>
-   <div class="lbl">Others (counted in OTHERS)</div><div class="chkgrid">${INF.filter(x=>!x[2]).map(([k,p])=>`<label><input type="checkbox" value="${k}"${sel.includes(k)?" checked":""}>${k}<small>${PREC_L[p]}</small></label>`).join("")}</div></div>
-  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="S.ed.rows[${i}].inf=[...document.querySelectorAll('#modal .chkgrid input:checked')].map(x=>x.value);closeModal();$('es${i}').innerHTML=infCell(S.ed.rows[${i}],${i});sumChips()">Save</button></div>`,true)}
+   <div class="lbl">Others (counted in OTHERS)</div><div class="chkgrid">${INF.filter(x=>!x[2]).map(([k,p])=>`<label><input type="checkbox" value="${k}"${sel.includes(k)?" checked":""}${k==="OTHERS"?` onchange="$('oiOthW').hidden=!this.checked;if(this.checked)$('oiOth').focus()"`:""}>${k}<small>${PREC_L[p]}</small></label>`).join("")}</div>
+   <div class="fld othf" id="oiOthW"${sel.includes("OTHERS")?"":" hidden"}><label for="oiOth">Specify the infectious disease / organism (OTHERS) *</label><input id="oiOth" value="${esc(r.oth||"")}" placeholder="e.g. Mumps, Measles, Scabies"></div></div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="{const v=[...document.querySelectorAll('#modal .chkgrid input:checked')].map(x=>x.value),t=$('oiOth').value.trim();if(v.includes('OTHERS')&&!t){toast('OTHERS ticked: please specify the disease / organism.');$('oiOth').classList.add('errf');$('oiOth').focus();return}S.ed.rows[${i}].inf=v;S.ed.rows[${i}].oth=v.includes('OTHERS')?t:''}closeModal();$('es${i}').innerHTML=infCell(S.ed.rows[${i}],${i});sumChips()">Save</button></div>`,true)}
 function addRow(){S.ed.rows.push({bed:"",name:"",rn:"",ic:"",inf:[],dev:[],mw:[]});S.pf="";paintEd();const e=$("e_n"+(S.ed.rows.length-1));if(e)e.focus()}
 function useLast(){const l=latestCensus(S.ward,addDays(TODAY,-1));if(!l)return;const keep=S.ed.rows.filter(r=>r._in);S.ed.rows=currentIn(S.ward).map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])]})).sort((a,b)=>bedIdx(S.ward,a.bed)-bedIdx(S.ward,b.bed)).concat(keep.filter(k=>!l.rows.some(r=>same(r,k))));paintEd();toast("List "+fmt(l.date)+" loaded. Remove patients who have left, add new patients.")}
 function parseGrid(grid){grid=grid.filter(r=>r.some(c=>String(c??"").trim()!==""));if(!grid.length)return[];
@@ -2860,7 +2872,12 @@ const dehydStr=o=>JSON.stringify(o,(k,v)=>typeof v==="string"&&v.length>200&&v.s
 function bigStrings(o,out){if(!o||typeof o!=="object")return out;for(const k in o){const v=o[k];if(typeof v==="string"){if(v.startsWith("data:")&&v.length>8000&&!REV.has(v))out.push(v)}else if(v&&typeof v==="object")bigStrings(v,out)}return out}
 function driveIds(o,out){if(!o||typeof o!=="object")return out;for(const k in o){const v=o[k];if(typeof v==="string"){if(v.startsWith("drive:")&&!BLOB.has(v.slice(6)))out.add(v.slice(6))}else if(v&&typeof v==="object")driveIds(v,out)}return out}
 function fillDrive(o){if(!o||typeof o!=="object")return;for(const k in o){const v=o[k];if(typeof v==="string"){if(v.startsWith("drive:")&&BLOB.has(v.slice(6)))o[k]=BLOB.get(v.slice(6))}else if(v&&typeof v==="object")fillDrive(v)}}
-async function hydrate(o){const ids=[...driveIds(o,new Set())];if(ids.length){const m=await GS("getBlobs",TOKEN,ids);Object.entries(m||{}).forEach(([id,d])=>{if(d){BLOB.set(id,d);REV.set(d,id)}})}fillDrive(o)}
+/* blob cache on this device (IndexedDB): Drive ids never change, so a cached image is always valid */
+let IDBP=null;function idb(){if(IDBP)return IDBP;IDBP=new Promise((res)=>{try{const q=indexedDB.open("mdro_blobs",1);q.onupgradeneeded=()=>q.result.createObjectStore("b");q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)}catch(e){res(null)}});return IDBP}
+async function idbGet(ids){const db=await idb();if(!db||!ids.length)return{};return new Promise(res=>{const out={};try{const st=db.transaction("b").objectStore("b");let n=ids.length;ids.forEach(id=>{const r=st.get(id);r.onsuccess=()=>{if(r.result)out[id]=r.result;if(!--n)res(out)};r.onerror=()=>{if(!--n)res(out)}})}catch(e){res(out)}})}
+async function idbPut(m){const db=await idb();if(!db)return;try{const st=db.transaction("b","readwrite").objectStore("b");Object.entries(m).forEach(([k,v])=>{if(v)st.put(v,k)})}catch(e){}}
+async function hydrate(o,cacheOnly){const ids=[...driveIds(o,new Set())];if(ids.length){const c=await idbGet(ids);Object.entries(c).forEach(([id,d])=>{BLOB.set(id,d);REV.set(d,id)});
+    const miss=ids.filter(id=>!c[id]);if(miss.length&&!cacheOnly){const m=await GS("getBlobs",TOKEN,miss);Object.entries(m||{}).forEach(([id,d])=>{if(d){BLOB.set(id,d);REV.set(d,id)}});idbPut(m||{})}}fillDrive(o)}
 async function hydrateCase(id){const c=CASES.find(x=>x.id===id);if(!c)return;const P=CASES.filter(x=>same(x,c));const need=P.some(x=>driveIds(x,new Set()).size);if(need)syncSt("Loading attachments…");
   try{await hydrate(P)}catch(e){toast("Attachment could not be loaded: "+e.message)}if(need)syncSt()}
 
@@ -2904,7 +2921,9 @@ function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONT
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
-async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
+async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS,true)}catch(e){}snapAll();syncSt();
+  /* floor-plan images not yet on this device: fetch in the background, redraw when ready */
+  if(driveIds(MAPS,new Set()).size)hydrate(MAPS).then(()=>{if($("modalBg").hidden&&["mapping","census","wards","dash"].includes(S.tab))refresh()}).catch(()=>{});
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
   start();setInterval(poll,60000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
 async function poll(){if(!TOKEN||SYNC.busy)return;try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}}
@@ -2916,11 +2935,11 @@ function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up
   VER=ch.ver||VER;if(n&&S.role&&$("modalBg").hidden&&S.tab!=="register"&&S.tab!=="census")refresh()}
 
 /* ---------- login ---------- */
-async function liveLogin(o,errEl){$(errEl).textContent="";syncSt("Logging in…");
-  try{const r=await GS("login",o);TOKEN=r.token;syncSt();
-    if(r.user.role==="uki"&&(r.user.auditors||[]).length){PREF=GS("getAll",TOKEN,CENSUS_DAYS,{lite:true}).catch(()=>null);pickAuditor(r.user);return}
-    saveSess(r.user);await boot(r.user)}
-  catch(e){syncSt();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Wrong password.":"Error: "+(e.message||e)}}
+async function liveLogin(o,errEl){$(errEl).textContent="";syncSt("Logging in…");const st=$(errEl).closest("[id^=lgStep]")||document;const bt=st.querySelector(".btn-pri");const bl=bt?bt.innerHTML:"";if(bt){bt.disabled=true;bt.innerHTML='<span class="spin"></span> Logging in…'}const unb=()=>{if(bt&&bt.isConnected){bt.disabled=false;bt.innerHTML=bl}};
+  try{const r=await GS("login",{...o,days:CENSUS_DAYS});TOKEN=r.token;syncSt();
+    if(r.user.role==="uki"&&(r.user.auditors||[]).length){PREF=r.data?Promise.resolve(r.data):GS("getAll",TOKEN,CENSUS_DAYS,{lite:true}).catch(()=>null);pickAuditor(r.user);return}
+    saveSess(r.user);await boot(r.user,r.data)}
+  catch(e){syncSt();unb();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Wrong password.":"Error: "+(e.message||e)}}
 function saveSess(u){try{sessionStorage.setItem("mdro_tok",TOKEN);sessionStorage.setItem("mdro_user",JSON.stringify(u))}catch(e){}}
 function pickAuditor(u){let last="";try{last=localStorage.getItem("mdro_aud")||""}catch(e){}
   $("lgStepU").innerHTML=`<div class="lg-q">Choose officer (auditor)</div><div class="audl">${u.auditors.map(n=>`<button class="btn ${n===last?"btn-pri":"btn-ghost"} btn-block" onclick="chooseAuditor(this)">${esc(n)}</button>`).join("")}</div><div class="err" id="lgErrU"></div>`}
@@ -2971,6 +2990,7 @@ async function liveBoot(){{const f=$("lgUser");if(f&&f.closest(".fld"))f.closest
   {const l=document.querySelector('label[for="lgWName"]');if(l)l.textContent="Staff name (optional)";try{const w=localStorage.getItem("mdro_ward");if(w)$("lgWard").value=w}catch(e){}}
   const f=$("lgIcn");if(f&&f.closest(".fld"))f.closest(".fld").hidden=true;
   if(DOC_TOKEN){doctorBoot(DOC_TOKEN);return}
+  if(!TOKEN)GS("getVersion").catch(()=>{});   /* wake the server while the user types the password */
   if(TOKEN){try{const u=JSON.parse(sessionStorage.getItem("mdro_user")||"null");if(u){await boot(u);return}}catch(e){TOKEN="";syncSt()}}
   lgStep(0)}
 {const f=window.lgStep;window.lgStep=function(k){f(k);setTimeout(()=>{const e=k==="uki"?$("lgPass"):k==="ward"?$("lgWPass"):null;if(e)e.focus()},50)}}
