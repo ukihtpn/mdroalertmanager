@@ -656,6 +656,11 @@ tr.grp td{background:var(--panel2);font-weight:800;font-size:12px;letter-spacing
 .hlf{outline:3px solid #f5c518;outline-offset:3px;border-radius:10px;animation:donepulse 1.1s ease-in-out infinite}
 .donepulse{animation:none}.donepulse.go{animation:donepulse 1.1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.planguide>div.cur,.btn.hl,.hlf,.donepulse.go{animation:none}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.audl button:not(:disabled):hover{border-color:var(--brand);background:var(--brand-soft)}
+.audl button:not(:disabled):active{transform:scale(.98)}
+.audl button.audsel{background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -2850,7 +2855,7 @@ function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONT
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
-async function boot(user){syncSt("Loading data…");const d=await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
+async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("getAll",TOKEN,CENSUS_DAYS,{lite:user.role==="uki"});loadAll(d);try{await hydrate(MAPS);snapAll()}catch(e){}syncSt();
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
   start();setInterval(poll,60000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
 async function poll(){if(!TOKEN||SYNC.busy)return;try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}}
@@ -2864,13 +2869,17 @@ function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up
 /* ---------- login ---------- */
 async function liveLogin(o,errEl){$(errEl).textContent="";syncSt("Logging in…");
   try{const r=await GS("login",o);TOKEN=r.token;syncSt();
-    if(r.user.role==="uki"&&(r.user.auditors||[]).length){pickAuditor(r.user);return}
+    if(r.user.role==="uki"&&(r.user.auditors||[]).length){PREF=GS("getAll",TOKEN,CENSUS_DAYS,{lite:true}).catch(()=>null);pickAuditor(r.user);return}
     saveSess(r.user);await boot(r.user)}
   catch(e){syncSt();$(errEl).textContent=/LOGIN/.test(e.message||e)?"Wrong password.":"Error: "+(e.message||e)}}
 function saveSess(u){try{sessionStorage.setItem("mdro_tok",TOKEN);sessionStorage.setItem("mdro_user",JSON.stringify(u))}catch(e){}}
 function pickAuditor(u){let last="";try{last=localStorage.getItem("mdro_aud")||""}catch(e){}
-  $("lgStepU").innerHTML=`<div class="lg-q">Choose officer (auditor)</div><div class="audl">${u.auditors.map(n=>`<button class="btn ${n===last?"btn-pri":"btn-ghost"} btn-block" onclick="chooseAuditor(this.textContent)">${esc(n)}</button>`).join("")}</div><div class="err" id="lgErrU"></div>`}
-window.chooseAuditor=async function(n){syncSt("Logging in…");try{const u=await GS("setAuditor",TOKEN,n);try{localStorage.setItem("mdro_aud",n)}catch(e){}saveSess(u);await boot(u)}catch(e){syncSt();$("lgErrU").textContent="Error: "+(e.message||e)}};
+  $("lgStepU").innerHTML=`<div class="lg-q">Choose officer (auditor)</div><div class="audl">${u.auditors.map(n=>`<button class="btn ${n===last?"btn-pri":"btn-ghost"} btn-block" onclick="chooseAuditor(this)">${esc(n)}</button>`).join("")}</div><div class="err" id="lgErrU"></div>`}
+let PREF=null;
+window.chooseAuditor=async function(btn){const n=typeof btn==="string"?btn:btn.textContent.trim();
+  if(typeof btn!=="string"){document.querySelectorAll(".audl button").forEach(b=>{b.style.pointerEvents="none";b.classList.toggle("audsel",b===btn);b.style.opacity=b===btn?"1":".4"});btn.innerHTML=`<span class="spin"></span> ${esc(n)} · opening…`}
+  syncSt("Logging in…");try{const [u,d]=await Promise.all([GS("setAuditor",TOKEN,n),PREF||Promise.resolve(null)]);PREF=null;try{localStorage.setItem("mdro_aud",n)}catch(e){}saveSess(u);await boot(u,d)}
+  catch(e){syncSt();document.querySelectorAll(".audl button").forEach(b=>{b.style.pointerEvents="";b.classList.remove("audsel");b.style.opacity="1"});if(typeof btn!=="string")btn.textContent=n;$("lgErrU").textContent="Error: "+(e.message||e)}};
 window.loginUki=function(){const u=$("lgUser").value.trim()||"uki",p=$("lgPass").value;if(!p){$("lgErrU").textContent="Enter the password.";return}liveLogin({user:u,pass:p},"lgErrU")};
 window.loginWard=function(){const w=$("lgWard").value,p=$("lgWPass").value,n=$("lgWName").value.trim()||("Staff "+w);if(!p){$("lgErrW").textContent="Enter the ward password.";return}try{localStorage.setItem("mdro_ward",w)}catch(e){}liveLogin({ward:w,pass:p,staff:n},"lgErrW")};
 let ORIG_U="";const restoreU=()=>{if(ORIG_U){$("lgStepU").innerHTML=ORIG_U;$("lgUser").value="uki";{const f=$("lgUser");if(f&&f.closest(".fld"))f.closest(".fld").hidden=true}const f=$("lgIcn");if(f&&f.closest(".fld"))f.closest(".fld").hidden=true}};
