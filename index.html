@@ -1014,11 +1014,11 @@ function infLabel(k,role){return tagPrec(k)==="std"&&role!=="uki"?"SP":k}
 function totalsOf(c){const t={adm:+c.adm||0,tin:+c.tin||0,pd:c.rows.length,c:{},cvl:0,trachy:0,vent:0,cbd:0,oth:{}};
   GROUPS.forEach(g=>t.c[g]=0);INF_MAIN.forEach(k=>t.c[k]=0);t.c.OTHERS=0;
   c.rows.forEach(r=>{[...new Set(mdroOf(r).map(x=>x.group).concat((r.mw||[]).map(sgrp)))].forEach(g=>{if(g in t.c)t.c[g]++});
-    (r.inf||[]).forEach(k=>{if(INF_MAIN.includes(k))t.c[k]++;else{t.c.OTHERS++;t.oth[k]=(t.oth[k]||0)+1}});
+    (r.inf||[]).forEach(k=>{if(INF_MAIN.includes(k))t.c[k]++;else{t.c.OTHERS++;const n=k==="OTHERS"&&r.oth?String(r.oth).trim().toUpperCase():k;t.oth[n]=(t.oth[n]||0)+1}});
     (r.dev||[]).forEach(d=>{if(d==="CVL")t.cvl++;if(d==="TRACHY")t.trachy++;if(d==="VENTILATOR")t.vent++;if(d==="CBD/SPC")t.cbd++})});
   t.remarks=[c.remarks,Object.entries(t.oth).map(([k,v])=>k+": "+v).join(", ")].filter(Boolean).join(" · ");return t}
 function dayRows(){/* census-derived totals override synthetic history */
-  const has=new Set(CENSUS.map(c=>c.ward+"|"+c.date));const out=HIST.filter(h=>!has.has(h.ward+"|"+h.date)).map(h=>({...h}));CENSUS.forEach(c=>{const t=totalsOf(c);out.push({date:c.date,ward:c.ward,adm:t.adm,tin:t.tin,pd:t.pd,cvl:t.cvl,vent:t.vent,trachy:t.trachy,cbd:t.cbd,c:t.c})});return out}
+  const has=new Set(CENSUS.map(c=>c.ward+"|"+c.date));const out=HIST.filter(h=>!has.has(h.ward+"|"+h.date)).map(h=>({...h}));CENSUS.forEach(c=>{const t=totalsOf(c);out.push({date:c.date,ward:c.ward,adm:t.adm,tin:t.tin,pd:t.pd,cvl:t.cvl,vent:t.vent,trachy:t.trachy,cbd:t.cbd,c:t.c,oth:t.oth})});return out}
 
 /* ================= session ================= */
 const S={dw:"",smRem:"",smPos:"bottom",role:null,tab:null,icn:"",ward:"",staff:"",ed:null,mlQ:"",mlMonth:"",mlView:"grp",mlOv:"",mlWard:"",mlOrg:"",mvQ:"",bwDate:TODAY,bwOpen:"",
@@ -1467,6 +1467,16 @@ function aggMonth(){const W=S.an.ward,G=S.an.org;const D=dayRows().filter(r=>(!W
   C.forEach(c=>{const o=M[+c.sample_date.slice(5,7)-1];if(!o)return;o.notified++;o.k[cls(c)]++;o.byG[morg(c)]=(o.byG[morg(c)]||0)+1;if(!inB(c))return;o.cases++});
   MONTHLY.filter(x=>x.ym.startsWith(String(YEAR))&&(!W||x.ward===W)).forEach(x=>{const o=M[+x.ym.slice(5,7)-1];if(!o)return;if(o.src!=="PD211"){o.src="PD211";o.adm=0;o.pd=0;o.bop=0}o.adm+=x.adm;o.pd+=x.pd;o.bop+=x.beds_op});
   M.forEach(o=>{o.rInf=o.adm?o.k.INF/o.adm*100:0;o.rIC=o.adm?(o.k.INF+o.k.COL)/o.adm*100:0;o.rate=o.adm?o.cases/o.adm*100:0;o.r1k=o.pd?o.cases/o.pd*1000:0;o.du=o.pd?o.cvl/o.pd:0;const dim=new Date(YEAR,o.m+1,0).getDate();o.bor=o.src==="PD211"&&o.bop?o.pd/(o.bop*dim)*100:null;o.src=o.src||(o.adm?"Daily census":"—")});return{M,C}}
+/* Infectious disease patient-days by disease (daily census + imported JUMLAH sheet, incl. OTHERS written as text) */
+function infTable(sm){const W=S.an.ward;const yr=String(YEAR);const D=dayRows().filter(r=>(!W||r.ward===W)&&r.date.startsWith(yr)&&(sm===-1||+r.date.slice(5,7)-1===sm));
+  const T={},O={},wd={};let othNoName=0;
+  D.forEach(r=>{INF_MAIN.forEach(k=>{const v=+(r.c&&r.c[k])||0;if(v){T[k]=(T[k]||0)+v;(wd[k]=wd[k]||new Set).add(r.ward)}});
+    const on=r.oth||{};let named=0;Object.entries(on).forEach(([k,v])=>{if(k==="OTHERS")return;O[k]=(O[k]||0)+v;named+=v;(wd["o:"+k]=wd["o:"+k]||new Set).add(r.ward)});
+    const tot=+(r.c&&r.c.OTHERS)||0;if(tot>named)othNoName+=tot-named});
+  const rows=Object.entries(T).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v,PREC_L[INFP[k]]||"",[...wd[k]].join(", ")]).concat(Object.entries(O).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k+" <small>(OTHERS)</small>",v,"",[...wd["o:"+k]].join(", ")]));
+  if(othNoName)rows.push(["OTHERS <small>(name not written)</small>",othNoName,"",""]);
+  return`<div class="panel" style="margin-bottom:16px"><div class="ph"><div><h3>Infectious diseases · ${monLbl(sm)}${W?" · "+esc(W):""}</h3><p>Patient-days per disease from the daily census and the imported <b>JUMLAH</b> sheet (1 patient in the ward for 5 days = 5). Names written in the OTHERS column (e.g. "RVD: 2, HEP B: 1") are split per disease.</p></div></div>
+   <div class="tbl-wrap"><table class="num"><thead><tr><th>Disease</th><th>Patient-days</th><th>Precaution</th><th>Wards</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td>${r[0].replace(/^([^<]*)/,m=>esc(m))}</td><td class="mono">${r[1]}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join(""):`<tr><td colspan="4" class="empty-row">No infectious disease recorded for this filter.</td></tr>`}</tbody></table></div></div>`}
 const monLbl=sm=>sm===-1?`Jan–Dec ${YEAR}`:MONTHS[sm];const mon3=sm=>sm===-1?"Jan–Dec":MON3[sm];
 function emptyMon(m){return{m,adm:0,tin:0,pd:0,cvl:0,vent:0,cases:0,notified:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0])),byG:{},rInf:0,rIC:0,rate:0,r1k:0,du:0,bor:null,src:"—"}}
 function fullYear(M){return Array.from({length:12},(_,m)=>M[m]||emptyMon(m))}
@@ -1508,6 +1518,7 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
     <div class="panel chart"><h3>Classification of NEW cases by month · ${YEAR}${sm>=0?" (data to "+MON3[sm]+")":""}</h3><div class="cbox"><canvas id="cHai" aria-label="Case classification"></canvas></div></div>
   </div>
   <div class="panel chart"><h3>Patients in ward each day · last 60 days</h3><div class="cbox"><canvas id="cDaily" aria-label="Daily census trend"></canvas></div><div class="note">From the daily census: number of MDRO, airborne (PTB, TRO PTB) and droplet (influenza, RSV, COVID-19) patients in the ward each day.</div></div>
+  ${infTable(sm)}
   ${wardReport(sm)}
   <div class="panel"><div class="ph"><div><h3>Monthly denominator · Jan–Dec ${YEAR}</h3><p>The selected month is highlighted. TOTAL row = whole year to date.</p></div></div>
    <div class="tbl-wrap"><table class="num"><thead><tr><th>Month</th><th>Admissions</th><th>Transfer in</th><th>Patient days</th><th>Notified</th><th>Infection</th><th>Colonization</th><th>Contamination</th><th>Cases counted</th><th>Rate /100 adm.</th><th>Inf HAI /100</th><th>Inf+col HAI /100</th><th>Per 1,000 HP</th><th>BOR %</th><th>CVL days</th><th>Ventilator days</th><th>Device util.</th><th>Denominator source</th></tr></thead><tbody>
@@ -2341,18 +2352,20 @@ function analyseWb(wb,file){const R={file,daily:[],bedSheets:[],master:[],monthl
     if(hi<0||!A[hi].some(x=>/BED|WAD|PATIENT/i.test(String(x)))){const T=transposed(A);if(T){T.sheet=sn;T.ward=T.auto=wardCode(sn);R.bedSheets.push(T);return}if(hi<0){R.skipped.push(sn);return}}
     const H=A[hi].map(x=>String(x).replace(/\s+/g," ").trim().toUpperCase());
     if(H[0]==="MONTH"&&H.some(x=>x.startsWith("PATIENT NAME"))){R.masterSheet=sn;parseMaster(A.slice(hi+1),R,A[hi]);return}
-    if(H.some(h=>h.startsWith("WARD/UNIT"))&&H.includes("MRSA")){R.dailySheet=sn;parseDaily(A.slice(hi+1),H,R);return}
+    if(H.some(h=>/^WA(R)?D\s*\/\s*UNIT/.test(h))&&H.includes("MRSA")){R.dailySheet=sn;parseDaily(A.slice(hi+1),H,R);return}
     const bc=H.map((h,j)=>j>0&&/^(BED\b|ISO\b|R\d|CTG)/.test(h)?j:-1).filter(j=>j>0);
     if((H[0]==="DATE"||H[0]==="TARIKH")&&bc.length>=3){const cells=[];A.slice(hi+1).forEach(r=>{const d=okDate(toYmd(r[0]));if(d)bc.forEach(j=>{const v=String(r[j]??"").trim();if(v)cells.push([d,String(A[hi][j]),v])})});
       R.bedSheets.push({sheet:sn,ward:wardCode(sn),auto:wardCode(sn),cells});return}
     R.skipped.push(sn)});
   const ds=R.daily.map(d=>d.date).sort();R.dMin=ds[0];R.dMax=ds[ds.length-1];return R}
+/* "RVD: 2, HEP B : 1,HEP C : 1" / "TB SPINE :1" / "RVD-1" / "hep c:1" -> {RVD:2,"HEP B":1,"HEP C":1} */
+function parseOthers(v){const m={};String(v||"").replace(/(\d)\s*\)?\s+(?=[A-Z])/gi,"$1,").split(/[,\n\/&]+|\s+DAN\s+/i).forEach(p=>{p=p.trim();if(!p||!/[A-Z]/i.test(p))return;const x=/^COVID|^H\dN\d$/i.test(p)?null:p.match(/^(.*?)(?:[\s:;=\-x×]+\(?|\()(\d+)\)?\s*$/i);let k=(x?x[1]:p).replace(/[\s:;=\-]+$/,"").trim().toUpperCase().replace(/\s+/g," ");const n=x?+x[2]:1;if(!k)return;m[k]=(m[k]||0)+n});return m}
 function parseDaily(rows,H,R){const ix=k=>H.indexOf(k),sw=k=>H.findIndex(h=>h.startsWith(k));
-  const iD=ix("DATE"),iW=sw("WARD/UNIT"),iA=sw("TOTAL ADMISSION"),iT=sw("TOTAL TRANSFER IN"),iR=ix("REMARKS");
+  const iD=ix("DATE"),iW=H.findIndex(h=>/^WA(R)?D\s*\/\s*UNIT/.test(h)),iA=sw("TOTAL ADMISSION"),iT=sw("TOTAL TRANSFER IN"),iR=ix("REMARKS");
   const iC=Object.fromEntries(JCOLS.map(k=>[k,ix(k)]));const iV={cvl:ix("CVL"),trachy:ix("TRACHY"),vent:ix("VENTILATOR"),cbd:ix("CBD/SPC")};
   rows.forEach(r=>{const date=okDate(toYmd(r[iD]),R);const label=String(r[iW]??"").trim();if(!date||!label)return;const code=wardCode(label);if(!code)R.map[label]=R.map[label]||"";
     const o={date,label,code,adm:num(r[iA]),tin:num(r[iT]),pd:null,c:{},remarks:iR>=0?String(r[iR]||"").trim():""};
-    JCOLS.forEach(k=>{const v=iC[k]>=0?r[iC[k]]:0;o.c[k]=num(v);if(k==="OTHERS"&&typeof v==="string"&&/[A-Z]/i.test(v))o.remarks=[o.remarks,v.trim()].filter(Boolean).join(" · ")});
+    JCOLS.forEach(k=>{const v=iC[k]>=0?r[iC[k]]:0;o.c[k]=num(v);if(k==="OTHERS"&&typeof v==="string"&&/[A-Z]/i.test(v)){o.oth=parseOthers(v);o.c.OTHERS=Math.max(o.c.OTHERS||0,Object.values(o.oth).reduce((a,b)=>a+b,0));o.remarks=[o.remarks,v.trim()].filter(Boolean).join(" · ")}});
     Object.entries(iV).forEach(([k,i])=>o[k]=i>=0?num(r[i]):0);R.daily.push(o)})}
 function parseMaster(rows,R,hdr){const H=hdr.map(x=>String(x||"").split("\n")[0].replace(/\s+/g," ").trim().toUpperCase());const idx={};
   H.forEach((h,j)=>{const k=Object.keys(ALIAS).find(k=>ALIAS[k].some(a=>a==="RN"?h==="RN":h.startsWith(a)));if(k&&idx[k]===undefined)idx[k]=j});R.mcols=Object.keys(idx).length;R.mnew=idx.ward_adm!==undefined;
@@ -2387,8 +2400,8 @@ function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB
     MONTHLY=MONTHLY.filter(m=>!K[m.ward+"|"+m.ym]);Object.values(K).forEach(v=>{MONTHLY.push(v);nP++})}
   if(on("impSyn")){HIST=HIST.filter(h=>!h.syn);if(on("impM"))CASES=CASES.filter(c=>!c.syn)}
   if(on("impD")){const K={};R.daily.forEach(d=>{const code=d.code||R.map[d.label];if(!code)return;const k=code+"|"+d.date;
-      if(K[k]){const a=K[k];a.adm+=d.adm;a.tin+=d.tin;["cvl","trachy","vent","cbd"].forEach(x=>a[x]+=d[x]);JCOLS.forEach(x=>a.c[x]+=d.c[x]);if(d.remarks)a.remarks=[a.remarks,d.remarks].filter(Boolean).join(" · ")}
-      else K[k]={date:d.date,ward:code,adm:d.adm,tin:d.tin,pd:null,cvl:d.cvl,trachy:d.trachy,vent:d.vent,cbd:d.cbd,c:{...d.c},remarks:d.remarks,src:"import"}});
+      if(K[k]){const a=K[k];a.adm+=d.adm;a.tin+=d.tin;["cvl","trachy","vent","cbd"].forEach(x=>a[x]+=d[x]);JCOLS.forEach(x=>a.c[x]+=d.c[x]);if(d.oth){a.oth=a.oth||{};Object.entries(d.oth).forEach(([k,v])=>a.oth[k]=(a.oth[k]||0)+v)}if(d.remarks)a.remarks=[a.remarks,d.remarks].filter(Boolean).join(" · ")}
+      else K[k]={date:d.date,ward:code,adm:d.adm,tin:d.tin,pd:null,cvl:d.cvl,trachy:d.trachy,vent:d.vent,cbd:d.cbd,c:{...d.c},oth:d.oth?{...d.oth}:undefined,remarks:d.remarks,src:"import"}});
     HIST=HIST.filter(h=>!K[h.ward+"|"+h.date]);Object.values(K).forEach(r=>{HIST.push(r);nD++})}
   if(on("impB"))R.bedSheets.forEach(s=>{if(!s.ward)return;s.cells.forEach(([d,h,v])=>{const bed=matchBed(s.ward,h);const k=s.ward+"|"+d;(BEDHIST[k]=BEDHIST[k]||{})[bed]=tagsOf(v);nB++})});
   let nF=0;if(on("impM"))R.master.forEach(o=>{if(isFinal(o.sample_date)){nF++;return}if(CASES.some(c=>same(c,o)&&c.sample_date===o.sample_date&&c.subtype===o.subtype&&c.spec===o.spec&&(c.spec_other||"")===(o.spec_other||"")&&c.lab_date===o.lab_date&&(c.ward||"")===(o.ward||"")))return;CASES.push(o);nM++});
@@ -2851,11 +2864,21 @@ function openLinks(){const L=LINKS||{};openModal(`<div class="m-head"><div class
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="saveLinks()">Save links</button></div>`)}
 async function saveLinks(){const o={auto:$("lk_auto").checked};Object.keys(LINK_L).forEach(k=>o[k]=$("lk_"+k).value.trim());toast("Checking links…");
   try{LINKS=await GS("setLinks",TOKEN,o);closeModal();toast("Links saved.");openImport()}catch(e){toast((e.message||String(e)).replace(/^Error:\s*/,""))}}
-function wbFromPull(d){const wb={SheetNames:[],Sheets:{}};d.sheets.forEach(s=>{wb.SheetNames.push(s.name);wb.Sheets[s.name]=XLSX.utils.aoa_to_sheet(s.v.length?s.v:[[""]])});return wb}
+function wbFromPull(d){if(d.xlsx)return XLSX.read(d.xlsx,{type:"base64",cellDates:false});const wb={SheetNames:[],Sheets:{}};d.sheets.forEach(s=>{wb.SheetNames.push(s.name);wb.Sheets[s.name]=XLSX.utils.aoa_to_sheet(s.v.length?s.v:[[""]])});return wb}
 async function pullLinked(kind){if(!$("impRes")){openImport()}$("impRes").innerHTML=`<div class="banner info">${svg("up")}<div>Pulling <b>${esc(LINK_L[kind])}</b> from Google Sheets… this can take up to a minute for large sheets.</div></div>`;
   try{const d=await GS("pullSheet",TOKEN,kind);IMP=analyseWb(wbFromPull(d),d.name+" (Google Sheet)");IMP.buf=null;IMP.jkns=false;renderImp();loadLinks().then(()=>{const e=$("impLinks");if(e)e.innerHTML=linkedHTML()})}
   catch(e){$("impRes").innerHTML=`<div class="banner crit">${svg("list")}<div>Could not pull the sheet: ${esc((e.message||String(e)).replace(/^Error:\s*/,""))}</div></div>`}}
-async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;S._autoPulled=1;const L=await loadLinks();if(!L||!L.auto||!L.lab||!L.lab.url)return;
+/* daily totals (JUMLAH sheet) -> history, for days the ward did not submit in the app */
+function mergeDaily(R,from){const K={};let n=0;R.daily.forEach(d=>{const code=d.code||R.map[d.label];if(!code||(from&&d.date<from))return;const k=code+"|"+d.date;
+    if(K[k]){const a=K[k];a.adm+=d.adm;a.tin+=d.tin;["cvl","trachy","vent","cbd"].forEach(x=>a[x]+=d[x]);JCOLS.forEach(x=>a.c[x]+=d.c[x]);if(d.oth){a.oth=a.oth||{};Object.entries(d.oth).forEach(([k,v])=>a.oth[k]=(a.oth[k]||0)+v)}if(d.remarks)a.remarks=[a.remarks,d.remarks].filter(Boolean).join(" · ")}
+    else K[k]={date:d.date,ward:code,adm:d.adm,tin:d.tin,pd:null,cvl:d.cvl,trachy:d.trachy,vent:d.vent,cbd:d.cbd,c:{...d.c},oth:d.oth?{...d.oth}:undefined,remarks:d.remarks,src:"import"}});
+  const cen=new Set(CENSUS.map(c=>c.ward+"|"+c.date));
+  Object.entries(K).forEach(([k,r])=>{if(cen.has(k))return;const i=HIST.findIndex(h=>h.ward+"|"+h.date===k);if(r.oth===undefined)delete r.oth;
+    if(i>=0){const h=HIST[i];const st=o=>JSON.stringify(Object.entries(o).filter(([k,v])=>k!=="id"&&v!==undefined).sort());if(h._d||st(h)===st(r))return;if(h.src!=="import"&&!h.syn)return;r.id=h.id;HIST[i]=r}else HIST.push(r);n++});return n}
+async function autoPullCensus(L){if(!L.census||!L.census.url)return;
+  try{if(window.LAZY)await window.LAZY;const d=await GS("pullSheet",TOKEN,"census",{only:"jumlah"});const R=analyseWb(wbFromPull(d),d.name);const n=mergeDaily(R,YEAR+"-01-01");
+    if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull, JUMLAH)",by:S.icn,nD:n,nB:0,nM:0,nP:0});refresh()}toast(n?`${n} daily ward totals updated from ${d.name}.`:`Census harian checked · no new daily totals.`)}catch(e){toast("Census auto-pull failed: "+(e.message||e))}}
+async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;S._autoPulled=1;const L=await loadLinks();if(!L||!L.auto)return;setTimeout(()=>autoPullCensus(L),8000);if(!L.lab||!L.lab.url)return;
   try{const d=await GS("pullSheet",TOKEN,"lab");const R=analyseWb(wbFromPull(d),d.name);let n=0,f=0;
     R.master.forEach(o=>{if(isFinal(o.sample_date)){f++;return}if(CASES.some(c=>same(c,o)&&c.sample_date===o.sample_date&&c.subtype===o.subtype&&c.spec===o.spec&&(c.spec_other||"")===(o.spec_other||"")&&c.lab_date===o.lab_date&&(c.ward||"")===(o.ward||"")))return;CASES.push(o);n++});
     if(n){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});refresh()}toast(n?`${n} new cases pulled from ${d.name}.`:`LAB_SURVEILLANCE checked · no new cases.`)}catch(e){toast("Auto-pull failed: "+(e.message||e))}}
@@ -2962,7 +2985,7 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
   /* floor-plan images not yet on this device: fetch in the background, redraw when ready */
   if(driveIds(MAPS,new Set()).size)hydrate(MAPS).then(()=>{if($("modalBg").hidden&&["mapping","census","wards","dash"].includes(S.tab))refresh()}).catch(()=>{});
   S.role=user.role;if(user.role==="uki"){S.icn=user.name;S.tab="dash"}else{S.ward=user.ward;S.staff=user.staff||user.name;S.tab="census";S.ed=null;S.map.ward=S.ward;S.map.bld=(WCFG[S.ward]||{}).bld||"MB";S.map.edit=false}
-  start();clearInterval(window._pollT);window._pollT=setInterval(poll,90000);if(user.role==="uki"&&(d.skipped||[]).length)loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
+  start();clearInterval(window._pollT);window._pollT=setInterval(poll,90000);if(user.role==="uki"&&(d.skipped||[]).length)window.LAZY=loadLazy(d.skipped);if(user.role==="uki")setTimeout(()=>{try{autoPullLab()}catch(e){}},3000)}
 async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
