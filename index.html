@@ -511,7 +511,7 @@ details.grp[open]>summary{border-bottom:1px solid var(--line)}
 .wstep:not(.on) .wbody{display:none}
 .wnav{display:flex;justify-content:space-between;margin-top:14px}
 .fld.missing input,.fld.missing select,.fld.missing textarea{border-color:var(--warn)!important;background:var(--warn-soft)!important}
-.fld.missing label::after{content:" · kosong";color:var(--warn);text-transform:none;letter-spacing:0}
+.fld.missing label::after{content:" · empty";color:var(--warn);text-transform:none;letter-spacing:0}
 .ovlegend b{color:var(--ink);font-size:12.5px}
 .pendt td,.pendt th{text-align:center}.pendt td:first-child,.pendt th:first-child{text-align:left}
 .pnum{min-width:30px;padding:3px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-weight:800;font-family:inherit;cursor:pointer;color:var(--ink)}
@@ -702,6 +702,16 @@ tr.fsel td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
 @media(max-width:600px){.nowbox{grid-template-columns:1fr}}
 .dqrow td{background:color-mix(in srgb,var(--warn) 8%,transparent)}
 
+/* tidy form grid: 4 equal columns, labels aligned at the bottom so all inputs line up */
+.fg{grid-template-columns:repeat(4,minmax(0,1fr));align-items:end}
+.fg>.fld{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+.fg>.fld>label{min-height:2.6em;display:flex;align-items:flex-end;line-height:1.25}
+.fg>.fld:has(>[id$="_name"]),.fg>.fld:has(>[id$="_prev_fac"]),.fg>.fld:has(>[id$="_abx1"]),.fg>.fld:has(>[id$="_abx2"]),.fg>.fld:has(>[id$="_outbreak_code"]){grid-column:span 2}
+.fg>.fld:has(>textarea),.fg>.full,.fg>.clsb{grid-column:1/-1}
+@media(max-width:900px){.fg{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.fg{grid-template-columns:1fr}.fg>.fld{grid-column:auto!important}.fg>.fld>label{min-height:0}}
+.clean td{vertical-align:top}.clean .ck{display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:8px}.clean .ck.k{background:color-mix(in srgb,var(--ok) 10%,transparent)}.clean .ck.r{background:color-mix(in srgb,var(--crit) 8%,transparent)}.clean .ck span{font-size:12px;color:var(--mut)}
+
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
 .docmode .doc-bar .btn{display:none}
@@ -869,10 +879,10 @@ const ALIAS={month:["MONTH"],ward:["WARD OR CLINIC"],bed:["BED NUMBER"],dept:["D
  outbreak:["OUTBREAK CASE"],outbreak_code:["OUTBREAK REFERENCE"],cre_gene:["FOR CRE"],kkm:["CASE ENTERED IN KKM"],diag_adm:["DIAGNOSIS ON ADMISSION"],diag_spec:["DIAGNOSIS ON SPECIMEN","DIAGNOSIS ON SAMPLE"]};
 const COL=Object.fromEntries(COLS.map(c=>[c[0],c]));
 const SECTIONS=[
- ["Step 1 · Patient & admission","Lab surveillance ICN · columns A–D, K–M, Y–Z + diagnosis on admission",["name","rn","ic","gender","age","ward","bed","dept","ward_adm","adm_date","diag_adm","jkns"]],
+ ["Step 1 · Patient & admission","Lab surveillance ICN · columns A–D, K–M, Y–Z + diagnosis on admission",["name","rn","ic","gender","age","ward","bed","dept","ward_adm","adm_date","jkns","diag_adm"]],
  ["Step 2 · Lab result","Lab surveillance ICN · columns N–V + diagnosis when specimen taken",["spec","spec_other","sample_date","lab_date","organism","subtype","case_status","indication","diag_spec"]],
  ["Step 3 · UKI classification","Reporting ICN · columns W–AE. Can be filled in later; the case will be Awaiting review.",["cls","inf_type","habsi","pbsi","sbsi","clabsi","death_rel","cre_gene","kkm"]],
- ["Step 4 · History, form & officers","Columns E–J, AF–AP (mostly filled automatically from the doctor's MDRO form)",["prev_enc","prev_fac","prev_date","abx1","abx2","form_done","icn_lab","icn_ward","icn_db","outbreak","outbreak_code","pt_status","dod","notes"]],
+ ["Step 4 · History, form & officers","Columns E–J, AF–AP (mostly filled automatically from the doctor's MDRO form)",["prev_enc","prev_fac","prev_date","abx1","abx2","form_done","icn_lab","icn_ward","icn_db","pt_status","dod","outbreak","outbreak_code","notes"]],
 ];
 
 /* ================= helpers ================= */
@@ -1453,9 +1463,27 @@ function dqBanner(){if(S.role!=="uki")return"";const I=dqIssues();if(!I.length)r
   return`<div class="banner warn dqb">${svg("list")}<div><b>Please check ${pts} patients</b> — the app detected ${I.length} data issues in the masterlist ${YEAR}.<div class="pills" style="margin-top:6px">${Object.keys(DQ).filter(k=>by[k]).map(k=>`<button class="pill ${DQ[k].s==="crit"?"p-crit":DQ[k].s==="warn"?"p-warn":""}" onclick="S.dqF='${k}';openDQ()">${DQ[k].l} · ${by[k]}</button>`).join("")}</div></div><button class="btn btn-pri btn-sm" style="margin-left:auto;align-self:center" onclick="S.dqF='';openDQ()">Review</button></div>`}
 function openDQ(){dqBump();const I=dqIssues();const F=S.dqF||"";const by={};I.forEach(x=>by[x.code]=(by[x.code]||0)+1);const V=I.filter(x=>!F||x.code===F);
   openModal(`<div class="m-head"><div class="hx"><h3>Data check · ${I.length} issues</h3><p>Detected automatically from the masterlist ${YEAR}. Tap a name to correct it. Tap <b>Ignore</b> if it has been reviewed and is correct (e.g. a valid NEW case).</p></div>${xBtn()}</div>
-  <div class="m-body"><div class="pills" style="margin-bottom:10px"><button class="pill${!F?" p-brand":""}" onclick="S.dqF='';openDQ()">All · ${I.length}</button>${Object.keys(DQ).filter(k=>by[k]).map(k=>`<button class="pill${F===k?" p-brand":""}" onclick="S.dqF='${k}';openDQ()">${DQ[k].l} · ${by[k]}</button>`).join("")}</div>
+  <div class="m-body">${(n=>n?`<div class="banner warn" style="margin-bottom:10px">${svg("list")}<div><b>${n} double entries</b> (same patient, organism, sample date &amp; specimen entered twice). <button class="btn btn-pri btn-sm" style="margin-left:6px" onclick="openClean()">Review &amp; clean</button></div></div>`:"")(findDoubles().length)}<div class="pills" style="margin-bottom:10px"><button class="pill${!F?" p-brand":""}" onclick="S.dqF='';openDQ()">All · ${I.length}</button>${Object.keys(DQ).filter(k=>by[k]).map(k=>`<button class="pill${F===k?" p-brand":""}" onclick="S.dqF='${k}';openDQ()">${DQ[k].l} · ${by[k]}</button>`).join("")}</div>
    <div class="tbl-wrap"><table><thead><tr><th>Patient</th><th>Sample date</th><th>Ward</th><th>Organism</th><th>Issue</th><th></th></tr></thead><tbody>
    ${V.slice(0,300).map(x=>`<tr><td class="nm"><button class="namebtn" onclick="dqShow('${x.c.id}')" title="Show all records of this patient in the masterlist">${esc(x.c.name)}</button><span class="mono">RN ${esc(x.c.rn||"—")} · ${esc(x.c.case_status||"no status")}</span></td><td class="mono" style="white-space:nowrap">${fmt(x.c.sample_date)}</td><td>${esc(x.c.ward||"—")}</td><td>${esc(x.c.subtype)}</td><td style="min-width:280px"><span class="pill ${DQ[x.code].s==="crit"?"p-crit":DQ[x.code].s==="warn"?"p-warn":""}">${DQ[x.code].l}</span><div style="margin-top:3px">${x.msg}</div></td><td><button class="btn btn-ghost btn-sm" onclick="dqOk('${x.c.id}','${x.code}')">Ignore</button></td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No issues. Data is clean.</td></tr>'}</tbody></table></div>${V.length>300?`<div class="hint">Showing 300 of ${V.length}.</div>`:""}</div>`,true)}
+/* ===== Data cleaning: same patient + organism + sample date + specimen recorded twice ===== */
+function findDoubles(){const G={};CASES.forEach(c=>{if(!c.name||!c.sample_date)return;const k=[c.subtype,c.sample_date,(c.spec||"").toUpperCase()].join("|");(G[k]=G[k]||[]).push(c)});
+  const work=c=>((c.fw&&c.fw.status&&c.fw.status!=="none")?1:0)+((c.reviews||[]).length?1:0)+(c.notif?1:0)+((c.att||[]).length?1:0);
+  const score=c=>(c.jk_final?1000:0)+(hasId(c)?200:0)+(/^L/.test(c.id)?50:0)+work(c)*30+COLS.filter(([k])=>String(c[k]??"").trim()&&c[k]!==false).length;
+  const out=[];Object.values(G).forEach(L=>{if(L.length<2)return;const used=new Set();
+    L.forEach(a=>{if(used.has(a))return;const grp=L.filter(b=>!used.has(b)&&(b===a||idSame(a,b)||nmEq(a,b)));if(grp.length<2)return;grp.forEach(x=>used.add(x));
+      grp.sort((x,y)=>score(y)-score(x));const keep=grp[0];grp.slice(1).forEach(r=>{if(keep.jk_final&&r.jk_final)return;out.push({keep,rm:r,risky:work(r)>0})})})});
+  return out.sort((a,b)=>b.keep.sample_date.localeCompare(a.keep.sample_date))}
+function openClean(){const D=findDoubles();S.cleanSel=Object.fromEntries(D.map(d=>[d.rm.id,!d.risky]));const row=(c,cls)=>`<div class="${cls}"><b>${esc(c.name)}</b><span class="mono">RN ${esc(c.rn||"—")}${c.ic?" · "+esc(c.ic):""}</span><span>${esc(c.ward||"—")} · lab ${fmt(c.lab_date)} · ${esc(c.case_status||"no status")}${c.jk_final?" · in JKNS":""}</span></div>`;
+  openModal(`<div class="m-head"><div class="hx"><h3>Clean double entries · ${D.length}</h3><p>Same patient (name, RN or IC) + same organism + same sample date + same specimen = the same lab result entered twice. The more complete record is kept (RN, JKNS, forms); empty columns are filled from the copy, then the copy is removed.</p></div>${xBtn()}</div>
+  <div class="m-body">${D.length?`<div class="tbl-wrap"><table class="clean"><thead><tr><th><input type="checkbox" checked onchange="document.querySelectorAll('.clean tbody input').forEach(x=>{x.checked=this.checked;S.cleanSel[x.value]=this.checked})"></th><th>Sample</th><th>Keep</th><th>Remove (merged into keep)</th></tr></thead><tbody>
+   ${D.map(d=>`<tr><td><input type="checkbox" value="${d.rm.id}"${S.cleanSel[d.rm.id]?" checked":""} onchange="S.cleanSel[this.value]=this.checked"></td><td><b>${esc(d.keep.subtype)}</b><div class="hint" style="margin:0">${fmt(d.keep.sample_date)} · ${esc(d.keep.spec||"")}</div></td><td>${row(d.keep,"ck k")}</td><td>${row(d.rm,"ck r")}${d.risky?'<div class="hint" style="margin:2px 0 0;color:var(--warn)">This copy has a form / review / attachment — check before removing (they will be moved to the kept record).</div>':""}</td></tr>`).join("")}</tbody></table></div>`:`<div class="banner info">${svg("list")}<div>No double entries found.</div></div>`}</div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><span class="sp"></span>${D.length?`<button class="btn btn-pri" onclick="applyClean()">Merge &amp; remove selected</button>`:""}</div>`,true)}
+function applyClean(){const D=findDoubles().filter(d=>S.cleanSel&&S.cleanSel[d.rm.id]);const gone=new Set();let n=0;
+  D.forEach(({keep,rm})=>{if(gone.has(rm.id)||gone.has(keep.id))return;COLS.forEach(([k,,,t])=>{if(t==="auto")return;const kv=keep[k];if((kv===undefined||kv===null||String(kv).trim()===""||kv===false)&&rm[k]!==undefined&&String(rm[k]).trim()!==""&&rm[k]!==false)keep[k]=rm[k]});
+    ["att","reviews"].forEach(f=>{if((rm[f]||[]).length)keep[f]=(keep[f]||[]).concat(rm[f])});if(!keep.notif&&rm.notif)keep.notif=rm.notif;if(rm.fw&&rm.fw.status&&rm.fw.status!=="none"&&(!keep.fw||!keep.fw.status||keep.fw.status==="none")){keep.fw=rm.fw;keep.form={...(rm.form||{}),...(keep.form||{})}}
+    gone.add(rm.id);n++});
+  CASES=CASES.filter(c=>!gone.has(c.id));dqBump();closeModal();refresh();toast(`${n} double entries merged and removed.`)}
 /* open the masterlist filtered to this patient, with a resolver for NEW / REPEAT / duplicate records */
 function dqShow(id){const c=CASES.find(x=>x.id===id);if(!c)return;closeModal();const nm=normN(c.name);
   S.dqFocus={id,name:c.name,rn:normR(c.rn),ic:normR(c.ic)};S.mlQ="";S.mlMonth="";S.mlWard="";S.mlOv="";S.mlCls="";S.mlOrg="";go("master");window.scrollTo(0,0)}
@@ -1463,7 +1491,7 @@ function focusRecs(){const F=S.dqFocus;if(!F)return[];const n=normN(F.name);
   return CASES.filter(c=>{const m=normN(c.name);return(F.rn&&normR(c.rn)===F.rn)||(F.ic&&normR(c.ic)===F.ic)||(m&&(m===n||(m.length>8&&n.startsWith(m))||(n.length>8&&m.startsWith(n))))}).sort((a,b)=>String(a.sample_date).localeCompare(String(b.sample_date)))}
 function dqFocusHTML(){const F=S.dqFocus;if(!F)return"";const R=focusRecs();const issues=new Map();dqIssues().forEach(x=>{if(R.includes(x.c))issues.set(x.c,(issues.get(x.c)||[]).concat(x))});
   return`<div class="panel" style="margin-bottom:16px;border:2px solid var(--warn)"><div class="ph"><div><h3>All records · ${esc(F.name)} (${R.length})</h3><p>Same patient = same name, RN or IC. For the same organism, the <b>first</b> positive sample is NEW and later samples are REPEAT. Two records of the <b>same sample</b> = double entry: delete one.</p></div>
-    <div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="S.dqFocus=null;openDQ()">Back to data check</button><button class="btn btn-ghost btn-sm" onclick="S.dqFocus=null;refresh()">Close</button></div></div>
+    <div style="display:flex;gap:8px">${findDoubles().some(d=>focusRecs().includes(d.rm))?`<button class="btn btn-pri btn-sm" onclick="openClean()">Clean double entries</button>`:""}<button class="btn btn-ghost btn-sm" onclick="S.dqFocus=null;openDQ()">Back to data check</button><button class="btn btn-ghost btn-sm" onclick="S.dqFocus=null;refresh()">Close</button></div></div>
    <div class="tbl-wrap"><table><thead><tr><th>Sample date</th><th>Organism · specimen</th><th>Ward · lab date</th><th>Name / RN</th><th>Issue</th><th>Status</th><th></th></tr></thead><tbody>
    ${R.map(c=>{const I=issues.get(c)||[];const dupOf=R.find(x=>x!==c&&x.subtype===c.subtype&&x.sample_date===c.sample_date&&(x.spec||"")===(c.spec||""));return`<tr${I.length?' class="dqrow"':""}><td class="mono"><b>${fmt(c.sample_date)}</b></td><td><b>${esc(c.subtype)}</b> · ${esc(c.spec||c.spec_other||"")}</td><td>${esc(c.ward||"—")}<div class="hint" style="margin:0">lab ${fmt(c.lab_date)}</div></td><td class="nm"><span>${esc(c.name)}</span><span class="mono">RN ${esc(c.rn||"—")}</span></td>
      <td style="min-width:220px">${I.map(x=>`<div><span class="pill ${DQ[x.code].s==="crit"?"p-crit":"p-warn"}">${DQ[x.code].l}</span></div>`).join("")||(dupOf?'<span class="pill p-crit">Same sample as another record</span>':'<span class="pz">—</span>')}</td>
