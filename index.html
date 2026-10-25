@@ -913,6 +913,9 @@ function pullMerge(o){o.id=pullId(o);const L=c=>same(c,o)&&c.sample_date===o.sam
 function dedupeCases(){const G={};CASES.forEach(c=>{if(!c.name)return;(G[caseKey(c)]=G[caseKey(c)]||[]).push(c)});
   const work=c=>((c.fw&&c.fw.status&&c.fw.status!=="none")?8:0)+((c.reviews||[]).length?8:0)+(c.notif?4:0)+((c.att||[]).length?4:0)+COLS.filter(([k])=>String(c[k]??"").trim()&&c[k]!==false).length/100;
   const drop=new Set();Object.values(G).forEach(L=>{if(L.length<2)return;L.sort((a,b)=>work(b)-work(a));L.slice(1).forEach(c=>{if(work(c)<1&&(c.case_status===L[0].case_status||!c.case_status))drop.add(c)})});
+  /* old copies (made before fixed ids) of a sample that is now in the app under its fixed LAB_SURVEILLANCE id */
+  const G2={};CASES.forEach(c=>{if(!c.name||drop.has(c))return;const k=[normN(c.name),c.sample_date,c.subtype,c.spec||""].join("|");(G2[k]=G2[k]||[]).push(c)});
+  Object.values(G2).forEach(L=>{if(L.length<2)return;const fixed=L.filter(c=>/^L/.test(c.id));if(!fixed.length)return;L.forEach(c=>{if(!/^L/.test(c.id)&&work(c)<1&&!c.jk_final&&fixed.some(f=>idSame(f,c)||!hasId(c)||!hasId(f)))drop.add(c)})});
   if(drop.size){CASES=CASES.filter(c=>!drop.has(c))}return drop.size}
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646};
 const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
@@ -1106,13 +1109,13 @@ function wardNow(w){const W=WCFG[w];if(!W)return null;const c=censusOf(w,TODAY);
   const lc=latestCensus(w);if(lc&&lc.date>=addDays(TODAY,-3))return{src:"app",date:lc.date,rows:lc.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   return null}
 function inWardHTML(dw){const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase();const WL=(dw?[dw]:WARDS).filter(w=>WCFG[w]);
-  const sel=x=>K==="mdro"?x.orgs.length:K==="inf"?x.inf.length:(x.orgs.length||x.inf.length);
-  const per=[];let all=[];WL.forEach(w=>{const n=wardNow(w);if(!n)return;const R=n.rows.filter(sel);const m=n.rows.filter(x=>x.orgs.length).length,f=n.rows.filter(x=>x.inf.length).length;per.push({w,n,m,f,k:R.length});all=all.concat(R.map(x=>({...x,src:n.src,date:n.date})))});
+  const sel=x=>K==="mdro"?x.orgs.length:K==="inf"?(x.inf.length&&!x.orgs.length):(x.orgs.length||x.inf.length);
+  const per=[];let all=[];WL.forEach(w=>{const n=wardNow(w);if(!n)return;const R=n.rows.filter(sel);const m=n.rows.filter(x=>x.orgs.length).length,f=n.rows.filter(x=>x.inf.length&&!x.orgs.length).length;per.push({w,n,m,f,k:R.length});all=all.concat(R.map(x=>({...x,src:n.src,date:n.date})))});
   all=all.filter(x=>!q||[x.name,x.rn,x.ic,x.w,x.bed].join(" ").toUpperCase().includes(q)).sort((a,b)=>(WARDS.indexOf(a.w)-WARDS.indexOf(b.w))||(bedIdx(a.w,a.bed)-bedIdx(b.w,b.bed)));window._IWL=all;
   const tot={m:per.reduce((a,x)=>a+x.m,0),f:per.reduce((a,x)=>a+x.f,0)};const none=WL.filter(w=>!per.some(p=>p.w===w));
-  return`<div class="iw"><div class="iwf"><div class="seg">${[["mdro","MDRO"],["inf","Infectious disease"],["all","All"]].map(([k,l])=>`<button aria-pressed="${K===k}" onclick="S.locK='${k}';refresh()">${l}</button>`).join("")}</div>
+  return`<div class="iw"><div class="iwf"><div class="seg">${[["mdro","MDRO"],["inf","Infectious disease (non-MDRO)"],["all","All"]].map(([k,l])=>`<button aria-pressed="${K===k}" onclick="S.locK='${k}';refresh()">${l}</button>`).join("")}</div>
      <input type="search" placeholder="Search name / RN / ward / bed" value="${esc(S.locQ||"")}" oninput="S.locQ=this.value;clearTimeout(window._lq);window._lq=setTimeout(()=>{refresh();const e=document.querySelector('.iwf input');e.focus();e.setSelectionRange(e.value.length,e.value.length)},300)"></div>
-    <div class="iwsum"><div class="iwt"><b>${tot.m}</b><span>MDRO in wards today</span></div><div class="iwt inf"><b>${tot.f}</b><span>Infectious disease</span></div>
+    <div class="iwsum"><div class="iwt"><b>${tot.m}</b><span>MDRO in wards today</span></div><div class="iwt inf"><b>${tot.f}</b><span>Infectious disease (non-MDRO)</span></div>
      ${per.filter(p=>p.m||p.f).map(p=>`<button class="iwc" onclick="openMap('${esc(p.w)}')"><b>${esc(p.w)}</b><span>${p.m?`<i class="pill p-crit">MDRO ${p.m}</i>`:""}${p.f?`<i class="pill p-air">Inf ${p.f}</i>`:""}</span><small>${p.n.src==="sheet"?"census sheet":"app census"}${p.n.date!==TODAY?" · "+fmt(p.n.date):""}</small></button>`).join("")}</div>
     ${none.length?`<div class="hint" style="margin:0 16px 8px">No census today (app or sheet): ${none.map(esc).join(", ")}</div>`:""}
     <div class="tbl-wrap"><table class="mc"><thead><tr><th>Ward · bed</th><th>Patient / RN</th><th>MDRO</th><th>Infectious disease</th><th>Source</th></tr></thead><tbody>
@@ -1428,7 +1431,7 @@ let DQC=null;function dqIssues(){const key=CASES.length+"|"+(window.__dqv||0);if
   const IX=new Map(NEW.map((x,i)=>[x,i]));const dd=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);const org=c=>normOrg(c.organism||"");
   C.forEach(c=>{const isNew=c.case_status==="NEW",cont=c.hai==="CONTAMINATION";
     if(isNew&&!cont){const p=NEW.find(x=>x!==c&&x.sample_date<=c.sample_date&&(x.sample_date<c.sample_date||IX.get(x)<IX.get(c))&&dd(x.sample_date,c.sample_date)<=365&&(idSame(x,c)||nameOnly(x,c))&&morg(x)===morg(c)&&(morg(c)!=="Others"||org(x)===org(c)));
-      if(p&&!(p.infcol==="COLONIZER"&&c.infcol==="INFECTION")){const g=dd(p.sample_date,c.sample_date);add(c,"REP",(g===0?`Same date as another NEW case (${esc(p.subtype)}, ${esc(p.spec_other||p.spec||"")}) — possible double entry`:`A NEW case already exists ${esc(p.subtype)} on ${fmt(p.sample_date)} (${g} days before)`)+(idSame(p,c)?"":" · same name, RN / IC not filled in — fill in the RN to confirm"))}}
+      if(p&&!(p.infcol==="COLONIZER"&&c.infcol==="INFECTION")){const g=dd(p.sample_date,c.sample_date);add(c,"REP",(g===0?`Same patient, organism &amp; sample date as another NEW record (${esc(p.subtype)}, ${esc(p.spec_other||p.spec||"")}, ward ${esc(p.ward||"—")}, lab ${fmt(p.lab_date)}) — double entry: <button class="linkbtn" onclick="openCase('${p.id}')">open the other record</button>`:`A NEW case already exists ${esc(p.subtype)} on ${fmt(p.sample_date)} (${g} days before)`)+(idSame(p,c)?"":" · same name, RN / IC not filled in — fill in the RN to confirm"))}}
     if(!c.case_status)add(c,"STAT","Case status not filled in — not counted in analysis & JKNS");
     if(isNew&&!cont&&c.lab_date&&c.lab_date<=addDays(TODAY,-7)){const m=[];if(!c.hai)m.push("HAI");if(!c.infcol)m.push("infection/colonizer");if(m.length)add(c,"CLASS",`${m.join(" & ")} not filled in (lab ${fmt(c.lab_date)})`)}
     if(/BLOOD/i.test(c.spec||"")&&c.infcol==="COLONIZER")add(c,"BLOOD","Blood specimen but marked COLONIZER (all blood C&S = infection)");
@@ -1560,6 +1563,8 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
   const BL=BASIS_L;const bl=BL[curBasis()];
   const opt=(arr,cur,all,val)=>(all?`<option value="">${all}</option>`:"")+arr.map((v,i)=>`<option value="${val?val(v,i):v}"${String(val?val(v,i):v)===String(cur)?" selected":""}>${esc(v)}</option>`).join("");
   return`<div class="sec-h"><div><h2>Analysis</h2><p>NEW cases from the masterlist divided by admissions and patient days${MONTHLY.length?" (PD211 when available, otherwise daily census)":" from the daily census"}. Data Jan–${MON3[CUR_M]} ${YEAR}${HIST.some(h=>h.src==="import")||MONTHLY.length?"":" (sample)"}.</p></div></div>
+  ${(()=>{const u=finalUpto();if(!u)return`<div class="banner warn" style="margin-bottom:12px">${svg("list")}<div><b>Not yet reconciled with JKNS.</b> All months use the app masterlist. To use the finalized JKNS data, go to Generate report → JKNS line listing → Reconcile.</div></div>`;const m=+u.slice(5,7)-1;const nj=CASES.filter(c=>c.jk_final&&c.case_status==="NEW"&&isFinal(c.sample_date)).length;
+    return`<div class="banner info" style="margin-bottom:12px">${svg("chart")}<div><b>Data source:</b> Jan–${MON3[m]} ${YEAR} = <b>finalized JKNS file</b> (${nj} NEW cases; cases not in the JKNS file are not counted) · ${m<11?`${MON3[m+1]} ${YEAR} onward = <b>app masterlist</b> (LAB_SURVEILLANCE + cases registered in the app).`:""}</div></div>`})()}
   <div class="panel"><div class="an-ctl">
     <div class="fld"><label for="aWard">Ward</label><select id="aWard" onchange="S.an.ward=this.value;refresh()">${opt(WARDS,S.an.ward,"All wards")}</select></div>
     ${orgFilterHTML()}
@@ -1599,7 +1604,7 @@ function rAnalysis(){const{M,C}=aggMonth();const sm=S.an.month;const MF=fullYear
    </tbody></table></div></div>`}
 
 function wardReport(sm,useWard){const G=S.an.org;const WF=useWard===false?"":S.an.ward;const ym=sm===-1?String(YEAR):YEAR+"-"+pad(sm+1);const mons=sm===-1?Array.from({length:12},(_,i)=>YEAR+"-"+pad(i+1)):[ym];
-  const C=CASES.filter(c=>c.case_status==="NEW"&&c.sample_date.startsWith(ym)&&orgOk(c));
+  const C=CASES.filter(c=>c.case_status==="NEW"&&!notInFinal(c)&&c.sample_date.startsWith(ym)&&orgOk(c));
   const order=WARD_CFG.filter(w=>w.bld==="MB").map(w=>w.code).concat(WARD_CFG.filter(w=>w.bld==="WCC").map(w=>w.code));
   const wards=[...new Set(order.concat(C.map(c=>c.ward).filter(Boolean).sort()))].filter(w=>!WF||w===WF);
   const DRW=dayRows();const admOf=w=>mons.reduce((t,mm)=>{const m=MONTHLY.filter(x=>x.ym===mm&&x.ward===w);return t+(m.length?m.reduce((a,x)=>a+x.adm,0):DRW.filter(r=>r.ward===w&&r.date.startsWith(mm)).reduce((a,r)=>a+r.adm,0))},0);
