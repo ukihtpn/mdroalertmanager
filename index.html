@@ -688,6 +688,8 @@ b.pw-ward{color:#9a6c00}b.pw-uki{color:var(--brand)}
 .rg-con{box-shadow:0 0 0 3px var(--con),0 2px 6px rgba(0,0,0,.35)}
 .p-dpl{background:var(--dpl-soft);color:var(--dpl)}.p-con{background:var(--con-soft);color:var(--con)}
 .misslist{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-weight:600;color:var(--crit)}
+.stats.fclick .stat.fsel{outline:3px solid var(--c);outline-offset:-1px;background:color-mix(in srgb,var(--c) 8%,var(--panel))}
+tr.fsel td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1152,10 +1154,10 @@ function jkRow(c){const ic=icInfo(c);const it=jkInfType(c);const iso=c.infcol===
 const fmtD=d=>{const[y,m,dd]=String(d).split("-");return dd&&m?`${dd}/${m}/${y}`:d};
 function jkSet(m0,m1){const yr=String(YEAR);const inR=c=>c.sample_date&&c.sample_date.startsWith(yr)&&+c.sample_date.slice(5,7)-1>=m0&&+c.sample_date.slice(5,7)-1<=m1;
   const all=CASES.filter(inR);const inc=[],exc=[];
-  all.forEach(c=>{if(c.case_status!=="NEW")exc.push({c,why:c.case_status?c.case_status==="REPEAT"?"Repeat case":"Status "+c.case_status:"No case status (NEW/REPEAT)"});else if(c.hai==="CONTAMINATION")exc.push({c,why:"Contaminant (not in the JKNS format)"});else inc.push(c)});
+  all.forEach(c=>{if(c.case_status==="NEW"&&notInFinal(c))exc.push({c,why:"Not in the finalized JKNS file (likely a duplicate copy / not reported)"});else if(c.case_status!=="NEW")exc.push({c,why:c.case_status?c.case_status==="REPEAT"?"Repeat case":"Status "+c.case_status:"No case status (NEW/REPEAT)"});else if(c.hai==="CONTAMINATION")exc.push({c,why:"Contaminant (not in the JKNS format)"});else inc.push(c)});
   inc.sort((a,b)=>a.sample_date.localeCompare(b.sample_date)||String(a.name).localeCompare(b.name));
-  const dup=[];inc.forEach((c,i)=>{const d=inc.find((x,j)=>j<i&&same(x,c)&&x.subtype===c.subtype);if(d)dup.push({c,d})});
-  const rows=inc.map(c=>{const r=jkRow(c);const miss=[];const need=[0,1,2,3,4,5,6,7,8,9,12,13,15,16,17,18,20,23,24];need.forEach(i=>{if(r[i]===""||r[i]==null)miss.push(i)});
+  const dup=[];inc.forEach((c,i)=>{if(c.jk_final&&isFinal(c.sample_date))return;const d=inc.find((x,j)=>j<i&&same(x,c)&&x.subtype===c.subtype);if(d)dup.push({c,d})});
+  const rows=inc.map(c=>{const r=jkRow(c);const miss=[];if(c.jk_final&&isFinal(c.sample_date))return{c,r,miss,fin:true};const need=[0,1,2,3,4,5,6,7,8,9,12,13,15,16,17,18,20,23,24];need.forEach(i=>{if(r[i]===""||r[i]==null)miss.push(i)});
     if(r[9]==="YES"){if(!r[10])miss.push(10);if(!r[11])miss.push(11)}if(r[18]==="Others"&&!r[19])miss.push(19);if(r[20]==="Infection"&&!r[21])miss.push(21);if(r[21]==="BSI"&&!r[22])miss.push(22);
     if(r[20]==="Infection"&&r[21]==="BSI"&&r[23]==="HA, Own Facility"&&c.sample_date&&addDays(c.sample_date,30)<=TODAY){if(!r[26])miss.push(26);if(r[26]==="Dead"&&!r[27])miss.push(27)}
     return{c,r,miss}});
@@ -1271,6 +1273,8 @@ function applyJkImport(){const{plan}=S.jkImp;plan.forEach(({c,ch})=>Object.assig
 /* ===== Selaraskan dengan fail JKNS yang difinalize + kunci bulan ===== */
 let FINAL=[];/* [{id:"FINAL|2026",year,upto:"2026-08",at,by,file}] */
 const finalUpto=()=>{const f=FINAL.find(x=>x.id==="FINAL|"+YEAR);return f?f.upto:""};
+/* finalized months: the JKNS file is the reference. A NEW case there that is not in the JKNS file is not counted */
+const notInFinal=c=>!c.jk_final&&isFinal(c.sample_date);
 const isFinal=d=>{const u=finalUpto();return!!(u&&d&&String(d).slice(0,7)<=u&&String(d).startsWith(String(YEAR)))};
 const jkT2sub=(t,u,cur)=>{t=String(t||"").toUpperCase();u=String(u||"").toUpperCase();if(t==="CRE")return"CRE";if(/KLEB/.test(t))return"ESBL KPN";if(/COLI/.test(t))return"ESBL E Coli";if(t==="MRSA")return/VRSA/.test(u)?"VRSA":"MRSA";if(t==="VRE")return"VRE";if(/BAUMAN/.test(t))return"MRO ACB";
   if(t==="OTHERS"){if(cur&&morg({subtype:cur})==="Others")return cur;return/ESBL/.test(u)?"ESBL others":"MRO others"}return cur||""};
@@ -1483,7 +1487,7 @@ function aggMonth(){const W=S.an.ward,G=S.an.org;const D=dayRows().filter(r=>(!W
   const B=curBasis();const inB=basisOk;
   const M=Array.from({length:CUR_M+1},(_,m)=>({m,adm:0,tin:0,pd:0,cvl:0,vent:0,cases:0,notified:0,k:Object.fromEntries(CLS_ORDER.map(x=>[x,0])),byG:{}}));
   D.forEach(r=>{const o=M[+r.date.slice(5,7)-1];if(!o)return;o.adm+=r.adm;o.tin+=r.tin;o.pd+=r.pd||0;o.cvl+=r.cvl;o.vent+=r.vent});
-  const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&(!W||c.ward===W)&&orgOk(c));
+  const C=CASES.filter(c=>c.sample_date.startsWith(String(YEAR))&&c.case_status==="NEW"&&!notInFinal(c)&&(!W||c.ward===W)&&orgOk(c));
   C.forEach(c=>{const o=M[+c.sample_date.slice(5,7)-1];if(!o)return;o.notified++;o.k[cls(c)]++;o.byG[morg(c)]=(o.byG[morg(c)]||0)+1;if(!inB(c))return;o.cases++});
   MONTHLY.filter(x=>x.ym.startsWith(String(YEAR))&&(!W||x.ward===W)).forEach(x=>{const o=M[+x.ym.slice(5,7)-1];if(!o)return;if(o.src!=="PD211"){o.src="PD211";o.adm=0;o.pd=0;o.bop=0}o.adm+=x.adm;o.pd+=x.pd;o.bop+=x.beds_op});
   M.forEach(o=>{o.rInf=o.adm?o.k.INF/o.adm*100:0;o.rIC=o.adm?(o.k.INF+o.k.COL)/o.adm*100:0;o.rate=o.adm?o.cases/o.adm*100:0;o.r1k=o.pd?o.cases/o.pd*1000:0;o.du=o.pd?o.cvl/o.pd:0;const dim=new Date(YEAR,o.m+1,0).getDate();o.bor=o.src==="PD211"&&o.bop?o.pd/(o.bop*dim)*100:null;o.src=o.src||(o.adm?"Daily census":"—")});return{M,C}}
@@ -2639,7 +2643,8 @@ function wardCases(){return CASES.filter(c=>{if(c.case_status!=="NEW"&&c.form_do
   const here=(l.st==="IN"||l.st==="TR")&&l.ward===S.ward&&c.tag==="Aktif";const mine=c.ward===S.ward&&c.lab_date>=addDays(TODAY,-60);return here||mine})}
 function formCases(ward){return CASES.filter(c=>c.lab_date>=addDays(TODAY,-60)&&c.case_status==="NEW"&&(!ward||c.ward===ward||(()=>{const l=locate(c);return(l.st==="IN"||l.st==="TR")&&l.ward===ward})()))}
 function fcount(L){const o={none:0,sent:0,filled:0,verified:0};L.forEach(c=>o[fstat(c)]++);return o}
-function fStats(o){return`<div class="stats">${stat("--warn","form","Not submitted",o.none,"Needs to be sent to the doctor")}${stat("--drop","move","Awaiting doctor",o.sent,"Link already sent")}${stat("--air","list","Needs verifying",o.filled,"Doctor has filled it in, sister/UKI verifies")}${stat("--ok","form","Complete",o.verified,"Verified")}</div>`}
+function fStats(o,click){const a=k=>click?`S.ffS=S.ffS==='${k}'?'':'${k}';refresh()`:"";const on=k=>click&&S.ffS===k?" fsel":"";
+  return`<div class="stats${click?" fclick":""}">${stat("--warn","form","Not submitted",o.none,"Needs to be sent to the doctor",a("none")).replace('class="stat"','class="stat'+on("none")+'"')}${stat("--drop","move","Awaiting doctor",o.sent,"Link already sent",a("sent")).replace('class="stat"','class="stat'+on("sent")+'"')}${stat("--air","list","Needs verifying",o.filled,"Filled before the specialist field was added",a("filled")).replace('class="stat"','class="stat'+on("filled")+'"')}${stat("--ok","form","Complete",o.verified,"Verified by the treating specialist",a("verified")).replace('class="stat"','class="stat'+on("verified")+'"')}</div>`}
 const FF_FILTER={k:""};
 function rForms(){const L=wardCases().sort((a,b)=>FORDER.indexOf(fstat(a))-FORDER.indexOf(fstat(b))||b.lab_date.localeCompare(a.lab_date));const o=fcount(L);const F=FF_FILTER.k;
   const V=L.filter(c=>!F||fstat(c)===F);
@@ -2658,17 +2663,19 @@ function rForms(){const L=wardCases().sort((a,b)=>FORDER.indexOf(fstat(a))-FORDE
   </tbody></table></div></div>`}
 /* UKI monitoring */
 function rFormsUki(){const L=formCases();const W=[...new Set(L.map(c=>c.ward))].sort((a,b)=>(WARDS.indexOf(a)+1||99)-(WARDS.indexOf(b)+1||99));
-  const pend=L.filter(c=>fstat(c)!=="verified").sort((a,b)=>a.lab_date.localeCompare(b.lab_date));const o=fcount(L);
-  return`<div class="sec-h"><div><h2>MDRO form monitoring</h2><p>NEW cases in the last 60 days. A form counts as <b>Complete</b> when sister or UKI verifies it (column X "MDRO FORM COMPLETED &amp; REVIEWED" = YES).</p></div></div>
-  ${fStats(o)}
+  const fs=S.ffS||"",fw=S.ffW||"";const LW=L.filter(c=>!fw||c.ward===fw);
+  const pend=LW.filter(c=>fs?fstat(c)===fs:fstat(c)!=="verified").sort((a,b)=>a.lab_date.localeCompare(b.lab_date));const o=fcount(LW);const FL={none:"Not submitted",sent:"Awaiting doctor",filled:"Needs verifying",verified:"Complete"};
+  return`<div class="sec-h"><div><h2>MDRO form monitoring</h2><p>NEW cases in the last 60 days. A form is <b>Complete</b> when the doctor submits it with the treating specialist under <b>Verified by</b> (column X "MDRO FORM COMPLETED &amp; REVIEWED" = YES). Tap a box or a ward to filter.</p></div>
+   <div class="fld" style="margin:0;min-width:180px"><label for="ffW">Ward</label><select id="ffW" onchange="S.ffW=this.value;refresh()"><option value="">All wards</option>${W.map(w=>`<option${w===fw?" selected":""}>${esc(w)}</option>`).join("")}</select></div></div>
+  ${fStats(o,true)}
   <div class="grid2">
-   <div class="panel"><div class="ph"><div><h3>Incomplete · oldest first</h3><p>${pend.length} form</p></div></div>
+   <div class="panel"><div class="ph"><div><h3>${fs?FL[fs]:"Incomplete"}${fw?" · "+esc(fw):""} · oldest first</h3><p>${pend.length} form${pend.length===1?"":"s"}${fs||fw?` · <button class="linkbtn" onclick="S.ffS='';S.ffW='';refresh()">Clear filter</button>`:""}</p></div></div>
     <div class="tbl-wrap"><table><thead><tr><th>Patient / RN</th><th>Ward</th><th>Organism</th><th>Lab</th><th>Status</th><th>Outstanding</th><th></th></tr></thead><tbody>
-    ${pend.map(c=>{const d=Math.floor((Date.now()-new Date(c.lab_date+"T00:00").getTime())/864e5);return`<tr><td class="nm"><b>${esc(c.name)}</b><span class="mono">RN ${esc(c.rn)}</span></td><td>${esc(c.ward)}</td><td>${esc(c.subtype)}</td><td class="mono">${fmt(c.lab_date)}</td><td>${fPill(c)}${c.fw&&c.fw.phone?`<span class="hint" style="display:block;margin:0">${esc(c.fw.dr||"")} ${esc(c.fw.phone)}</span>`:""}</td><td><span class="pill ${d>7?"p-crit":d>3?"p-warn":"p-mut"}">${d} days</span></td><td>${fstat(c)==="filled"?`<button class="btn btn-pri btn-sm" onclick="openForm('${c.id}','verify')">Verify</button>`:`<button class="btn btn-ghost btn-sm" onclick="openForm('${c.id}','view')">Open</button>`}</td></tr>`}).join("")||'<tr><td colspan="7" class="empty-row">All forms complete.</td></tr>'}
+    ${pend.map(c=>{const d=Math.floor((Date.now()-new Date(c.lab_date+"T00:00").getTime())/864e5);return`<tr><td class="nm"><b>${esc(c.name)}</b><span class="mono">RN ${esc(c.rn)}</span></td><td>${esc(c.ward)}</td><td>${esc(c.subtype)}</td><td class="mono">${fmt(c.lab_date)}</td><td>${fPill(c)}${c.fw&&c.fw.phone?`<span class="hint" style="display:block;margin:0">${esc(c.fw.dr||"")} ${esc(c.fw.phone)}</span>`:""}</td><td><span class="pill ${d>7?"p-crit":d>3?"p-warn":"p-mut"}">${d} days</span></td><td>${fstat(c)==="filled"?`<button class="btn btn-pri btn-sm" onclick="openForm('${c.id}','verify')">Verify</button>`:`<button class="btn btn-ghost btn-sm" onclick="openForm('${c.id}','view')">Open</button>`}</td></tr>`}).join("")||`<tr><td colspan="7" class="empty-row">${fs?"No forms with this status.":"All forms complete."}</td></tr>`}
     </tbody></table></div></div>
    <div class="panel"><div class="ph"><div><h3>By ward</h3><p>Percent complete</p></div></div>
     <div class="tbl-wrap"><table class="num"><thead><tr><th>Ward</th><th>Not yet</th><th>Doctor</th><th>Verify</th><th>Complete</th><th>%</th></tr></thead><tbody>
-    ${W.map(w=>{const x=fcount(L.filter(c=>c.ward===w));const t=x.none+x.sent+x.filled+x.verified;const pc=t?Math.round(x.verified/t*100):0;return`<tr><td>${esc(w)}</td><td>${x.none||"·"}</td><td>${x.sent||"·"}</td><td>${x.filled||"·"}</td><td>${x.verified}</td><td><span class="pill ${pc>=80?"p-ok":pc>=50?"p-warn":"p-crit"}">${pc}%</span></td></tr>`}).join("")}
+    ${W.map(w=>{const x=fcount(L.filter(c=>c.ward===w));const t=x.none+x.sent+x.filled+x.verified;const pc=t?Math.round(x.verified/t*100):0;return`<tr class="${w===fw?"fsel":""}" style="cursor:pointer" onclick="S.ffW=S.ffW==='${esc(w)}'?'':'${esc(w)}';refresh()"><td><b>${esc(w)}</b></td><td>${x.none||"·"}</td><td>${x.sent||"·"}</td><td>${x.filled||"·"}</td><td>${x.verified}</td><td><span class="pill ${pc>=80?"p-ok":pc>=50?"p-warn":"p-crit"}">${pc}%</span></td></tr>`}).join("")}
     </tbody></table></div></div>
   </div>`}
 
