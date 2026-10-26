@@ -776,11 +776,15 @@ tr.fsel td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
 .fld.reqmiss :is(input,select,textarea){border-color:var(--warn)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 22%,transparent);background:color-mix(in srgb,var(--warn) 7%,var(--panel2))}
 .wstat{max-width:100%;white-space:normal;text-align:right}
 .probtag{display:block;width:fit-content;max-width:100%;font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:1px 6px;margin-bottom:2px;white-space:normal}
-.iwc em.stale{font-style:normal;color:var(--warn);font-weight:700}
-.iwc:has(em.stale){border-style:dashed;opacity:.85}
 .remhint{font-size:11px;font-weight:700;color:var(--warn);margin-top:3px;animation:remb 1.6s ease-in-out infinite}
 @keyframes remb{50%{opacity:.45}}
 @media (prefers-reduced-motion:reduce){.remhint{animation:none}}
+:root{--fresh:#15803d;--fresh-soft:#e8f6ec;--old:#1d6fd1;--old-soft:#e8f1fc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fresh:#4ade80;--fresh-soft:#12301d;--old:#6aa8f5;--old-soft:#132a45}}
+:root[data-theme="dark"]{--fresh:#4ade80;--fresh-soft:#12301d;--old:#6aa8f5;--old-soft:#132a45}
+.iwc.cen-ok{border-color:var(--fresh);background:var(--fresh-soft)}
+.iwc.cen-old{border-color:var(--old);background:var(--old-soft);border-style:dashed}
+.iwc em{font-style:normal;font-weight:700}.iwc em.fresh{color:var(--fresh)}.iwc em.stale{color:var(--old)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1201,8 +1205,8 @@ function inWardHTML(dw){const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase(
   return`<div class="iw"><div class="iwf"><div class="seg">${[["mdro","MDRO"],["inf","Infectious disease (non-MDRO)"],["all","All"]].map(([k,l])=>`<button aria-pressed="${K===k}" onclick="S.locK='${k}';refresh()">${l}</button>`).join("")}</div>
      <input type="search" placeholder="Search name / RN / ward / bed" value="${esc(S.locQ||"")}" oninput="S.locQ=this.value;clearTimeout(window._lq);window._lq=setTimeout(()=>{refresh();const e=document.querySelector('.iwf input');e.focus();e.setSelectionRange(e.value.length,e.value.length)},300)"></div>
     <div class="iwsum"><div class="iwt"><b>${tot.m}</b><span>MDRO in wards today</span></div><div class="iwt inf"><b>${tot.f}</b><span>Infectious disease (non-MDRO)</span></div>
-     ${per.filter(p=>p.m||p.f).map(p=>`<button class="iwc" onclick="openMap('${esc(p.w)}')"><b>${esc(p.w)}</b><span>${p.m?`<i class="pill p-crit">MDRO ${p.m}</i>`:""}${p.f?`<i class="pill p-air">Inf ${p.f}</i>`:""}</span><small>${p.n.date!==TODAY?`<em class="stale">Not updated today · last ${fmt(p.n.date)}</em>`:(p.n.src==="sheet"?"census sheet · today":"app census · today")}</small></button>`).join("")}</div>
-    ${(st=>none.length||st.length?`<div class="hint" style="margin:0 16px 8px">${st.length?`<b style="color:var(--warn)">Not updated today (showing last census):</b> ${st.map(p=>esc(p.w)+" ("+fmt(p.n.date)+")").join(", ")}. `:""}${none.length?`No census in the last 3 days: ${none.map(esc).join(", ")}.`:""}</div>`:"")(per.filter(p=>p.n.date!==TODAY))}
+     ${per.filter(p=>p.m||p.f).map(p=>`<button class="iwc ${p.n.date===TODAY?"cen-ok":"cen-old"}" onclick="openMap('${esc(p.w)}')"><b>${esc(p.w)}</b><span>${p.m?`<i class="pill p-crit">MDRO ${p.m}</i>`:""}${p.f?`<i class="pill p-air">Inf ${p.f}</i>`:""}</span><small>${p.n.date!==TODAY?`<em class="stale">Not updated today · last ${fmt(p.n.date)}</em>`:`<em class="fresh">✓ Updated today · ${p.n.src==="sheet"?"census sheet":"app"}</em>`}</small></button>`).join("")}</div>
+    ${(st=>none.length||st.length?`<div class="hint" style="margin:0 16px 8px">${st.length?`<b style="color:var(--old)">Not updated today (showing last census):</b> ${st.map(p=>esc(p.w)+" ("+fmt(p.n.date)+")").join(", ")}. `:""}${none.length?`No census in the last 3 days: ${none.map(esc).join(", ")}.`:""}</div>`:"")(per.filter(p=>p.n.date!==TODAY))}
     <div class="tbl-wrap"><table class="mc"><thead><tr><th>Ward · bed</th><th>Patient / RN</th><th>MDRO</th><th>Infectious disease</th><th>UKI review</th>${S.role==="uki"?"<th>Source</th>":""}</tr></thead><tbody>
     ${all.length?all.slice(0,300).map((x,i)=>`<tr><td data-l="Ward · bed"><button onclick="openMap('${esc(x.w)}','${esc(x.bed)}')"><span class="pill ${x.orgs.length?"p-crit":"p-air"}">${esc(x.w)} · bed ${esc(x.bed||"—")}</span></button></td>
       <td class="nm mh">${x.name?`<button class="namebtn${x.orgs.length?" mdro":""}" onclick="iwOpen(${i})">${esc(x.name)}</button><span class="mono">RN ${esc(x.rn||"—")}</span>`:`<span class="pz">No name (census sheet)</span>`}</td>
