@@ -785,6 +785,13 @@ tr.fsel td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
 .iwc.cen-ok{border-color:var(--fresh);background:var(--fresh-soft)}
 .iwc.cen-old{border-color:var(--old);background:var(--old-soft);border-style:dashed}
 .iwc em{font-style:normal;font-weight:700}.iwc em.fresh{color:var(--fresh)}.iwc em.stale{color:var(--old)}
+.remline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 10px;font-size:13px;color:var(--crit);animation:remb 1.6s ease-in-out infinite}
+.remline i{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none}
+.remline button{color:var(--crit);font-weight:700;text-decoration:underline;padding:0;background:none}
+.remline button span{font-weight:500;text-decoration:none}
+@media (prefers-reduced-motion:reduce){.remline{animation:none}}
+.remreq{font-size:11px;font-weight:700;color:var(--crit);margin-top:3px;animation:remb 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.remreq{animation:none}}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -928,8 +935,8 @@ const PREC_L={air:"Airborne",drop:"Droplet",contact:"Contact",std:"Standard"};
 const COLS=[
  ["month","MONTH","Month","auto"],["ward","WARD or CLINIC sample","Ward / clinic (at sampling)","sel",ALL_LOC],["bed","BED NUMBER at the time of MDRO diagnosis","Bed at diagnosis","text"],
  ["dept","DEPARTMENT","Department","sel",DEPTS],["jkns","linelisting MDRO JKNS","Linelisting MDRO JKNS","sel",YN],
- ["prev_enc","PREVIOUS ENCOUNTER TO HEALTHCARE FACILTY/LONG TERM NURSING CARE/DIALYSIS CENTRE","Previous treatment at a facility / care home / dialysis","sel",YN],
- ["prev_fac","NAME OF HEALTH FACILITY/ LONG TERM NURSING CARE/ DIALYSIS CENTRE:","Facility name","text"],["prev_date","DATE OF DISCHARGE / LAST VISIT TO HEALTH FACILITY/ LONG TERM NURSING CARE/ DIALYSIS CENTRE","Date of discharge / last visit","date"],
+ ["prev_enc","PREVIOUS ENCOUNTER TO HEALTHCARE FACILTY/LONG TERM NURSING CARE/DIALYSIS CENTRE","Admitted at another facility before? (hospital / care home / dialysis)","sel",YN],
+ ["prev_fac","NAME OF HEALTH FACILITY/ LONG TERM NURSING CARE/ DIALYSIS CENTRE:","Facility name","text"],["prev_date","DATE OF DISCHARGE / LAST VISIT TO HEALTH FACILITY/ LONG TERM NURSING CARE/ DIALYSIS CENTRE","Date of discharge / last visit (that facility)","date"],
  ["abx1","ANTIBIOTIC 1","Antibiotic 1 (last 3 months)","text"],["abx2","ANTIBIOTIC 2","Antibiotic 2","text"],
  ["name","PATIENT NAME","Patient name","text"],["rn","RN","RN","text"],["ic","I/C NUMBER or PASSPORT","IC / passport no.","text"],
  ["spec","SPECIMEN TYPE","Specimen type","sel",SPECS],["spec_other","OTHER SAMPLE","Other specimen (specify)","text"],["sample_date","SAMPLE DATE","Sample date taken","date"],
@@ -943,7 +950,7 @@ const COLS=[
  ["icn_ward","WARD INCHARGE ICN","Ward in-charge ICN","sel",ICN],["icn_db","DATABASE REPORTING ICN","Database reporting ICN","sel",ICN],["dod","DOD","Date of death (DOD)","date"],
  ["pt_status","STATUS PATIENT","Patient status","sel",["ALIVE","DEATH"]],["notes","NOTES/EDITS","Notes","area"],["outbreak","OUTBREAK CASE?","Outbreak case?","sel",["Yes","No","Uncertain","Possible"]],
  ["outbreak_code","OUTBREAK REFERENCE CODE","Outbreak reference code","text"],["cre_gene","FOR CRE clinical sample: Gene identified","CRE gene (clinical sample)","text"],["kkm","CASE ENTERED IN KKM MDRO CENCUS","Entered in the KKM MDRO census","chk"],
- ["diag_adm","DIAGNOSIS ON ADMISSION","Diagnosis on admission","area"],["diag_spec","DIAGNOSIS ON SPECIMEN TAKEN","Diagnosis when specimen taken","area"],
+ ["diag_adm","DIAGNOSIS ON ADMISSION","Diagnosis on admission","area"],["diag_prev","DIAGNOSIS ON LAST ADMISSION / VISIT (other facility)","Diagnosis on last admission / visit","area"],["diag_spec","DIAGNOSIS ON SPECIMEN TAKEN","Diagnosis when specimen taken","area"],
  ["inf_type","TYPE OF INFECTION (JKNS)","Type of infection (JKNS)","sel",["BSI","HAP (non-VAP)","HAP (VAP)","Intra-abd","SSI","SSTI","UTI","Others","NA"]],
  ["gender","GENDER","Gender (auto from IC)","sel",["Male","Female"]],["age","AGE","Age (auto from IC)","text"],
 ];
@@ -955,10 +962,10 @@ const ALIAS={month:["MONTH"],ward:["WARD OR CLINIC"],bed:["BED NUMBER"],dept:["D
  outbreak:["OUTBREAK CASE"],outbreak_code:["OUTBREAK REFERENCE"],cre_gene:["FOR CRE"],kkm:["CASE ENTERED IN KKM"],diag_adm:["DIAGNOSIS ON ADMISSION"],diag_spec:["DIAGNOSIS ON SPECIMEN","DIAGNOSIS ON SAMPLE"]};
 const COL=Object.fromEntries(COLS.map(c=>[c[0],c]));
 const SECTIONS=[
- ["Step 1 · Patient & admission","Lab surveillance ICN · columns A–D, K–M, Y–Z + diagnosis on admission",["name","rn","ic","gender","age","ward","bed","dept","ward_adm","adm_date","jkns","diag_adm"]],
+ ["Step 1 · Patient & admission","Lab surveillance ICN · columns A–D, K–M, Y–Z + diagnosis on admission",["name","rn","ic","gender","age","ward","bed","dept","ward_adm","adm_date","diag_adm","prev_enc","prev_fac","prev_date","diag_prev","jkns"]],
  ["Step 2 · Lab result","Lab surveillance ICN · columns N–V + diagnosis when specimen taken",["spec","spec_other","sample_date","lab_date","organism","subtype","case_status","indication","diag_spec"]],
- ["Step 3 · UKI classification","Reporting ICN · columns W–AE. Can be filled in later; the case will be Awaiting review.",["cls","inf_type","habsi","pbsi","sbsi","clabsi","death_rel","cre_gene","kkm"]],
- ["Step 4 · History, form & officers","Columns E–J, AF–AP (mostly filled automatically from the doctor's MDRO form)",["prev_enc","prev_fac","prev_date","abx1","abx2","form_done","icn_lab","icn_ward","icn_db","pt_status","dod","outbreak","outbreak_code","notes"]],
+ ["Step 3 · UKI classification","Reporting ICN · columns W–AE. Can be filled in later; the case will be Awaiting review.",["cls","inf_type","habsi","pbsi","sbsi","clabsi","death_rel","cre_gene"]],
+ ["Step 4 · History, form & officers","Columns E–J, AF–AP (mostly filled automatically from the doctor's MDRO form)",["abx1","abx2","form_done","icn_lab","icn_ward","icn_db","pt_status","dod","outbreak","outbreak_code","notes"]],
 ];
 
 /* ================= helpers ================= */
@@ -1228,7 +1235,7 @@ function rDash(){const dw=S.dw;
   return`<div class="sec-h"><div><h2>UKI dashboard</h2><p>${fmt(TODAY)} · MDRO patient locations update every time a ward submits its daily census.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="tsel" aria-label="Filter ward" onchange="S.dw=this.value;refresh()"><option value="">All wards</option>${dashWards().map(w=>`<option${w===dw?" selected":""}>${esc(w)}</option>`).join("")}</select><button class="btn btn-ghost" onclick="go('reports')">${svg("chart")}Generate report</button><button class="btn btn-pri" onclick="openCase()">${svg("form")}Register new case</button></div></div>
   <button type="button" class="dashfind" onclick="openFind()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search features — e.g. <b>PD211</b>, <b>JKNS</b>, <b>import</b>, <b>WhatsApp summary</b></span><kbd>Ctrl K</kbd></button>
-  ${alertBanner()}${(()=>{const R=CASES.filter(c=>(c.remind||[]).length&&!lastRev(c));return R.length?`<div class="banner crit dqb">${svg("move")}<div><b>${R.length} review request${R.length>1?"s":""} from wards</b> — the ward pressed "Remind UKI".<div class="pills" style="margin-top:6px">${R.map(c=>{const rm=c.remind.slice(-1)[0];return`<button class="pill p-crit" onclick="openRevHist('${c.id}')">${esc(c.name)} · ${esc(subL(c.subtype))} · ${esc(rm.ward||c.ward||"")} · ${fmt(ymd(new Date(rm.at)))}</button>`}).join("")}</div></div></div>`:""})()}${dqBanner()}
+  ${alertBanner()}${(()=>{const R=[...new Map(CASES.filter(c=>(c.remind||[]).length&&!lastRev(c)).map(c=>[c.name+"|"+c.subtype,c])).values()];return R.length?`<div class="remline"><i></i><b>${R.length} ward request${R.length>1?"s":""} for UKI review:</b> ${R.map(c=>{const rm=c.remind.slice(-1)[0];return`<button onclick="openRevHist('${c.id}')">${esc(c.name)} <span>(${esc(rm.ward||c.ward||"")} · ${esc(subL(c.subtype))} · ${fmt(ymd(new Date(rm.at)))})</span></button>`}).join(", ")}</div>`:""})()}${dqBanner()}
   <div class="stats">
     ${stat("--crit","bed","MDRO in ward",(dw?[dw]:WARDS).reduce((a,w)=>{const n=wardNow(w);return a+(n?n.rows.filter(x=>x.orgs.length).length:0)},0),WR.length?`incl. <b>${WR.length}</b> reported by ward, not yet registered`:"In the latest census",WR.length?"document.getElementById('wrBox').scrollIntoView({behavior:'smooth'})":"go('mapping')")}
     ${stat("--drop","move","In transfer",tr.length,"Awaiting new ward census","go('moves')")}
@@ -1586,7 +1593,7 @@ function openRevHist(id){const c=CASES.find(x=>x.id===id);if(!c)return;const R=r
   <div class="m-body">${R.length?`<ol class="trail">${R.map(r=>`<li class="${r.kind==="form"?"lb":"st"}"><i></i><div><b>${fmt(r.date)} · ${r.kind==="form"?"UKI review form":"UKI note"}</b><span>${esc(r.by||"")}</span><div style="margin-top:3px">${esc(r.text)}</div>${r.kind==="form"?`<button class="linkbtn" onclick="viewReview('${c.id}','${r.id}')">Open / print form</button>`:""}</div></li>`).join("")}</ol>`:'<div class="banner warn">'+svg("list")+'<div><b>Pending UKI review.</b> UKI has not reviewed this case yet.</div></div>'}
   ${(c.remind||[]).length?`<div class="hint" style="margin-top:10px">Reminders sent to UKI: ${c.remind.map(r=>`${fmt(ymd(new Date(r.at)))} ${fmtT(r.at)}${r.by?" ("+esc(r.by)+")":""}`).join(" · ")}</div>`:""}</div>
   <div class="m-foot">${S.role==="uki"?`<button class="btn btn-pri" onclick="openUkiNote('${c.id}')">+ Today's note</button><button class="btn btn-ghost" onclick="openReview('${c.id}')">${svg("form")}Generate UKI review form</button>`:!lastRev(c)?`<button class="btn btn-pri" onclick="remindUki('${c.id}')">${svg("move")}Remind UKI to review (email)</button>`:""}<span class="sp"></span><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,true)}
-function revCell(c,short){const r=lastRev(c);const n=revAll(c).length;const rm=(c.remind||[]).slice(-1)[0];return`<button type="button" class="revbtn ${r?"ok":"pend"}" onclick="event.stopPropagation();openRevHist('${c.id}')" title="${r?"Tap to see the UKI notes / review":S.role==="ward"?"Tap to remind UKI":"Not reviewed by UKI yet"}">${r?`✓ UKI reviewed${n>1?` (${n})`:""}`:"Pending UKI review"}</button>${!r&&rm?`<div class="hint" style="margin:2px 0 0;font-size:11px">UKI informed ${fmt(ymd(new Date(rm.at)))} ${fmtT(rm.at)}${S.role==="uki"?" by "+esc(rm.by||rm.ward||""):""}</div>`:""}${!r&&!rm&&S.role==="ward"?`<div class="remhint">👆 Tap to remind UKI to review</div>`:""}`}
+function revCell(c,short){const r=lastRev(c);const n=revAll(c).length;const rm=(c.remind||[]).slice(-1)[0];return`<button type="button" class="revbtn ${r?"ok":"pend"}" onclick="event.stopPropagation();openRevHist('${c.id}')" title="${r?"Tap to see the UKI notes / review":S.role==="ward"?"Tap to remind UKI":"Not reviewed by UKI yet"}">${r?`✓ UKI reviewed${n>1?` (${n})`:""}`:"Pending UKI review"}</button>${!r&&rm?(S.role==="uki"?`<div class="remreq">● Ward requested review · ${fmt(ymd(new Date(rm.at)))} ${fmtT(rm.at)} · ${esc(rm.by||rm.ward||"")}</div>`:`<div class="hint" style="margin:2px 0 0;font-size:11px">UKI informed ${fmt(ymd(new Date(rm.at)))} ${fmtT(rm.at)}</div>`):""}${!r&&!rm&&S.role==="ward"?`<div class="remhint">👆 Tap to remind UKI to review</div>`:""}`}
 function wdPendRev(){const n=wardNow(S.ward);if(!n)return[];const out=[];n.rows.forEach(x=>{if(!x.name)return;const c=mdroOf(x).sort((a,b)=>String(b.sample_date).localeCompare(String(a.sample_date)))[0];if(c&&!lastRev(c)&&!(c.remind||[]).length&&!out.includes(c))out.push(c)});return out}
 function remindUki(id){const c=CASES.find(x=>x.id===id);if(!c)return;const l=locate(c);const where=l.st==="IN"?`${l.ward} bed ${l.bed}`:l.st==="TR"?`transfer to ${l.ward}`:`last ${c.ward||""}`;
   c.remind=(c.remind||[]).concat({at:Date.now(),by:S.staff||S.icn||"",ward:S.ward||""});
@@ -2217,7 +2224,10 @@ function rMaster(){const L=mlRows();const opt=(arr,cur,all)=>`<option value="">$
    <div class="xl-scroll"><table class="xl"><thead><tr><th>#</th><th>Tag</th><th>Classification</th><th>Attachments</th><th>Current location</th>${vis.map(k=>`<th>${esc(COL[k][2])}</th>`).join("")}</tr></thead><tbody>
    ${L.length?L.map((c,i)=>`<tr onclick="openCase('${c.id}')"><td class="rn">${i+1}</td><td>${c.tag==="Aktif"?'<span class="pill p-crit">Active</span>':'<span class="pill p-mut">Clearance</span>'}</td><td>${clsPill(c)}</td><td>${(c.att||[]).length?`<span class="pill p-brand">${c.att.length} file</span>`:"—"}</td><td>${locPill(locate(c),c)}</td>${vis.map(k=>`<td>${k.endsWith("date")?fmt(c[k]):esc(c[k])}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${vis.length+5}" class="empty-row">No records for this filter.</td></tr>`}
    </tbody></table></div></div>`}`}
-function fieldHTML(k,c,pre){pre=pre||"cf_";const[key,,label,type,opts]=COL[k];const v=c[k]??"";const id=pre+key;
+const PREV_DEP=["prev_fac","prev_date","diag_prev"];
+function fieldHTML(k,c,pre){const h=fieldHTML0(k,c,pre);if(!PREV_DEP.includes(k))return h;return h.replace(/^<div class="fld/,`<div data-dep="prev_enc"${String(c.prev_enc||"").toUpperCase()==="YES"?"":" hidden"} class="fld`)}
+document.addEventListener("change",e=>{const t=e.target;if(!t||!t.id||!/prev_enc$/.test(t.id))return;const pre=t.id.replace(/prev_enc$/,"");PREV_DEP.forEach(k=>{const f=document.getElementById(pre+k);const w=f&&f.closest("[data-dep]");if(w)w.hidden=t.value!=="YES"})});
+function fieldHTML0(k,c,pre){pre=pre||"cf_";const[key,,label,type,opts]=COL[k];const v=c[k]??"";const id=pre+key;
   if(type==="sel")return`<div class="fld"><label for="${id}">${label}</label><select id="${id}"><option value=""></option>${opts.map(o=>`<option${o===v?" selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
   if(type==="date")return`<div class="fld"><label for="${id}">${label}</label><input type="date" id="${id}" value="${esc(v)}"></div>`;
   if(type==="area")return`<div class="fld full"><label for="${id}">${label}</label><textarea id="${id}" rows="2">${esc(v)}</textarea></div>`;
