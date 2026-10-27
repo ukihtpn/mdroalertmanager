@@ -3212,13 +3212,16 @@ function addRow(){S.ed.rows.push({bed:"",name:"",rn:"",ic:"",inf:[],dev:[],mw:[]
 function useLast(){const l=latestCensus(S.ward,addDays(TODAY,-1));if(!l)return;const keep=S.ed.rows.filter(r=>r._in);S.ed.rows=currentIn(S.ward).map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])]})).sort((a,b)=>bedIdx(S.ward,a.bed)-bedIdx(S.ward,b.bed)).concat(keep.filter(k=>!l.rows.some(r=>same(r,k))));paintEd();toast("List "+fmt(l.date)+" loaded. Remove patients who have left, add new patients.")}
 function parseGrid(grid){grid=grid.filter(r=>r.some(c=>String(c??"").trim()!==""));if(!grid.length)return[];
   /* the header row may be below a title (e.g. "WAD 3 _BORANG PESANAN MAKANAN"): look in the first 20 rows for a row with both a bed and a name column */
-  {const hi=grid.slice(0,20).findIndex(r=>{const t=r.map(x=>String(x??"").toLowerCase());return t.some(x=>/nama|name/.test(x))&&t.some(x=>/katil|bed/.test(x))});if(hi>0)grid=grid.slice(hi)}
+  {const hi=grid.slice(0,20).findIndex(r=>{const t=r.map(x=>String(x??"").toLowerCase());return t.some(x=>/nama|name/.test(x))&&t.some(x=>/katil|bed/.test(x))});
+   window._gridDate="";grid.slice(0,Math.max(0,hi)).forEach(r=>r.forEach(x=>{const m=String(x??"").match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})/);if(m&&!window._gridDate)window._gridDate=`${m[3]}-${pad(+m[2])}-${pad(+m[1])}`}));if(hi>0)grid=grid.slice(hi)}
   let idx={bed:0,name:1,rn:2,ic:3,inf:4,dev:5};const h=grid[0].map(x=>String(x??"").toLowerCase());const f=re=>h.findIndex(x=>re.test(x));
+  const zc=f(/^cub|zon|cubicle|bilik/);
   if(h.some(x=>/nama|name|katil|bed/.test(x))){idx={bed:f(/katil|bed/),name:f(/nama|name/),rn:f(/^rn|mrn|r\/n/),ic:f(/kp|ic|i\/c|pasport|passport/),inf:f(/penyakit|jangkitan|infection|disease|diagnos/),dev:f(/peranti|device/)};grid=grid.slice(1)}
   const cell=(r,i)=>i>=0?String(r[i]??"").trim():"";
   const infs=s=>s.toUpperCase().split(/[,;/+]/).map(x=>x.trim()).filter(Boolean).map(x=>INF.find(([k])=>k===x||k.replace(/\W/g,"")===x.replace(/\W/g,""))?.[0]||(x?"OTHERS":"")).filter(Boolean);
   const devs=s=>s.toUpperCase().split(/[,;/+ ]/).map(x=>x.trim()).map(x=>x==="VENT"?"VENTILATOR":x==="CBD"||x==="SPC"?"CBD/SPC":x).filter(x=>DEVS.some(d=>d[0]===x));
-  return grid.map(r=>({bed:matchBed(S.ward,cell(r,idx.bed)),name:cell(r,idx.name).toUpperCase(),rn:cell(r,idx.rn),ic:cell(r,idx.ic),inf:[...new Set(infs(cell(r,idx.inf)))],dev:[...new Set(devs(cell(r,idx.dev)))]})).filter(r=>r.name&&/[A-Z]{2}/.test(r.name)&&!/^(TANDATANGAN|DISEDIAKAN|JUMLAH|NAMA PESAKIT)/.test(r.name))}
+  const extOf=r=>{const z=zc>=0?String(r[zc]??"").trim().toUpperCase():"";const m=z.match(/^EXT\s*(\d+)/);return m?"EXT "+m[1]:""};
+  return grid.map(r=>({bed:extOf(r)||matchBed(S.ward,cell(r,idx.bed)),name:cell(r,idx.name).toUpperCase(),rn:cell(r,idx.rn),ic:cell(r,idx.ic),inf:[...new Set(infs(cell(r,idx.inf)))],dev:[...new Set(devs(cell(r,idx.dev)))]})).filter(r=>r.name&&/[A-Z]{2}/.test(r.name)&&!/^(TANDATANGAN|DISEDIAKAN|JUMLAH|NAMA PESAKIT)/.test(r.name))}
 function loadRows(rows,how){const keep=S.ed.rows.filter(r=>r._in&&!rows.some(x=>same(x,r)));const prev=currentIn(S.ward);let fill=0;
   rows.forEach(r=>{if(r.bed)return;const p=prev.find(x=>same(x,r));if(p&&p.bed&&!rows.some(y=>y.bed===p.bed)){r.bed=p.bed;r.inf=r.inf.length?r.inf:[...(p.inf||[])];r.dev=r.dev.length?r.dev:[...(p.dev||[])];r.mw=[...(p.mw||[])];fill++}});
   S.ed.rows=rows.concat(keep);S.ed.chk=false;paintEd();const nb=S.ed.rows.filter(r=>r.name&&!r.bed).length;
@@ -3236,11 +3239,12 @@ $("fileIn").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return
     if(!rows.length||bad>rows.length*.2){toast("This file does not look like a patient list. Use an Excel / CSV file with a name column.");return}loadRows(rows,f.name)}catch(err){toast("The file could not be read. Use .xlsx or .csv.")}};rd.readAsArrayBuffer(f)});
 /* workbook with several tabs (e.g. one tab per day): ask which tab is today's list; today's date in the tab name is suggested */
 function pickSheet(wb,name){const d=new Date();const keys=[String(d.getDate()),pad(d.getDate())+"."+pad(d.getMonth()+1),pad(d.getDate())+"/"+pad(d.getMonth()+1),d.getDate()+"."+(d.getMonth()+1)];
-  const sug=wb.SheetNames.find(n=>keys.some(k=>n.includes(k)))||wb.SheetNames[0];
+  const wn=String(S.ward||"").replace(/^W/,"");const wardTab=wb.SheetNames.find(n=>new RegExp("^(WAD|WARD|W)\\s*"+wn+"\\b","i").test(n.trim()));const sug=wb.SheetNames.find(n=>keys.some(k=>n.includes(k)))||wardTab||wb.SheetNames[0];
   openModal(`<div class="m-head"><div class="hx"><h3>Which tab is today's list?</h3><p>${esc(name)} has ${wb.SheetNames.length} tabs.</p></div>${xBtn()}</div>
   <div class="m-body"><div class="fld"><label for="wsSel">Tab</label><select id="wsSel">${wb.SheetNames.map(n=>`<option${n===sug?" selected":""}>${esc(n)}</option>`).join("")}</select></div><div class="hint">Only the bed (KATIL / BED), name (NAMA) and RN / MRN columns are needed; other columns (e.g. DIET) are ignored.</div></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="useSheet()">Use this tab</button></div>`)}
-function useSheet(){const wb=window._wbList;const n=$("wsSel").value;closeModal();const rows=parseGrid(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false}));if(!rows.length){toast("No patient rows found in this tab (needs KATIL / BED and NAMA / NAME columns).");return}loadRows(rows,window._wbName+" · "+n)}
+function useSheet(){const wb=window._wbList;const n=$("wsSel").value;closeModal();const rows=parseGrid(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false}));if(!rows.length){toast("No patient rows found in this tab (needs KATIL / BED and NAMA / NAME columns).");return}loadRows(rows,window._wbName+" · "+n);gridDateWarn()}
+function gridDateWarn(){const d=window._gridDate;if(d&&d!==TODAY)setTimeout(()=>toast(`Note: this list is dated ${fmt(d)}, not today (${fmt(TODAY)}). Check that it is today's list before submitting.`),400)}
 function askPlanFromFile(f){openModal(`<div class="m-head"><div class="hx"><h3>This is an image / PDF, not a patient list</h3><p>${esc(f.name)}</p></div>${xBtn()}</div>
   <div class="m-body"><p>The patient list must be an <b>Excel / CSV</b> file. Is this a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">No, cancel</button><button class="btn btn-pri" id="usePlanBtn">Yes, use as the new floor plan</button></div>`);
