@@ -1055,20 +1055,35 @@ function pullId(o){let h=5381;const t=caseKey(o);for(let i=0;i<t.length;i++)h=((
 /* LAB_SURVEILLANCE row -> existing case: changes made in the sheet since the last pull are copied into the app
    (a field the sheet did not change is left alone, so corrections made in the app are kept) */
 const hs=v=>{let h=5381;const t=String(v??"");for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))>>>0;return h.toString(36)};
-function pullMerge(o){o.id=pullId(o);const L=c=>same(c,o)&&c.sample_date===o.sample_date&&c.subtype===o.subtype;
+function pullMerge(o){o.id=pullId(o);const L=c=>(same(c,o)||(normN(c.name)&&normN(c.name)===normN(o.name)))&&c.sample_date===o.sample_date&&c.subtype===o.subtype;
   const U=window._pullUsed||(window._pullUsed=new Set());const free=x=>!U.has(x.id)&&!/^L/.test(x.id);/* fallback only for records made before fixed ids */
-  if(U.has(o.id))return"same";/* same row twice in the sheet */const c=CASES.find(x=>x.id===o.id)||CASES.find(x=>free(x)&&L(x)&&x.spec===o.spec&&(x.lab_date===o.lab_date||!x.lab_date||!o.lab_date))||CASES.find(x=>free(x)&&L(x)&&(x.spec===o.spec||!x.spec||!o.spec));
-  if(!c){U.add(o.id);return""}U.add(c.id);if(c.jk_final&&isFinal(c.sample_date))return"same";
+  if(U.has(o.id))return"same";/* same row twice in the sheet */if(DELS.some(z=>z.id===o.id))return"same";/* deleted on purpose */const c=CASES.find(x=>x.id===o.id)||CASES.find(x=>x.lid===o.id||(x.lids||[]).includes(o.id))||CASES.find(x=>free(x)&&L(x)&&x.spec===o.spec&&(x.lab_date===o.lab_date||!x.lab_date||!o.lab_date))||CASES.find(x=>free(x)&&L(x)&&(x.spec===o.spec||!x.spec||!o.spec));
+  if(!c){U.add(o.id);return""}U.add(c.id);if(c.id!==o.id&&c.lid!==o.id)c.lid=o.id;if(c.jk_final&&isFinal(c.sample_date))return"same";
   const snap={};let ch=0;COLS.forEach(([k,,,t])=>{if(t==="auto")return;const v=o[k];if(v===undefined||v===""||v===false)return;snap[k]=hs(v);if(String(c[k]??"")===String(v))return;
     const old=c.lsv&&c.lsv[k];if(c.lsv?old!==snap[k]:(String(c[k]??"").trim()===""||(k==="case_status"&&v==="REPEAT"))){c[k]=v;ch++}});
   if(ch){if(c.sample_date)c.month=MONTHS[+c.sample_date.slice(5,7)-1];c.group=GROUP[c.subtype]||c.group}
   if(JSON.stringify(c.lsv||{})!==JSON.stringify(snap))c.lsv=snap;return ch?"upd":"same"}
+var DELS=[];/* sheet rows the user deleted on purpose: never pulled in again [{id,name,sample_date,subtype,by,at}] */
+function linkIds(keep,d){const L=[d.id,d.lid,...(d.lids||[])].filter(x=>x&&/^L/.test(x)&&x!==keep.id);if(L.length)keep.lids=[...new Set((keep.lids||[]).concat(L))]}
+function delMark(c){if(!c)return;[c.id,c.lid,...(c.lids||[])].filter(x=>x&&/^L/.test(x)).forEach(id=>{if(!DELS.some(z=>z.id===id))DELS.push({id,name:c.name,sample_date:c.sample_date,subtype:c.subtype,by:S.icn||"",at:Date.now()})})}
+/* copy what was entered in the app (corrections, ignores, reviews, forms…) from a duplicate into the record that is kept */
+function mergeCase(keep,d){Object.keys(d).forEach(k=>{if(["id","lsv","lid","created_at"].includes(k))return;const v=d[k];if(v==null||v===""||v===false)return;
+    if(Array.isArray(v)){const cur=Array.isArray(keep[k])?keep[k]:[];const seen=new Set(cur.map(x=>typeof x==="object"?JSON.stringify(x):x));keep[k]=cur.concat(v.filter(x=>!seen.has(typeof x==="object"?JSON.stringify(x):x)));return}
+    if(typeof v==="object"){if(!keep[k]||typeof keep[k]!=="object")keep[k]=v;return}
+    /* the app copy carries user edits: it wins over the raw sheet value */if(String(keep[k]??"")!==String(v))keep[k]=v});
+  linkIds(keep,d)}
 function dedupeCases(){const G={};CASES.forEach(c=>{if(!c.name)return;(G[caseKey(c)]=G[caseKey(c)]||[]).push(c)});
   const work=c=>((c.fw&&c.fw.status&&c.fw.status!=="none")?8:0)+((c.reviews||[]).length?8:0)+(c.notif?4:0)+((c.att||[]).length?4:0)+COLS.filter(([k])=>String(c[k]??"").trim()&&c[k]!==false).length/100;
-  const drop=new Set();Object.values(G).forEach(L=>{if(L.length<2)return;L.sort((a,b)=>work(b)-work(a));L.slice(1).forEach(c=>{if(work(c)<1&&(c.case_status===L[0].case_status||!c.case_status))drop.add(c)})});
+  const drop=new Set();Object.values(G).forEach(L=>{if(L.length<2)return;L.sort((a,b)=>work(b)-work(a));L.slice(1).forEach(c=>{if(work(c)<1&&(c.case_status===L[0].case_status||!c.case_status)){mergeCase(L[0],c);drop.add(c)}})});
   /* old copies (made before fixed ids) of a sample that is now in the app under its fixed LAB_SURVEILLANCE id */
   const G2={};CASES.forEach(c=>{if(!c.name||drop.has(c))return;const k=[normN(c.name),c.sample_date,c.subtype,c.spec||""].join("|");(G2[k]=G2[k]||[]).push(c)});
-  Object.values(G2).forEach(L=>{if(L.length<2)return;const fixed=L.filter(c=>/^L/.test(c.id));if(!fixed.length)return;L.forEach(c=>{if(!/^L/.test(c.id)&&work(c)<1&&!c.jk_final&&fixed.some(f=>idSame(f,c)||!hasId(c)||!hasId(f)))drop.add(c)})});
+  Object.values(G2).forEach(L=>{if(L.length<2)return;const fixed=L.filter(c=>/^L/.test(c.id));if(!fixed.length)return;L.forEach(c=>{if(!/^L/.test(c.id)&&work(c)<1&&!c.jk_final&&fixed.some(f=>idSame(f,c)||!hasId(c)||!hasId(f))){mergeCase(fixed[0],c);drop.add(c)}})});
+  /* a sheet copy created again after IC / RN was corrected in the app (same name, sample date, organism, specimen):
+     keep the corrected record, fill only its empty fields from the sheet copy, link it to the sheet row, drop the copy */
+  const G3={};CASES.forEach(c=>{if(!c.name||drop.has(c))return;const k=[normN(c.name),c.sample_date,c.subtype,c.spec||""].join("|");(G3[k]=G3[k]||[]).push(c)});
+  const untouched=c=>work(c)<1&&!(c.dq_ok||[]).length&&!(c.ukin||[]).length&&!(c.remind||[]).length&&!c.ward_orig&&!c.dis_status;
+  Object.values(G3).forEach(L=>{if(L.length<2)return;const raw=L.filter(c=>/^L/.test(c.id)&&c.lsv&&untouched(c));const app=L.filter(c=>!raw.includes(c));if(!raw.length||!app.length)return;
+    const keep=app.sort((a,b)=>work(b)-work(a))[0];raw.forEach(d=>{if(idSame(keep,d)&&hasId(keep))return;Object.keys(d).forEach(k=>{if(["id","lsv"].includes(k))return;if((keep[k]==null||keep[k]==="")&&d[k]!=null&&d[k]!=="")keep[k]=d[k]});keep.lid=keep.lid||d.id;linkIds(keep,d);keep.lsv=keep.lsv||d.lsv;drop.add(d)})});
   if(drop.size){CASES=CASES.filter(c=>!drop.has(c))}return drop.size}
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646};
 const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
@@ -1093,7 +1108,7 @@ function person(i){while(POOL.length<=i){const j=POOL.length;const k=j%5;
 const pick=p=>({name:p.name,rn:p.rn,ic:p.ic});
 const D0=TODAY,D1=addDays(TODAY,-1),D2=addDays(TODAY,-2),D3=addDays(TODAY,-3);
 function seed(){
-  SEED=7;FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];CASES=[];CENSUS=[];MOVES=[];HIST=[];BEDHIST={};IMPORTS=[];MONTHLY=[];MAPS=JSON.parse(JSON.stringify(PLANS));
+  SEED=7;FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];CASES=[];CENSUS=[];MOVES=[];HIST=[];BEDHIST={};IMPORTS=[];MONTHLY=[];MAPS=JSON.parse(JSON.stringify(PLANS));
   let pi=100;const newP=()=>person(pi++);
   /* recent census D3..D0 for every ward */
   const profile={"W6":[["PTB",.35],["TRO PTB",.25],["VARICELLA ZOSTER",.05]],"8A WCC":[["RSV",.25],["AGE",.1],["INFLUENZA",.05]],"8B WCC":[["AGE",.15],["HFMD",.05]],"NICU":[["RSV",.1]],"W2":[["INFLUENZA",.06],["HEPATITIS",.04]],"W1":[["COVID-19",.03],["RVD",.04]],"W3":[["AGE",.04],["DF",.05]]};
@@ -1751,7 +1766,7 @@ function dupOk(a,b){const A=CASES.find(x=>x.id===a),B=CASES.find(x=>x.id===b);if
 function applyClean(){const D=findDoubles().filter(d=>inScope(d.keep)&&S.cleanSel&&S.cleanSel[d.rm.id]);const gone=new Set();let n=0;
   D.forEach(({keep,rm})=>{if(gone.has(rm.id)||gone.has(keep.id))return;COLS.forEach(([k,,,t])=>{if(t==="auto")return;const kv=keep[k];if((kv===undefined||kv===null||String(kv).trim()===""||kv===false)&&rm[k]!==undefined&&String(rm[k]).trim()!==""&&rm[k]!==false)keep[k]=rm[k]});
     ["att","reviews"].forEach(f=>{if((rm[f]||[]).length)keep[f]=(keep[f]||[]).concat(rm[f])});if(!keep.notif&&rm.notif)keep.notif=rm.notif;if(rm.fw&&rm.fw.status&&rm.fw.status!=="none"&&(!keep.fw||!keep.fw.status||keep.fw.status==="none")){keep.fw=rm.fw;keep.form={...(rm.form||{}),...(keep.form||{})}}
-    gone.add(rm.id);n++});
+    linkIds(keep,rm);gone.add(rm.id);n++});
   CASES=CASES.filter(c=>!gone.has(c.id));dqBump();closeModal();refresh();toast(`${n} double entries merged and removed.`)}
 /* open the masterlist filtered to this patient, with a resolver for NEW / REPEAT / duplicate records */
 function dqShow(id){const c=CASES.find(x=>x.id===id);if(!c)return;closeModal();const nm=normN(c.name);
@@ -1769,7 +1784,7 @@ function dqFocusHTML(){const F=S.dqFocus;if(!F)return"";const R=focusRecs();cons
    </tbody></table></div></div>`}
 function fxStatus(id,v){const c=CASES.find(x=>x.id===id);if(!c)return;c.case_status=v;dqBump();refresh();toast(`${c.name}: ${fmt(c.sample_date)} ${c.subtype} set to ${v}.`)}
 function fxDel(b,id){if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirm delete?";b.classList.add("btn-pri");setTimeout(()=>{if(b.isConnected){b.dataset.ok="";b.textContent="Delete";b.classList.remove("btn-pri")}},4000);return}
-  const c=CASES.find(x=>x.id===id);CASES=CASES.filter(x=>x.id!==id);dqBump();refresh();toast(`Record deleted (${c?c.subtype+" "+fmt(c.sample_date):""}).`)}
+  const c=CASES.find(x=>x.id===id);delMark(c);CASES=CASES.filter(x=>x.id!==id);dqBump();refresh();toast(`Record deleted (${c?c.subtype+" "+fmt(c.sample_date):""}).`)}
 function fxOk(id){const c=CASES.find(x=>x.id===id);if(!c)return;const codes=dqIssues().filter(x=>x.c===c).map(x=>x.code);c.dq_ok=[...new Set((c.dq_ok||[]).concat(codes))];dqBump();refresh();toast("Marked as reviewed.")}
 function dqOk(id,code){const c=CASES.find(x=>x.id===id);if(!c)return;c.dq_ok=[...new Set((c.dq_ok||[]).concat(code))];dqBump();refresh();openDQ();toast("Ignored for this patient.")}
 function dqCase(c){const I=dqIssues().filter(x=>x.c===c);if(!I.length)return"";return`<div class="banner crit">${svg("list")}<div><b>Please check:</b><ul style="margin:4px 0 0;padding-left:18px">${I.map(x=>`<li><b>${DQ[x.code].l}</b> — ${x.msg} <button class="linkbtn" onclick="dqOk('${c.id}','${x.code}');closeModal();openCase('${c.id}')">Ignore</button></li>`).join("")}</ul></div></div>`}
@@ -2956,7 +2971,7 @@ async function demoSlip(c){const cv=document.createElement("canvas");cv.width=90
   g.font="bold 28px Arial";g.fillText("Organism: Klebsiella pneumoniae",60,600);g.fillStyle="#d23b33";g.fillText("ESBL PRODUCER · ALERT ORGANISM",60,645);
   g.fillStyle="#13212e";g.font="22px Arial";[["Ampicillin","R"],["Ceftriaxone","R"],["Cefepime","R"],["Pip/Tazo","S"],["Meropenem","S"],["Amikacin","S"]].forEach(([k,v],i)=>{g.fillText(k,90,720+i*42);g.fillText(v,420,720+i*42)});
   const data=cv.toDataURL("image/jpeg",.85);return{id:uid("A"),name:"micro-report-"+c.rn+".jpg",type:"image/jpeg",size:Math.round(data.length*.75),at:at(TODAY,9,12),by:"DR ANEESA",data,thumb:await shrinkImg(data,260,.75)}}
-function askDel(id){const f=document.querySelector(".m-foot");f.innerHTML=`<span style="font-weight:600;align-self:center">Delete this record from the masterlist?</span><span class="sp"></span><button class="btn btn-ghost" onclick="openCase('${id}')">No</button><button class="btn btn-crit" onclick="CASES=CASES.filter(x=>x.id!=='${id}');closeModal();toast('Record deleted.');refresh()">Yes, delete</button>`}
+function askDel(id){const f=document.querySelector(".m-foot");f.innerHTML=`<span style="font-weight:600;align-self:center">Delete this record from the masterlist?</span><span class="sp"></span><button class="btn btn-ghost" onclick="openCase('${id}')">No</button><button class="btn btn-crit" onclick="delMark(CASES.find(x=>x.id==='${id}'));CASES=CASES.filter(x=>x.id!=='${id}');closeModal();toast('Record deleted.');refresh()">Yes, delete</button>`}
 function saveXlsx(aoa,sheet,file){try{const ws=XLSX.utils.aoa_to_sheet(aoa);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);if(DLS){saveFile(file,new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})]));return}XLSX.writeFile(wb,file);toast("Export "+(aoa.length-1)+" rows. In the preview the download may be blocked; in the real app the file will be downloaded.")}catch(e){toast("Export cannot run here.")}}
 function exportXlsx(){const H=COLS.map(c=>c[1]).concat(["MDRO TAG","CURRENT LOCATION"]);
   saveXlsx([H,...mlRows().map(c=>COLS.map(([k,,,t])=>t==="date"?fmt(c[k]):t==="chk"?(c[k]?"TRUE":"FALSE"):c[k]??"").concat([c.tag,(l=>l.st==="IN"?l.ward+" bed "+l.bed:l.st)(locate(c))]))],"MASTERLIST","MASTERLIST_"+TODAY+".xlsx")}
@@ -3714,7 +3729,7 @@ const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(
 let TOKEN="";try{TOKEN=sessionStorage.getItem("mdro_tok")||""}catch(e){}
 const CENSUS_DAYS=35;
 const COLLS={cases:()=>CASES,census:()=>CENSUS,moves:()=>MOVES};
-const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS};
+const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS};
 let SNAP={},SYNC={busy:false,again:false,timer:null,err:"",last:0},VER=0;
 const BLOB=new Map(),REV=new Map();           /* drive id -> dataURL, dataURL -> drive id */
 
@@ -3770,8 +3785,8 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
 /* ---------- load ---------- */
 /* one-time fix: W7 new plan (from 16/10/2026) had bed 42 typed instead of 36 */
 function fixW7Bed(){let n=0;CENSUS.forEach(c=>{if(c.ward==="W7"&&c.date>="2026-10-16"&&!(c.rows||[]).some(r=>r.bed==="36"))(c.rows||[]).forEach(r=>{if(r.bed==="42"){r.bed="36";n++}})});if(n)syncSoon()}
-function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
-  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
+function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
+  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
@@ -3783,7 +3798,7 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
 async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
-  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
+  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
     SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o);n++});
   (ch.deleted||[]).forEach(s=>{const[k,id]=s.split("::");const A={cases:CASES,census:CENSUS,moves:MOVES}[k];if(A){const i=A.findIndex(x=>x.id===id);if(i>=0)A.splice(i,1);delete SNAP[k][id];n++}});
   VER=ch.ver||VER;if(n&&S.role&&$("modalBg").hidden&&S.tab!=="register"&&S.tab!=="census")refresh()}
