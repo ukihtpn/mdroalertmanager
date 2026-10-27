@@ -3168,9 +3168,10 @@ function layoutPanel(){const E=S.ed.ext||[];const L=S.ed.layout;const W=WCFG[S.w
     <button type="button" aria-pressed="${L==="same"}" onclick="setLayout('same')"><i>${L==="same"?"✓":""}</i><span><b>Same as usual</b><small>No extra beds today</small></span></button>
     <button type="button" aria-pressed="${L==="ext"}" onclick="setLayout('ext')"><i>${L==="ext"?"✓":""}</i><span><b>Has extra beds</b><small>Extra beds in corridor / cubicle</small></span></button></div>
     <div class="hint" style="margin:10px 0 0">Ward layout changed permanently (new floor plan / bed numbers)? <button class="linkbtn" onclick="openPlanUpdate()">Upload new floor plan (image / PDF)</button></div>
-   ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b>${esc(e.bed)}</b>
+   ${L==="ext"&&E.some(e=>!e.near&&!e.note)?`<div class="banner warn" style="margin:10px 0 0">${svg("bed")}<div>Where is each extra bed today? Choose the <b>bed it is next to</b>, or write the <b>cubicle</b> (e.g. Cubicle 1 / HDU / corridor). One of the two is enough.</div></div>`:""}
+   ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b>${esc(e.bed)}${(p=>p?`<small style="display:block;font-weight:600;color:var(--mut)">${esc(p.name)}</small>`:"")(S.ed.rows.find(r=>r.name&&r.bed===e.bed))}</b>
      <div class="fld"><label for="ex_n${i}">Near bed / cubicle</label><select id="ex_n${i}" onchange="S.ed.ext[${i}].near=this.value"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div>
-     <div class="fld"><label for="ex_t${i}">Location note</label><input id="ex_t${i}" value="${esc(e.note||"")}" placeholder="e.g. Cubicle B / corridor" oninput="S.ed.ext[${i}].note=this.value"></div>
+     <div class="fld"><label for="ex_t${i}">Location note</label><input id="ex_t${i}" value="${esc(e.note||"")}" placeholder="e.g. Cubicle 1 / HDU / corridor" list="cubList" oninput="S.ed.ext[${i}].note=this.value"><datalist id="cubList">${["Cubicle 1","Cubicle 2","Cubicle 3","Cubicle 4","Cubicle 5","HDU","Acute","Corridor","Isolation room"].map(x=>`<option value="${x}">`).join("")}</datalist></div>
      <button class="xbtn" aria-label="Remove" onclick="S.ed.ext.splice(${i},1);refresh()">✕</button></div>`).join("")}</div>
      <div class="addrow"><button class="btn btn-ghost btn-sm" onclick="addExt()"${E.length>=EXTS.length?" disabled":""}>+ Add extra bed</button><span class="hint" style="margin:0">Extra beds are named EXT 1, EXT 2… Use these names in the patient list.</span></div>`:""}</div>`}
 function setLayout(v){S.ed.layout=v;if(v==="ext"&&!S.ed.ext.length)addExt(true);if(v==="same")S.ed.ext=[];refresh()}
@@ -3224,8 +3225,11 @@ function parseGrid(grid){grid=grid.filter(r=>r.some(c=>String(c??"").trim()!==""
   return grid.map(r=>({bed:extOf(r)||matchBed(S.ward,cell(r,idx.bed)),name:cell(r,idx.name).toUpperCase(),rn:cell(r,idx.rn),ic:cell(r,idx.ic),inf:[...new Set(infs(cell(r,idx.inf)))],dev:[...new Set(devs(cell(r,idx.dev)))]})).filter(r=>r.name&&/[A-Z]{2}/.test(r.name)&&!/^(TANDATANGAN|DISEDIAKAN|JUMLAH|NAMA PESAKIT)/.test(r.name))}
 function loadRows(rows,how){const keep=S.ed.rows.filter(r=>r._in&&!rows.some(x=>same(x,r)));const prev=currentIn(S.ward);let fill=0;
   rows.forEach(r=>{if(r.bed)return;const p=prev.find(x=>same(x,r));if(p&&p.bed&&!rows.some(y=>y.bed===p.bed)){r.bed=p.bed;r.inf=r.inf.length?r.inf:[...(p.inf||[])];r.dev=r.dev.length?r.dev:[...(p.dev||[])];r.mw=[...(p.mw||[])];fill++}});
-  S.ed.rows=rows.concat(keep);S.ed.chk=false;paintEd();const nb=S.ed.rows.filter(r=>r.name&&!r.bed).length;
-  toast(`${rows.length} patients loaded from ${how}.${fill?` ${fill} beds taken from yesterday's census.`:""}${nb?` ${nb} have no bed, fill in at Step 4.`:""}`)}
+  S.ed.rows=rows.concat(keep);S.ed.chk=false;
+  /* extra beds found in the list (EXT 1 …): switch Step 2 to "Has extra beds" and list them, the ward only chooses where they are */
+  const ex=[...new Set(rows.map(r=>r.bed).filter(isExt))];ex.forEach(b=>{if(!S.ed.ext.some(e=>e.bed===b))S.ed.ext.push({bed:b,near:"",note:""})});if(ex.length){S.ed.layout="ext";setTimeout(()=>refresh(),0)}
+  paintEd();const nb=S.ed.rows.filter(r=>r.name&&!r.bed).length;
+  toast(`${rows.length} patients loaded from ${how}.${fill?` ${fill} beds taken from yesterday's census.`:""}${nb?` ${nb} have no bed, fill in at Step 4.`:""}${ex.length?` Extra bed${ex.length>1?"s":""} ${ex.join(", ")} found: choose the location in Step 2.`:""}`)}
 function openPaste(){openModal(`<div class="m-head"><div class="hx"><h3>Paste patient list</h3><p>Copy columns from Excel (Bed, Name, RN, IC No., Disease, Device) and paste here. The header row is detected automatically.</p></div>${xBtn()}</div>
   <div class="m-body"><textarea class="paste" id="pasteTx" aria-label="Patient list" placeholder="Bed&#9;Name&#9;RN&#9;IC No&#9;Disease&#9;Device&#10;1&#9;AHMAD BIN ALI&#9;612345&#9;560101-10-1234&#9;&#9;CBD&#10;R2&#9;LIM AH KOW&#9;612999&#9;600101-10-4321&#9;PTB&#9;"></textarea></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="doPaste()">Use this list</button></div>`)}
