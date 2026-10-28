@@ -827,6 +827,16 @@ table.hpll{font-size:12px}table.hpll th{white-space:normal;min-width:80px;font-s
 .rsbox{border:1.5px dashed var(--crit);border-radius:12px;padding:10px 12px;margin:8px 0;background:color-mix(in srgb,var(--crit) 5%,transparent)}
 .ukiact{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1.5px solid var(--brand);border-radius:12px;background:color-mix(in srgb,var(--brand) 6%,transparent)}.ukiact b{color:var(--brand);margin-right:4px}
 .kpigrid:has(> .panel:only-child){grid-template-columns:1fr}.kpigrid:has(> .panel:only-child) .cbox.sm{height:240px}
+/* MyWard Bedwatcher */
+.bwlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bwi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1px solid var(--line);background:var(--panel,#fff);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer;text-align:left;color:inherit}
+.bwi small{font-size:11.5px;color:var(--mut,#667)}
+.bwi.name{border-color:var(--crit);box-shadow:inset 3px 0 0 var(--crit)}
+.bwi.name small{color:var(--crit);font-weight:600}
+.bwi.tag{border-color:var(--warn,#d98a00);box-shadow:inset 3px 0 0 var(--warn,#d98a00)}
+.bwi.ok{opacity:.75}
+.bwchip{display:inline-block;border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:2px 2px 2px 0;font-size:12px;white-space:nowrap}
+.bwtab td{vertical-align:top}.bwtab tr.bwold{opacity:.55}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1108,7 +1118,7 @@ function person(i){while(POOL.length<=i){const j=POOL.length;const k=j%5;
 const pick=p=>({name:p.name,rn:p.rn,ic:p.ic});
 const D0=TODAY,D1=addDays(TODAY,-1),D2=addDays(TODAY,-2),D3=addDays(TODAY,-3);
 function seed(){
-  SEED=7;FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];CASES=[];CENSUS=[];MOVES=[];HIST=[];BEDHIST={};IMPORTS=[];MONTHLY=[];MAPS=JSON.parse(JSON.stringify(PLANS));
+  SEED=7;BWATCH=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];CASES=[];CENSUS=[];MOVES=[];HIST=[];BEDHIST={};IMPORTS=[];MONTHLY=[];MAPS=JSON.parse(JSON.stringify(PLANS));
   let pi=100;const newP=()=>person(pi++);
   /* recent census D3..D0 for every ward */
   const profile={"W6":[["PTB",.35],["TRO PTB",.25],["VARICELLA ZOSTER",.05]],"8A WCC":[["RSV",.25],["AGE",.1],["INFLUENZA",.05]],"8B WCC":[["AGE",.15],["HFMD",.05]],"NICU":[["RSV",.1]],"W2":[["INFLUENZA",.06],["HEPATITIS",.04]],"W1":[["COVID-19",.03],["RVD",.04]],"W3":[["AGE",.04],["DF",.05]]};
@@ -1279,9 +1289,10 @@ function wardNow(w){let n=wardNow0(w);const UB=WCFG[w]?ubOpen(w):[];if(UB.length
   const U=WCFG[w]?ukiIn(w):[];if(!U.length)return n;const o=n||{src:"uki",date:"",rows:[]};
   const rows=o.rows.slice();U.filter(c=>!rows.some(r=>r.name&&same(r,c))).forEach(c=>{const i=c.dis_bed?rows.findIndex(r=>!r.name&&String(r.bed)===String(c.dis_bed)):-1;
     const x={w,bed:c.dis_bed||"",name:c.name,rn:c.rn,ic:c.ic,orgs:[...new Set([c.subtype].concat(i>=0?rows[i].orgs:[]))],inf:i>=0?rows[i].inf:[],dev:[],r:null,ukiIn:c};if(i>=0)rows[i]=x;else rows.push(x)});return{...o,rows}}
+function bhOf(w,d){const a=BEDHIST[w+"|"+d],b=typeof bwOf==="function"?bwOf(w,d):null;if(!b||!Object.keys(b).length)return a||null;const o={...(a||{})};Object.entries(b).forEach(([bed,x])=>o[bed]=[...new Set((o[bed]||[]).concat(x.t))]);return o}
 function wardNow0(w){const W=WCFG[w];if(!W)return null;const c=censusOf(w,TODAY);
   if(c)return{src:"app",date:TODAY,rows:c.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
-  for(let i=0;i<=2;i++){const d=addDays(TODAY,-i);const bh=BEDHIST[w+"|"+d];if(bh&&!censusOf(w,d))return{src:"sheet",date:d,rows:Object.entries(bh).map(([bed,t])=>({w,bed,name:"",orgs:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))}}
+  for(let i=0;i<=2;i++){const d=addDays(TODAY,-i);const bh=i===0?bhOf(w,d):BEDHIST[w+"|"+d];if(bh&&!censusOf(w,d))return{src:i===0&&bwOf(w,d)?"bw":"sheet",date:d,rows:Object.entries(bh).map(([bed,t])=>({w,bed,name:"",orgs:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))}}
   const lc=latestCensus(w);if(lc&&lc.date>=addDays(TODAY,-3))return{src:"app",date:lc.date,rows:lc.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   return null}
 function inWardHTML(dw){const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase();const WL=(dw?[dw]:WARDS).filter(w=>WCFG[w]);
@@ -1300,7 +1311,7 @@ function inWardHTML(dw){const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase(
       <td data-l="MDRO">${(x.ct||[]).length&&!x.orgs.length?`<div class="pills">${ctPills(x)}</div>`:""}${x.orgs.length?`<div class="pills">${x.orgs.map(o=>`<span class="pill p-crit">${esc(subL(o))}</span>`).join("")}${ctPills(x)}</div>${(d=>d?`<div class="hint" style="margin:2px 0 0">Dept: ${esc(d)}</div>`:"")(x.name?((mdroOf(x).sort((a,b)=>b.sample_date.localeCompare(a.sample_date))[0]||{}).dept||""):"")}`:'<span class="pz">—</span>'}</td>
       <td data-l="Infectious disease">${x.inf.length?`<div class="pills">${x.inf.map(k=>`<span class="pill ${INFP[k]==="air"?"p-air":INFP[k]==="drop"?"p-dpl":INFP[k]==="contact"?"p-con":"p-mut"}">${esc(k)}</span>`).join("")}</div>`:'<span class="pz">—</span>'}</td>
       <td data-l="UKI review">${(()=>{if(x.name&&!x.orgs.length&&ctOf(x).length)return`<button type="button" class="revbtn ${ctLive(x)?"pend":"ok"}" onclick="iwOpen(${i})">${ctPos(x)?"Swab positive · register":ctLive(x)?"Review contact":"✓ Off-tag"}</button>`;if(!x.name||!x.orgs.length)return'<span class="pz">—</span>';const cs=mdroOf(x).sort((a,b)=>b.sample_date.localeCompare(a.sample_date));return cs.length?revCell(cs[0],true):'<span class="pill p-warn">Pending UKI review</span>'})()}</td>
-      ${S.role==="uki"?`<td data-l="Source" class="hint" style="margin:0">${x.ub?"UKI (mapping) · "+fmt(x.ub.date):(x.src==="sheet"?"Census sheet":x.src==="uki"?"UKI":"App census")+" · "+fmt(x.date)}</td>`:""}</tr>`).join(""):`<tr><td colspan="6" class="empty-row">No ${K==="mdro"?"MDRO":K==="inf"?"infectious disease":""} patients in wards today.</td></tr>`}
+      ${S.role==="uki"?`<td data-l="Source" class="hint" style="margin:0">${x.ub?"UKI (mapping) · "+fmt(x.ub.date):(x.src==="sheet"?"Census sheet":x.src==="bw"?"Bedwatcher (name not confirmed)":x.src==="uki"?"UKI":"App census")+" · "+fmt(x.date)}</td>`:""}</tr>`).join(""):`<tr><td colspan="6" class="empty-row">No ${K==="mdro"?"MDRO":K==="inf"?"infectious disease":""} patients in wards today.</td></tr>`}
     </tbody></table></div></div>`}
 function iwOpen(i){const x=(window._IWL||[])[i];if(!x)return;if(x.ub){S.map.ward=x.w;bedInfo(pick(ubRow(x.ub)),x.bed,ubRow(x.ub));return}if(x.ukiIn){openProfile(x.ukiIn.id);return}if(x.r){S.map.ward=x.w;bedInfo(pick(x.r),x.bed,x.r)}}
 function rDash(){const dw=S.dw;
@@ -2250,8 +2261,8 @@ function mapEditing(){const M=S.map;return!!(S.mapEd&&M.date===TODAY&&S.ed&&S.ed
 function mapEdit(){const M=S.map;if(S.role==="uki"){if(!WCFG[M.ward])return;S.ward=M.ward;S.staff=S.icn+" · UKI"}else{M.ward=S.ward}M.date=TODAY;
   if(!S.ed||S.ed.ward!==S.ward)edInit();{if(!censusOf(S.ward,TODAY)&&!S.ed.pre&&S.ed.rows.every(r=>r._in)){S.ed.pre=1;const keep=S.ed.rows;S.ed.rows=currentIn(S.ward).map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])]})).concat(keep);const lc=latestCensus(S.ward,addDays(TODAY,-1));if(lc&&lc.ext&&lc.ext.length){S.ed.ext=JSON.parse(JSON.stringify(lc.ext))}}}
   S.mapEd=true;S.map.edit=false;go("mapping")}
-function mapCensus(){const M=S.map;if(mapEditing()){EXTMETA=Object.fromEntries((S.ed.ext||[]).map(e=>[e.bed,e]));return{c:null,lc:null,draft:true,rows:S.ed.rows.filter(r=>r.name&&r.bed)}}
-  const c=censusOf(M.ward,M.date);const ih=!c&&BEDHIST[M.ward+"|"+M.date];
+function mapCensus(){const M=S.map;if(mapEditing()){EXTMETA=Object.fromEntries((S.ed.ext||[]).map(e=>[e.bed,e]));const dr=S.ed.rows.filter(r=>r.name&&r.bed);if(S.map.date===TODAY){const B=bwOf(S.ed.ward)||{};Object.entries(B).forEach(([bed,x])=>{if(!dr.some(r=>String(r.bed)===String(bed)))dr.push({bed,name:"",imp:true,bwp:1,mdro:x.t.filter(k=>tagPrec(k)==="mdro"),inf:x.t.filter(k=>tagPrec(k)!=="mdro"),dev:[]})})}return{c:null,lc:null,draft:true,rows:dr}}
+  const c=censusOf(M.ward,M.date);const ih=!c&&bhOf(M.ward,M.date);
   if(ih||(!c&&M.date===TODAY&&ubOf(M.ward).length)){const ihh=ih||{};const UB=M.date===TODAY?ubOf(M.ward):[];const U=M.date===TODAY?ukiIn(M.ward).filter(c=>c.dis_bed):[];const rows=Object.entries(ihh).map(([bed,t])=>{const u=U.find(c=>String(c.dis_bed)===String(bed));return{bed,name:u?u.name:"",rn:u?u.rn:"",ic:u?u.ic:"",ukiC:u||null,imp:true,mdro:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}});
     U.filter(c=>!rows.some(r=>r.ukiC===c)).forEach(c=>rows.push({bed:c.dis_bed,name:c.name,rn:c.rn,ic:c.ic,ukiC:c,imp:true,mdro:[c.subtype],inf:[],dev:[]}));
     UB.forEach(x=>{const i=rows.findIndex(r=>String(r.bed)===String(x.bed));const row={...ubRow(x),imp:true,mdro:[...new Set(orgsOf(x).concat(x.mw||[]))],inf:[...(x.inf||[])]};if(i>=0)rows[i]=row;else rows.push(row)});return{c:null,lc:null,imp:true,rows}}
@@ -2284,10 +2295,10 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
     ${S.role==="uki"?`<div class="fld"><label for="mBld">Building</label><select id="mBld" onchange="S.map.bld=this.value;S.map.ward=WARD_CFG.find(w=>w.bld===this.value).code;refresh()"><option value="MB"${M.bld==="MB"?" selected":""}>Main Building</option><option value="WCC"${M.bld==="WCC"?" selected":""}>WCC (Women &amp; Children)</option></select></div>`:""}
     <div class="fld"><label for="mWard">Ward</label><select id="mWard" onchange="S.map.ward=this.value;refresh()"${S.role==="ward"?" disabled":""}>${wl.map(w=>`<option${w===M.ward?" selected":""}>${w}</option>`).join("")}</select></div>
     <div class="fld"><label for="mDate">Date</label><div class="datebox"><button class="btn btn-ghost btn-sm" aria-label="Previous day" onclick="S.map.date=addDays(S.map.date,-1);refresh()">‹</button><input type="date" id="mDate" value="${M.date}" max="${TODAY}" onchange="S.map.date=this.value||TODAY;refresh()"><button class="btn btn-ghost btn-sm" aria-label="Next day" onclick="if(S.map.date<TODAY){S.map.date=addDays(S.map.date,1);refresh()}">›</button><button class="btn btn-ghost btn-sm" onclick="S.map.date=TODAY;refresh()">Today</button></div></div>
-    <span class="hint" style="margin:0 0 4px">${draft?`<span class="pill p-warn">Draft · not submitted</span> Tap a bed to add / edit a patient`:imp?`<span class="pill p-brand">Excel import data</span> Infection status by bed (no patient names)`:c?`Census submitted ${fmtT(c.at)} by ${esc(c.by)}`:lc?`<span class="pill p-warn">Census ${fmt(M.date)} not submitted</span> Showing census ${fmt(lc.date)}`:'<span class="pill p-warn">No census</span>'}${!draft&&!c&&M.date===TODAY&&WCFG[M.ward]&&(S.role==="uki"||M.ward===S.ward)?' <b class="tapnote">👆 Tap any bed to fill today\'s census</b>':""}</span>
+    <span class="hint" style="margin:0 0 4px">${draft?`<span class="pill p-warn">Draft · not submitted</span> Tap a bed to add / edit a patient`:imp?(M.date===TODAY&&bwOf(M.ward)?`<span class="pill p-brand">MyWard Bedwatcher</span> Infection status by bed (no patient names) · the ward confirms the names in today's census`:`<span class="pill p-brand">Excel import data</span> Infection status by bed (no patient names)`):c?`Census submitted ${fmtT(c.at)} by ${esc(c.by)}`:lc?`<span class="pill p-warn">Census ${fmt(M.date)} not submitted</span> Showing census ${fmt(lc.date)}`:'<span class="pill p-warn">No census</span>'}${!draft&&!c&&M.date===TODAY&&WCFG[M.ward]&&(S.role==="uki"||M.ward===S.ward)?' <b class="tapnote">👆 Tap any bed to fill today\'s census</b>':""}</span>
    </div>
    <div class="legend"><span><i class="sw st-g"></i>Patient</span><span><i class="sw st-r"></i>MDRO</span><span><i class="sw st-y"></i>Airborne (PTB, TRO PTB, VZV)</span><span><i class="sw st-o"></i>Droplet (influenza, RSV, COVID-19)</span><span><i class="sw st-a"></i>Contact (AGE, rotavirus, C.diff, HFMD)</span><span><i class="sw st-r" style="box-shadow:0 0 0 2px var(--air)"></i>Ring = 2nd precaution</span><span><i class="sw st-e"></i>Empty</span></div>
-   ${draft?`<div class="banner warn" style="margin:0 0 12px">${svg("map")}<div><b>Fill mode on mapping · ${esc(M.ward)}</b> Tap an empty bed to add a patient, tap an occupied bed to edit, change bed or remove. When done, tap <b>Submit census</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="mapCopyYesterday()">Copy yesterday's patients</button></div></div></div>`:""}
+   ${!draft&&c&&M.date===TODAY?bwDiffHTML(M.ward,c):""}${draft?`<div class="banner warn" style="margin:0 0 12px">${svg("map")}<div><b>Fill mode on mapping · ${esc(M.ward)}</b> Tap an empty bed to add a patient, tap an occupied bed to edit, change bed or remove. When done, tap <b>Submit census</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="mapCopyYesterday()">Copy yesterday's patients</button></div></div></div>`:""}
    <div class="map-body">
     <div class="map-canvas" id="mapCanvas">${M.edit?planEditor(W):mapDraw(W,byBed)}</div>
     <aside class="side">
@@ -2448,9 +2459,10 @@ function openExt(i){const W=WCFG[S.ward];if(i<0){addExt(true);i=S.ed.ext.length-
   <div class="m-body"><div class="mrow"><div class="fld"><label for="xeN">Near bed / cubicle</label><select id="xeN"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div><div class="fld"><label for="xeT">Location note</label><input id="xeT" value="${esc(e.note||"")}" placeholder="e.g. Cubicle B / corridor"></div></div></div>
   <div class="m-foot"><button class="btn btn-ghost" style="color:var(--crit)" onclick="S.ed.ext.splice(${i},1);if(!S.ed.ext.length)S.ed.layout='same';closeModal();refresh()">Remove</button><span class="sp"></span><button class="btn btn-pri" onclick="S.ed.ext[${i}].near=$('xeN').value;S.ed.ext[${i}].note=$('xeT').value.trim();closeModal();refresh()">Save</button></div>`)}
 function edBed(bed,idx){const W=WCFG[S.ward];const R=S.ed.rows;const i=idx!=null?idx:R.findIndex(r=>r.name&&r.bed===bed);const r=i>=0?R[i]:{bed,name:"",rn:"",ic:"",inf:[],dev:[],mw:[]};bed=r.bed||bed||"";const nb=R.filter(x=>x.name&&!x.bed);S.eb={bed,i,ct:ctOf(r),rs:r,inf:[...(r.inf||[])],dev:[...(r.dev||[])],mw:[...(r.mw||[])],oth:r.oth||"",mwo:r.mwo||""};
+  const bwx=bed?(bwOf(S.ward)||{})[bed]:null;const bwf=bwx?bwFields(bwx.t):null;if(bwx&&(i<0||arguments[2])){S.eb.inf=[...new Set(S.eb.inf.concat(bwf.inf))];S.eb.mw=[...new Set(S.eb.mw.concat(bwf.mw))];if(bwf.oth&&!S.eb.oth)S.eb.oth=bwf.oth}
   const o=i>=0?orgsOf(r):[];const all=W.beds.concat((S.ed.ext||[]).map(e=>e.bed));
   openModal(`<div class="m-head"><div class="hx"><h3>${i>=0?esc(r.name||"Patient"):"Add patient"}${bed?" · bed "+esc(bed):""}</h3><p>${esc(S.ward)} · ${fmt(TODAY)}</p></div>${xBtn()}</div>
-  <div class="m-body">${i<0&&nb.length?`<div class="fld"><label for="ebPick">Choose a patient without a bed</label><select id="ebPick" onchange="ebPick(this.value)"><option value="">— new patient —</option>${nb.map(x=>`<option value="${R.indexOf(x)}">${esc(x.name)}${x._in?" · from "+esc(x._in):""}</option>`).join("")}</select></div>`:""}
+  <div class="m-body">${bwx?`<div class="banner info bwhint" style="margin:0 0 10px">${svg("bed")}<div><b>MyWard Bedwatcher · bed ${esc(bed)}:</b> ${bwx.t.map(esc).join(", ")}${bwx.raw&&bwx.raw!==bwx.t.join(" · ")?` <span class="hint" style="margin:0">(${esc(bwx.raw)})</span>`:""}.${i<0||arguments[2]?" Already ticked below.":""}${bwf.grp.length?` <b>Choose the organism for ${bwf.grp.map(esc).join(", ")}</b> under MDRO.`:""}${i<0?" <b>Enter the patient's full name.</b>":""}</div></div>`:""}${i<0&&nb.length?`<div class="fld"><label for="ebPick">Choose a patient without a bed</label><select id="ebPick" onchange="ebPick(this.value)"><option value="">— new patient —</option>${nb.map(x=>`<option value="${R.indexOf(x)}">${esc(x.name)}${x._in?" · from "+esc(x._in):""}</option>`).join("")}</select></div>`:""}
    <div class="mrow"><div class="fld" style="flex:2"><label for="ebN">Patient name</label><input id="ebN" value="${esc(r.name)}" autocomplete="off"></div><div class="fld"><label for="ebR">RN</label><input id="ebR" value="${esc(r.rn)}"></div><div class="fld"><label for="ebI">No. KP</label><input id="ebI" value="${esc(r.ic)}"></div>
     <div class="fld"><label for="ebMv">Bed</label><select id="ebMv"><option value="">— no bed yet —</option>${all.map(b=>{const x=R.find(y=>y.name&&y.bed===b&&y!==r);return`<option value="${esc(b)}"${b===bed?" selected":""}>${esc(b)}${x?" · "+esc(x.name)+" (change)":b===bed?"":" · empty"}</option>`}).join("")}</select></div></div>
    <div id="ebMd" style="margin:0"></div>
@@ -3018,7 +3030,7 @@ function openImport(){IMP=null;
   openModal(`<div class="m-head"><div class="hx"><h3>Import Excel</h3><p>Choose the CENSUS HARIAN MDRO &amp; PENYAKIT BERJANGKIT, STATISTIK PD211 or LAB SURVEILLANCE workbook. The app reads recognised sheets and shows a summary before saving.</p></div>${xBtn()}</div>
   <div class="m-body"><div class="drop imp-drop" id="impDrop"><button class="btn btn-pri" onclick="$('impIn').click()">${svg("up")}Choose Excel file</button><span>or drag a file here · .xlsx / .xls</span></div>
    <input type="file" id="impIn" accept=".xlsx,.xls,.xlsm" hidden>
-   <div class="hint" style="margin:0">Sheets read: <b>JUMLAH MDRO &amp; PENYAKIT BERJANGKIT</b> (daily totals per ward), bed sheet for each ward (DATE + BED 1, BED 2…), <b>MASTERLIST</b>, and monthly statistics <b>PD211 / PER-PD 104C</b> (sheets 1–12). Other sheets are skipped.</div>
+   <div class="hint" style="margin:0">Sheets read: <b>JUMLAH MDRO &amp; PENYAKIT BERJANGKIT</b> (daily totals per ward), bed sheet for each ward (DATE + BED 1, BED 2…), <b>MASTERLIST</b>, and monthly statistics <b>PD211 / PER-PD 104C</b> (sheets 1–12). <b>MyWard Bedwatcher</b> (BWS sheets: disease / MDRO per bed). Other sheets are skipped.</div>
    <div id="impLinks">${linkedHTML()}</div>
    <div id="impRes"></div></div>
   <div class="m-foot" id="impFoot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`,true);
@@ -3050,6 +3062,7 @@ function pdHTML(R){if(!R.monthly.length)return"";const months=[...new Set(R.mont
    <details><summary>View table</summary><div class="tbl-wrap"><table class="mini num"><thead><tr><th>Ward</th>${months.map(m=>`<th>${MON3[+m.slice(5)-1]}</th>`).join("")}</tr></thead><tbody>${[...new Set(R.monthly.map(x=>x.label))].map(l=>`<tr><td>${esc(l)}${R.monthly.find(x=>x.label===l).code?` → ${esc(R.monthly.find(x=>x.label===l).code)}`:""}</td>${months.map(m=>{const xs=R.monthly.filter(x=>x.label===l&&x.ym===m);return`<td>${xs.length?xs.map(x=>x.adm+" / "+x.pd).join(" + "):"—"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div><div class="hint">Values: admissions / patient days</div></details></div>`}
 function analyseWb(wb,file){const R={file,daily:[],bedSheets:[],master:[],monthly:[],mmap:{},skipped:[],map:{},masterSheet:"",dailySheet:""};
   wb.SheetNames.forEach(sn=>{const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:""});if(!A.length){R.skipped.push(sn);return}
+    if(/^\s*BWS\b/i.test(sn)){(R.bw=R.bw||[]).push(...parseBW(A,sn));return}if(wb.SheetNames.some(n=>/^\s*BWS\b/i.test(n))){R.skipped.push(sn);return}
     if(parsePD211(A,R,sn))return;
     let hi=-1;for(let i=0;i<Math.min(6,A.length);i++){const h=A[i].map(x=>String(x).trim().toUpperCase());if(h.includes("DATE")||h[0]==="TARIKH"||(h[0]==="MONTH"&&h.some(x=>x.startsWith("PATIENT NAME")))){hi=i;break}}
     if(hi<0||!A[hi].some(x=>/BED|WAD|PATIENT/i.test(String(x)))){const T=transposed(A);if(T){T.sheet=sn;T.ward=T.auto=wardCode(sn);R.bedSheets.push(T);return}if(hi<0){R.skipped.push(sn);return}}
@@ -3093,11 +3106,12 @@ function renderImp(){const R=IMP;const unm=Object.keys(R.map);const wardOpt=cur=
   ${R.master.length?`<div class="impsec"><label class="imph"><input type="checkbox" id="impM" checked> Masterlist <span class="pill p-brand">${esc(R.masterSheet)}</span></label>
     <p>${R.master.length} cases${exist?` · ${exist} already exist and will be skipped`:""}. ${R.mcols} columns recognised (format ${R.mnew?"new, 44 columns":"old"}). Cases with a sample date within the last 6 months are tagged <b>Active</b>; older ones are tagged <b>Clearance</b> (can be changed in Masterlist).</p></div>`:""}
   ${R.jkns?`<div class="banner info">${svg("list")}<div><b>This is a JKNS line listing file (MDRO/MOH/2022/2)</b>, not LAB_SURVEILLANCE. It is not imported here. To make the masterlist &amp; Analysis match this finalized JKNS file, use <b>Reconcile with JKNS</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="const b=IMP.buf,n=IMP.file;closeModal();jkReconcileBuf(b,n)">Reconcile with this JKNS file</button></div></div></div>`:""}
-  ${R.jkns&&!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?"":!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?`<div class="banner warn">${svg("list")}<div>No recognised sheets in this file.</div></div>`:`<label class="imph" style="font-weight:600"><input type="checkbox" id="impSyn"${R.daily.length||R.master.length?" checked":""}> Remove sample (dummy) data from Analysis${R.master.length?" and Masterlist":""}</label>
+  ${R.jkns&&!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?"":!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?((R.bw||[]).length?"":`<div class="banner warn">${svg("list")}<div>No recognised sheets in this file.</div></div>`):`<label class="imph" style="font-weight:600"><input type="checkbox" id="impSyn"${R.daily.length||R.master.length?" checked":""}> Remove sample (dummy) data from Analysis${R.master.length?" and Masterlist":""}</label>
     ${R.daily.length&&!R.master.length?`<div class="hint" style="margin:0">MDRO cases in Analysis are still sample data until the MASTERLIST (LAB SURVEILLANCE file) is imported.</div>`:""}`}
   ${pdHTML(R)}
+  ${bwImpHTML(R)}
   ${R.skipped.length?`<details><summary class="hint">${R.skipped.length} sheets skipped</summary><div class="hint">${R.skipped.map(esc).join(" · ")}</div></details>`:""}`;
-  $("impFoot").innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>${R.daily.length||R.bedSheets.length||R.master.length||R.monthly.length?`<button class="btn btn-pri" onclick="applyImport()">${svg("up")}Save to app</button>`:""}`}
+  $("impFoot").innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>${R.daily.length||R.bedSheets.length||R.master.length||R.monthly.length||(R.bw||[]).length?`<button class="btn btn-pri" onclick="applyImport()">${svg("up")}Save to app</button>`:""}`}
 function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB=0,nM=0,nP=0;
   if(on("impP")){const K={};R.monthly.forEach(x=>{const code=x.code||R.mmap[x.label]||String(x.label||"").replace(/^WA[DR]D?\s+/i,"").trim().toUpperCase();if(!code)return;const k=code+"|"+x.ym;if(K[k]){["beds_rasmi","beds_op","adm","pd","disc","deaths","trans_out"].forEach(f=>K[k][f]+=x[f])}else K[k]={...x,ward:code}});
     MONTHLY=MONTHLY.filter(m=>!K[m.ward+"|"+m.ym]);Object.values(K).forEach(v=>{MONTHLY.push(v);nP++})}
@@ -3107,9 +3121,10 @@ function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB
       else K[k]={date:d.date,ward:code,adm:d.adm,tin:d.tin,pd:null,cvl:d.cvl,trachy:d.trachy,vent:d.vent,cbd:d.cbd,c:{...d.c},oth:d.oth?{...d.oth}:undefined,remarks:d.remarks,src:"import"}});
     HIST=HIST.filter(h=>!K[h.ward+"|"+h.date]);Object.values(K).forEach(r=>{HIST.push(r);nD++})}
   if(on("impB"))R.bedSheets.forEach(s=>{if(!s.ward)return;s.cells.forEach(([d,h,v])=>{const bed=matchBed(s.ward,h);const k=s.ward+"|"+d;(BEDHIST[k]=BEDHIST[k]||{})[bed]=tagsOf(v);nB++})});
+  let bwr=null;if(on("impBW")&&R.bw){bwr=bwSave(R.bw,R.file);nB+=bwr.nb}
   let nF=0;window._pullUsed=new Set();window._pullUpd=0;if(on("impM"))R.master.forEach(o=>{if(isFinal(o.sample_date)){nF++;return}{const m=pullMerge(o);if(m==="upd"){window._pullUpd=(window._pullUpd||0)+1;return}if(m)return}CASES.push(o);nM++});
   IMPORTS.unshift({at:Date.now(),file:R.file,by:S.icn,nD,nB,nM,nP});IMP=null;closeModal();
-  toast(`Saved: ${nP?nP+" monthly ward statistics (PD211), ":""}${nD.toLocaleString()} daily totals, ${nB.toLocaleString()} bed statuses, ${nM} masterlist cases${nF?` (${nF} cases in JKNS-finalized months skipped)`:""}.`);
+  toast(`Saved: ${nP?nP+" monthly ward statistics (PD211), ":""}${nD.toLocaleString()} daily totals, ${nB.toLocaleString()} bed statuses, ${nM} masterlist cases${bwr?` · Bedwatcher: ${bwr.nb} tagged beds in ${bwr.n} wards${bwr.stale.length?" ("+bwr.stale.length+" wards not updated, skipped)":""}`:""}${nF?` (${nF} cases in JKNS-finalized months skipped)`:""}.`);
   if(nD&&S.tab==="wards"){const last=HIST.filter(h=>h.src==="import").map(h=>h.date).sort().pop();if(last&&!WARDS.some(w=>censusOf(w,S.bwDate)))S.bwDate=last}refresh()}
 
 /* ================= UKI: movements ================= */
@@ -3145,6 +3160,7 @@ function rCensus(){if(!S.ed||S.ed.ward!==S.ward)edInit();const W=WCFG[S.ward];
    <div class="hint" style="margin:10px 0 0">Want to try? Download a sample Excel (dummy data for this ward): <button class="linkbtn" onclick="sampleXlsx(true)">with bed</button> · <button class="linkbtn" onclick="sampleXlsx(false)">without bed</button></div>
    <div class="hint" id="st2" style="margin:8px 0 0"></div></div>
   <div class="panel stepbox" id="st3box"><div class="stephd"><span>4</span><div><b>Patient list · fill in beds</b><p>Enter the bed number for each name. Tap <b>Disease / device / MDRO</b> to add patient details.</p></div></div>
+   <div id="bwBox">${bwCensusHTML()}</div>
    <div class="seg" role="group" id="pfilt"></div>
    <datalist id="bedList">${W.beds.concat((S.ed.ext||[]).map(e=>e.bed)).map(b=>`<option value="${esc(b)}"></option>`).join("")}</datalist>
    <div id="pcards" class="pcards"></div>
@@ -3220,7 +3236,7 @@ function infCell(r,i){if(!r.name&&!r.rn)return"";const o=orgsOf(r);let h="";
 function devCell(r,i){return`<div class="devs">${DEVS.map(([k,l])=>`<button class="dv" aria-pressed="${(r.dev||[]).includes(k)}" onclick="togDev(${i},'${k}',this)">${l}</button>`).join("")}</div>`}
 function togDev(i,k,el){const r=S.ed.rows[i];r.dev=r.dev||[];const j=r.dev.indexOf(k);if(j<0)r.dev.push(k);else r.dev.splice(j,1);el.setAttribute("aria-pressed",j<0);sumChips()}
 function rowCls(r){return orgsOf(r).length?"is-mdro":""}
-function paintEd(){const el=$("pcards");if(!el)return;const R=S.ed.rows;const W=WCFG[S.ward];const F=S.pf||"";
+function paintEd(){{const e=$("bwBox");if(e&&typeof bwCensusHTML==="function")e.innerHTML=bwCensusHTML()}const el=$("pcards");if(!el)return;const R=S.ed.rows;const W=WCFG[S.ward];const F=S.pf||"";
   const nb=R.filter(r=>r.name&&!r.bed).length;const dup=R.filter(r=>r.bed).map(r=>r.bed).filter((b,i,a)=>a.indexOf(b)!==i);
   $("pfilt").innerHTML=R.length?`<button aria-pressed="${!F}" onclick="S.pf='';paintEd()">All <b class="mono">${R.length}</b></button><button aria-pressed="${F==="nb"}" onclick="S.pf='nb';paintEd()">No bed yet <b class="mono">${nb}</b></button>`:"";$("pfilt").hidden=!R.length;
   const V=R.map((r,i)=>({r,i})).filter(x=>!F||!x.r.bed).sort((a,b)=>(a.r.bed?1:0)-(b.r.bed?1:0)||bedIdx(S.ward,a.r.bed)-bedIdx(S.ward,b.r.bed));
@@ -3619,7 +3635,7 @@ function paintFind(){const q=($("findQ")?.value||"").toLowerCase().trim();const 
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&S.role==="uki"){e.preventDefault();openFind()}});
 
 /* ===== Google Sheet berpaut: tarik terus LAB_SURVEILLANCE / CENSUS HARIAN / PD211 tanpa muat turun ===== */
-let LINKS=null;const LINK_L={lab:"LAB_SURVEILLANCE (masterlist)",census:"CENSUS HARIAN (daily census)",pd211:"STATISTIK PD211"};
+let LINKS=null;const LINK_L={lab:"LAB_SURVEILLANCE (masterlist)",census:"CENSUS HARIAN (daily census)",pd211:"STATISTIK PD211",bw:"MyWard BEDWATCHER (category / remarks)"};
 const liveOK=()=>typeof GS==="function"&&typeof LIVE!=="undefined";
 async function loadLinks(){if(!liveOK()||S.role!=="uki")return null;try{LINKS=await GS("getLinks",TOKEN)}catch(e){LINKS=null}return LINKS}
 function linkedHTML(){if(!liveOK())return`<div class="hint" style="margin:12px 0 0">Linked Google Sheets are available in the live app.</div>`;
@@ -3630,7 +3646,7 @@ function linkedHTML(){if(!liveOK())return`<div class="hint" style="margin:12px 0
 function openLinks(){const L=LINKS||{};openModal(`<div class="m-head"><div class="hx"><h3>Link Google Sheets</h3><p>Paste the link of each Google Sheet (from the browser address bar). The app reads it directly; no download needed. The Google account that owns the app must be able to open the sheet.</p></div>${xBtn()}</div>
   <div class="m-body">${Object.keys(LINK_L).map(k=>`<div class="fld"><label for="lk_${k}">${LINK_L[k]}</label><input id="lk_${k}" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc((L[k]&&L[k].url)||"")}"></div>`).join("")}
    <label class="imph" style="font-weight:600;margin-top:6px"><input type="checkbox" id="lk_auto"${L.auto?" checked":""}> Auto-pull new LAB_SURVEILLANCE cases when UKI opens the app</label>
-   <div class="hint">PD211 and CENSUS HARIAN are pulled when you tap <b>Pull now</b>, so you can review before saving. If the sheet is an uploaded Excel (.xlsx) file, first use <b>File → Save as Google Sheets</b> and link the new copy.</div></div>
+   <div class="hint">BEDWATCHER is pulled automatically every 15 minutes while UKI has the app open (infectious disease / MDRO per bed; the ward confirms the name). PD211 and CENSUS HARIAN are pulled when you tap <b>Pull now</b>, so you can review before saving. If the sheet is an uploaded Excel (.xlsx) file, first use <b>File → Save as Google Sheets</b> and link the new copy.</div></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="saveLinks()">Save links</button></div>`)}
 async function saveLinks(){const o={auto:$("lk_auto").checked};Object.keys(LINK_L).forEach(k=>o[k]=$("lk_"+k).value.trim());toast("Checking links…");
   try{LINKS=await GS("setLinks",TOKEN,o);closeModal();toast("Links saved.");openImport()}catch(e){toast((e.message||String(e)).replace(/^Error:\s*/,""))}}
@@ -3652,9 +3668,9 @@ function mergeBeds(R,from){const cen=new Set(CENSUS.map(c=>c.ward+"|"+c.date));c
 async function autoPullCensus(L,quiet){if(!L.census||!L.census.url)return;window._cenPull=Date.now();
   try{if(window.LAZY)await window.LAZY;const d=await GS("pullSheet",TOKEN,"census",{only:"jumlah",year:YEAR});const R=analyseWb(wbFromPull(d),d.name);const n=mergeDaily(R,YEAR+"-01-01");const nb=mergeBeds(R,YEAR+"-01-01");
     if(n||nb){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:n,nB:nb,nM:0,nP:0});refresh()}if(!quiet||n||nb)toast(n||nb?`Census harian: ${n} daily ward totals and ${nb} ward-days of bed status updated.`:`Census harian checked · nothing new.`)}catch(e){if(!quiet)toast("Census auto-pull failed: "+(e.message||e))}}
-async function cenTick(){if(!liveOK()||S.role!=="uki"||document.hidden||window._syncing)return;if(Date.now()-(window._cenPull||0)<15*60e3)return;window._cenPull=Date.now();try{const L=await loadLinks();if(L&&L.census&&L.census.url)await autoPullCensus(L,true)}catch(e){}}
+async function cenTick(){if(!liveOK()||S.role!=="uki"||document.hidden||window._syncing)return;if(Date.now()-(window._cenPull||0)<15*60e3)return;window._cenPull=Date.now();try{const L=await loadLinks();if(L&&L.census&&L.census.url)await autoPullCensus(L,true);if(L&&L.bw&&L.bw.url)await bwPull(true)}catch(e){}}
 setInterval(cenTick,60000);
-async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;S._autoPulled=1;{const nd=dedupeCases();if(nd){toast(`${nd} duplicate copies of the same lab result removed from the masterlist.`);refresh()}}const L=await loadLinks();if(!L||!L.auto)return;setTimeout(()=>autoPullCensus(L),8000);await pullLab(L)}
+async function autoPullLab(){if(S._autoPulled||!liveOK()||S.role!=="uki")return;S._autoPulled=1;{const nd=dedupeCases();if(nd){toast(`${nd} duplicate copies of the same lab result removed from the masterlist.`);refresh()}}const L=await loadLinks();if(L&&L.bw&&L.bw.url)setTimeout(()=>bwPull(true),12000);if(!L||!L.auto)return;setTimeout(()=>autoPullCensus(L),8000);await pullLab(L)}
 /* "Update from sheets" button: pull LAB_SURVEILLANCE + census harian now, without reloading the app */
 async function syncSheets(btn){if(!liveOK()){toast("Available in the live app (linked Google Sheets).");return}if(window._syncing)return;window._syncing=1;
   const b=btn||$("syncBtn");const old=b?b.innerHTML:"";if(b){b.disabled=true;b.innerHTML='<span class="spin"></span><span>Updating…</span>'}
@@ -3723,13 +3739,85 @@ function kpiInfo(k){const{M}=aggMonth();const sm=S.an.month;const o=sm===-1?sumM
    <div class="m-body"><div class="fbox"><div class="lbl" style="margin-top:0">Formula</div><div class="fml">${x[1]}</div><div class="lbl">With the current filters</div><div class="fml">${x[2]}</div></div><div class="lbl">Where the data comes from</div><p style="margin:4px 0 0;line-height:1.55">${x[3]}</p></div>
    <div class="m-foot"><button class="btn btn-pri" onclick="closeModal()">OK</button></div>`)}
 
+/* ===== MyWard BEDWATCHER: infectious-disease / MDRO tags per bed (no patient names) → mapping + ward census prefill; the ward only confirms the name ===== */
+var BWATCH=[];/* [{id:"BW|ward|date",ward,date,beds:{bed:{t:[tags],raw}},upd,file,at}] */
+var BW_WARD=[[/^W\s*0?1$/,"W1"],[/^W\s*0?2$/,"W2"],[/^W\s*0?3$/,"W3"],[/^W\s*0?4$/,"W4"],[/^W\s*0?7$/,"W7"],[/^W\s*0?8$/,"W8"],[/^WAD ISOLASI|^ISOLASI/,"W6"],[/^ICU$|^ICU 1$/,"ICU MB"],
+  [/WAD 6A|^6A\b/,"6A WCC"],[/WAD 6B|^6B\b/,"6B WCC"],[/WAD 7A|^7A\b/,"7A WCC"],[/WAD 7B|^7B\b/,"7B WCC"],[/WAD 8A|^8A\b/,"8A WCC"],[/WAD 8B|^8B\b/,"8B WCC"],[/^PICU/,"PICU"],[/^NICU/,"NICU"],[/^SCN/,"SCN"],[/ICU\s*&\s*HDW|ICU.*WCC/,"ICU WCC"]];
+function bwWard(s){s=String(s||"").toUpperCase().replace(/\s+/g," ").trim();if(!s)return"";const f=BW_WARD.find(([re])=>re.test(s));return f&&WCFG[f[1]]?f[1]:""}
+/* keywords → app tags (MDRO groups, infectious-disease list, or a named OTHERS disease) */
+var BW_KW=[[/\bCRE\b|\bCPE\b|CARBAPENEM/,"CRE"],[/\bVRSA\b/,"VRSA"],[/\bVRE\b/,"VRE"],[/\bMRSA\b/,"MRSA"],[/\bESBL\b/,"ESBL"],[/\bMRO\b|\bMDRO\b|ACINETO|\bACB\b/,"MRO"],
+  [/\bEPTB\b|EXTRA\s*-?\s*PULMONARY|\bTB\s*(SPINE|ABDOMEN|MENINGITIS|LN)\b/,"EXTRA PULMONARY TB"],[/(\bTRO|\bR\/O|\?)\s*PTB\b/,"TRO PTB"],[/\bPTB\b|SMEAR\s*\+\s*VE|\bTB\b/,"PTB"],
+  [/COVID|SARS\s*-?\s*COV\s*-?\s*2/,"COVID-19"],[/INFLU|\bFLU\b/,"INFLUENZA"],[/\bRSV\b/,"RSV"],[/ROTA/,"ROTAVIRUS"],[/PERTUS/,"TRO PERTUSIS"],[/ADENO/,"ADENOVIRUS"],[/RHINO/,"RHINOVIRUS"],
+  [/VARICELLA|CHICKEN\s*-?\s*POX|\bVZV\b|ZOSTER|SHINGLES/,"VARICELLA ZOSTER"],[/\bAGE\b|GASTROENTERITIS/,"AGE"],[/C\.?\s*DIFF|CLOSTRIDI/,"C.DIFF"],[/DYSENT/,"DYSENTRY"],[/\bHFMD\b/,"HFMD"],[/SALMONEL|TYPHOID/,"SALMONELLA"],
+  [/HEPATITIS|\bHEP\s*[ABC]\b|\bHBSAG\b|\bHBV\b|\bHCV\b/,"HEPATITIS"],[/\bHIV\b/,"HIV"],[/\bRVD\b/,"RVD"],[/SYPHILIS|\bVDRL\b/,"SYPHILIS"],[/\bDF\b|DENGUE|\bDHF\b|\bDSS\b/,"DF"],[/MALARIA/,"MALARIA"],
+  [/MERS/,"MERS-COV"],[/MEASLES/,"MEASLES"],[/MUMPS/,"MUMPS"],[/SCABIES/,"SCABIES"],[/MELIOID/,"MELIOIDOSIS"],[/LEPTO/,"LEPTOSPIROSIS"],[/MPOX|MONKEY\s*POX/,"MPOX"],[/DIPHTH/,"DIPHTHERIA"],[/MENINGOCOC/,"MENINGOCOCCAL"],[/CHOLERA/,"CHOLERA"],[/RUBELLA/,"RUBELLA"]];
+function bwTags(txt){const T=String(txt||"").toUpperCase();const o=[];BW_KW.forEach(([re,k])=>{if(re.test(T)&&!o.includes(k))o.push(k)});
+  if(o.includes("TRO PTB")&&o.includes("PTB")&&!/\bPTB\b[^?]*\bPTB\b|SMEAR\s*\+/.test(T))o.splice(o.indexOf("PTB"),1);if(o.includes("EXTRA PULMONARY TB")&&o.includes("PTB")&&!/\bPTB\b/.test(T))o.splice(o.indexOf("PTB"),1);return o}
+function bwDate(v){if(typeof v==="number"&&v>30000&&v<70000)return ymd(new Date(Math.round((v-25569)*864e5)+new Date().getTimezoneOffset()*6e4));
+  const m=String(v||"").match(/(\d{1,2})\s*[.\/-]\s*(\d{1,2})\s*[.\/-]\s*(\d{2,4})/);if(m){const y=+m[3]<100?2000+ +m[3]:+m[3];return`${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`}
+  const n=String(v||"").match(/^(\d{4})-(\d{2})-(\d{2})/);return n?n[0]:""}
+function bwBed(w,room,bed){const b=String(bed==null?"":bed).replace(/\.0$/,"").replace(/\s+/g," ").trim().toUpperCase();if(!b)return"";
+  if(w==="W6"){const r=String(room==null?"":room).replace(/\.0$/,"").trim();const n=b.replace(/^B\s*/,"");const L=WCFG.W6.beds;if(r&&/^\d+$/.test(r)){if(L.includes(`R${r}/${n}`))return`R${r}/${n}`;if(n==="1"&&L.includes("R"+r))return"R"+r}return""}
+  if(!/^(ISO\s*|EXT\.?\s*|B\s*|R\s*)?\d{1,3}[A-Z]?$/.test(b))return"";return matchBed(w,b.replace(/^B\s*(?=\d)/,""))}
+/* one Bedwatcher sheet (blocks of ~13 columns per ward, side by side) */
+function parseBW(A,sn){const out=[];const U=v=>String(v==null?"":v).replace(/\s+/g," ").trim().toUpperCase();
+  for(let hr=0;hr<Math.min(6,A.length);hr++){const H=(A[hr]||[]).map(U);
+    H.forEach((h,j)=>{if(h!=="BED")return;let name="";for(let r=hr-1;r>=0&&!name;r--)for(let c=Math.max(0,j-1);c<=j+2&&!name;c++){const v=U((A[r]||[])[c]);if(v&&!/^\d+(\.\d+)?$/.test(v))name=v}
+      const w=bwWard(name);let end=H.length;for(let c=j+2;c<H.length;c++)if(H[c]==="BED"){end=c-1;break}
+      const col=re=>{for(let c=j;c<end;c++)if(re.test(H[c]))return c;return-1};const cSt=col(/^STATUS$/),cCat=col(/^CATEGORY$|REMARKS FOR DENGUE/),cRem=col(/^REMARKS?$/),cCov=col(/^COVID STATUS$/);
+      const blk={name,ward:w,sheet:sn,upd:"",beds:{},n:0};let room="",gap=0;
+      for(let r=hr+1;r<A.length;r++){const R=A[r]||[];const cells=[];for(let c=j-1;c<end;c++)cells.push(U(R[c]));
+        const du=cells.findIndex(x=>/^DATE UPDATED/.test(x));if(du>=0){for(let c=j-1+du+1;c<=j-1+du+4;c++){const d=bwDate(R[c]);if(d){blk.upd=d;break}}break}
+        if(R[j-1]!==""&&R[j-1]!=null)room=R[j-1];const bedV=R[j];if(bedV===""||bedV==null){if(++gap>6)break;continue}gap=0;if(!w)continue;
+        const bed=bwBed(w,room,bedV);if(!bed)continue;if(cSt>=0&&U(R[cSt])==="E")continue;
+        const txt=[cCat,cRem].filter(c=>c>=0).map(c=>U(R[c])).filter(x=>x&&!/^\d+(\.\d+)?$/.test(x)&&x!=="GENERAL").join(" · ");const cov=cCov>=0?U(R[cCov]):"";
+        const t=bwTags(txt+(/POSITIVE|COVID|SARI/.test(cov)?" COVID":""));if(t.length){blk.beds[bed]={t,raw:txt+(cov&&cov!=="GENERAL"&&/COVID|POSITIVE/.test(cov)?" · "+cov:"")};blk.n++}}
+      out.push(blk)})}
+  return out}
+/* today's (or a given day's) Bedwatcher tags for a ward */
+function bwOf(w,d){const x=BWATCH.find(b=>b.ward===w&&b.date===(d||TODAY));return x?x.beds:null}
+/* Bedwatcher tags → census fields: exact organisms go to MDRO, diseases to the list, anything else to OTHERS */
+function bwFields(t){const mw=[],inf=[],oth=[],grp=[];(t||[]).forEach(k=>{if(SUBTYPES.includes(k))mw.push(k);else if(MDRO_TAGS.includes(k))grp.push(k);else if(INFP[k])inf.push(k);else oth.push(k)});if(oth.length)inf.push("OTHERS");return{mw,inf,oth:oth.join(", "),grp}}
+/* save the parsed blocks: one record per ward per "Date updated" (pull date if the ward did not fill the date) */
+function bwSave(blocks,file){let n=0,nb=0;const seen={};const stale=[];
+  blocks.forEach(b=>{if(!b.ward)return;const d=b.upd||TODAY;if(d<addDays(TODAY,-1)){stale.push(b.ward+" ("+fmt(d)+")");return}const k=b.ward+"|"+d;
+    const beds=seen[k]?Object.assign(seen[k].beds,b.beds):b.beds;const o={id:"BW|"+k,ward:b.ward,date:d,beds,upd:b.upd||"",file,at:Date.now()};seen[k]=o});
+  Object.values(seen).forEach(o=>{const i=BWATCH.findIndex(x=>x.id===o.id);const old=i>=0?BWATCH[i]:null;if(old&&JSON.stringify(old.beds)===JSON.stringify(o.beds))return;if(i>=0)BWATCH[i]=o;else BWATCH.push(o);const k=Object.keys(o.beds).length;if(k)n++;nb+=k});
+  for(let i=BWATCH.length-1;i>=0;i--)if(BWATCH[i].date<addDays(TODAY,-14))BWATCH.splice(i,1);return{n,nb,stale:[...new Set(stale)].filter(x=>!Object.values(seen).some(o=>x.startsWith(o.ward+" (")))}}
+function bwSummary(blocks){const W=blocks.filter(b=>b.ward);const sk=[...new Set(blocks.filter(b=>!b.ward&&b.name).map(b=>b.name))];
+  return{W,sk,tags:W.reduce((a,b)=>a+b.n,0)}}
+/* Import tab section for a Bedwatcher workbook */
+function bwImpHTML(R){if(!R.bw||!R.bw.length)return"";const s=bwSummary(R.bw);const byW={};s.W.forEach(b=>{const d=b.upd||TODAY;const k=b.ward+"|"+d;(byW[k]=byW[k]||{w:b.ward,d,beds:{}});Object.assign(byW[k].beds,b.beds)});
+  return`<div class="impsec"><label class="imph"><input type="checkbox" id="impBW" checked> <b>MyWard Bedwatcher</b> · ${s.tags} tagged bed${s.tags===1?"":"s"} in ${new Set(s.W.filter(b=>b.n).map(b=>b.ward)).size} wards (no patient names)</label>
+   <table class="mini bwtab"><thead><tr><th>Ward</th><th>Date updated</th><th>Tagged beds</th></tr></thead><tbody>${Object.values(byW).sort((a,b)=>WARDS.indexOf(a.w)-WARDS.indexOf(b.w)||b.d.localeCompare(a.d)).map(o=>{const w=o.w;return`<tr${o.d<addDays(TODAY,-1)?' class="bwold"':""}><td><b>${esc(w)}</b></td><td class="mono">${fmt(o.d)}${o.d<addDays(TODAY,-1)?' <span class="pill p-warn">not updated · skipped</span>':""}</td><td>${Object.entries(o.beds).sort((a,b)=>bedIdx(w,a[0])-bedIdx(w,b[0])).map(([b,x])=>`<span class="bwchip">${esc(b)} · ${x.t.map(esc).join(", ")}</span>`).join(" ")||'<span class="hint" style="margin:0">none</span>'}</td></tr>`}).join("")}</tbody></table>
+   ${s.sk.length?`<div class="hint">Not used (ward not in this app): ${s.sk.map(esc).join(", ")}</div>`:""}
+   <div class="hint">The tags show on the ward mapping and are pre-filled in the ward's Daily census. The ward only confirms the patient's full name.</div></div>`}
+/* auto-pull (UKI, every 15 min with the census) */
+async function bwPull(quiet){try{const d=await GS("pullSheet",TOKEN,"bw");const wb=wbFromPull(d);const B=[];wb.SheetNames.forEach(sn=>{if(!/^\s*BWS\b/i.test(sn))return;B.push(...parseBW(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:""}),sn))});
+    const r=bwSave(B,d.name+" (auto-pull)");if(r.n){IMPORTS.unshift({at:Date.now(),file:d.name+" (Bedwatcher auto-pull)",by:S.icn,nD:0,nB:r.n,nM:0,nP:0});refresh()}if(!quiet||r.n)toast(r.n?`Bedwatcher: ${r.nb} tagged beds updated in ${r.n} wards.`:"Bedwatcher checked · nothing new.");return r}catch(e){if(!quiet)toast("Bedwatcher pull failed: "+(e.message||e))}}
+/* ward census: list of today's Bedwatcher beds and whether each one is confirmed */
+function bwState(w,bed,x){const R=(S.ed&&S.ed.ward===w?S.ed.rows:[]).filter(r=>r.name&&String(r.bed)===String(bed));if(!R.length)return{st:"name"};const r=R[0];const f=bwFields(x.t);
+  const have=new Set([...(r.inf||[]),...(r.mw||[]),...orgsOf(r)]);const grpOk=f.grp.every(g=>[...(r.mw||[]),...orgsOf(r)].some(k=>GROUP[k]===g));const miss=[...f.mw,...f.inf.filter(k=>k!=="OTHERS")].filter(k=>!have.has(k));if(f.oth&&!(r.inf||[]).includes("OTHERS"))miss.push("OTHERS");
+  return miss.length||!grpOk?{st:"tag",r,miss:miss.concat(grpOk?[]:f.grp)}:{st:"ok",r}}
+function bwCensusHTML(){const w=S.ward;const B=bwOf(w);if(!B||!Object.keys(B).length)return"";const L=Object.entries(B).sort((a,b)=>bedIdx(w,a[0])-bedIdx(w,b[0]));const rec=BWATCH.find(b=>b.ward===w&&b.date===TODAY);
+  const st=L.map(([b,x])=>[b,x,bwState(w,b,x)]);const todo=st.filter(z=>z[2].st!=="ok").length;
+  return`<div class="banner ${todo?"warn":"ok"} bwban" style="margin:0 0 12px">${svg("bed")}<div><b>MyWard Bedwatcher today${rec&&rec.upd?" ("+fmt(rec.upd)+")":""}:</b> ${L.length} bed${L.length>1?"s":""} with infectious disease / MDRO. ${todo?`<b>Tap each bed to confirm the patient's full name</b> (the disease is already filled in).`:"All confirmed ✓"}
+   <div class="bwlist">${st.map(([b,x,s])=>`<button type="button" class="bwi ${s.st}" onclick="edBed('${esc(b)}',null,1)"><b>Bed ${esc(b)}</b> ${x.t.map(esc).join(", ")}<small>${s.st==="ok"?"✓ "+esc(s.r.name):s.st==="tag"?esc(s.r.name)+" · add "+s.miss.map(esc).join(", "):"Confirm name"}</small></button>`).join("")}</div>
+   ${st.some(z=>z[2].st==="tag")?`<div style="margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="bwApplyAll()">Add the Bedwatcher disease to the patients already on these beds</button></div>`:""}</div></div>`}
+function bwApplyAll(){const B=bwOf(S.ward)||{};let n=0;Object.entries(B).forEach(([b,x])=>{const s=bwState(S.ward,b,x);if(s.st!=="tag")return;const f=bwFields(x.t);const r=s.r;r.inf=[...new Set((r.inf||[]).concat(f.inf))];r.mw=[...new Set((r.mw||[]).concat(f.mw))];if(f.oth&&!r.oth)r.oth=f.oth;n++});toast(n?`Bedwatcher disease added to ${n} patient${n>1?"s":""}. Check, then submit the census.`:"Nothing to add.");refresh()}
+
+function bwDiff(w,c){const B=bwOf(w);if(!B||!c)return[];const out=[];Object.entries(B).forEach(([bed,x])=>{const r=c.rows.find(y=>y.name&&String(y.bed)===String(bed));const f=bwFields(x.t);
+  if(!r){out.push({bed,x,name:""});return}const og=[...(r.mw||[]),...allOrgs(r)];const miss=f.mw.filter(k=>!og.includes(k)).concat(f.grp.filter(g=>!og.some(k=>GROUP[k]===g)),f.inf.filter(k=>!(r.inf||[]).includes(k)));if(miss.length)out.push({bed,x,name:r.name,miss})});return out}
+function bwDiffHTML(w,c){const D=bwDiff(w,c);if(!D.length)return"";const can=S.role==="uki"||w===S.ward;
+  return`<div class="banner warn" style="margin:0 0 12px">${svg("bed")}<div><b>MyWard Bedwatcher shows ${D.length} bed${D.length>1?"s":""} not matching today's census:</b> ${D.map(d=>`<span class="bwchip">${esc(d.bed)} · ${d.x.t.map(esc).join(", ")}${d.name?" · "+esc(d.name)+" (not ticked)":" · no patient in census"}</span>`).join(" ")}${can?`<div style="margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="${S.role==="uki"?`ukiCensus('${esc(w)}')`:"S.ed=null;go('census')"}">Check in Daily census</button></div>`:""}</div></div>`}
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
 let TOKEN="";try{TOKEN=sessionStorage.getItem("mdro_tok")||""}catch(e){}
 const CENSUS_DAYS=35;
 const COLLS={cases:()=>CASES,census:()=>CENSUS,moves:()=>MOVES};
-const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS};
+const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS,bedwatch:()=>BWATCH};
 let SNAP={},SYNC={busy:false,again:false,timer:null,err:"",last:0},VER=0;
 const BLOB=new Map(),REV=new Map();           /* drive id -> dataURL, dataURL -> drive id */
 
@@ -3785,8 +3873,8 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
 /* ---------- load ---------- */
 /* one-time fix: W7 new plan (from 16/10/2026) had bed 42 typed instead of 36 */
 function fixW7Bed(){let n=0;CENSUS.forEach(c=>{if(c.ward==="W7"&&c.date>="2026-10-16"&&!(c.rows||[]).some(r=>r.bed==="36"))(c.rows||[]).forEach(r=>{if(r.bed==="42"){r.bed="36";n++}})});if(n)syncSoon()}
-function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
-  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
+function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BWATCH=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
+  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedwatch")BWATCH.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
@@ -3798,7 +3886,7 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
 async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
-  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
+  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:x.coll==="bedwatch"?BWATCH:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
     SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o);n++});
   (ch.deleted||[]).forEach(s=>{const[k,id]=s.split("::");const A={cases:CASES,census:CENSUS,moves:MOVES}[k];if(A){const i=A.findIndex(x=>x.id===id);if(i>=0)A.splice(i,1);delete SNAP[k][id];n++}});
   VER=ch.ver||VER;if(n&&S.role&&$("modalBg").hidden&&S.tab!=="register"&&S.tab!=="census")refresh()}
