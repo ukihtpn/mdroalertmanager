@@ -895,6 +895,20 @@ table.hpll{font-size:12px}table.hpll th{white-space:normal;min-width:80px;font-s
 .abxg{display:block;font-size:12px;color:var(--mut,#556);margin-top:4px}
 .iwsel2{min-width:130px}.iwsel2.on{border-color:var(--brand);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 30%,transparent);font-weight:700}
 .dwban{margin-bottom:12px}
+.dietbox{background:#fff6cc;border:1px solid #f2d36b;border-radius:12px;padding:8px 12px 4px;margin:10px 0}
+.dietbox .lbl{margin-top:2px;color:#7a5a00}
+.dietbox input{background:#fffdf3}
+.bedtab th:nth-child(n){}
+.bedtab td input.dt,.bedtab td input[data-k="dnote"]{background:#fff6cc}
+.bedtab td input.dt:disabled,.bedtab td input[data-k="dnote"]:disabled{background:transparent}
+@media print{
+ body.pmod>*:not(#modalBg){display:none!important}
+ body.pmod #modalBg{position:static!important;display:block!important;background:none!important;padding:0!important;overflow:visible!important;inset:auto!important;height:auto!important}
+ body.pmod .modal{position:static!important;max-height:none!important;height:auto!important;overflow:visible!important;box-shadow:none!important;width:auto!important;max-width:none!important;margin:0!important;border:0!important;transform:none!important}
+ body.pmod .m-head,body.pmod .m-foot,body.pmod .mconf{display:none!important}
+ body.pmod .m-body{overflow:visible!important;max-height:none!important;padding:0!important}
+ body.pmod .a4{position:static!important;box-shadow:none!important;padding:0!important;max-width:none!important;margin:0!important}
+}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1862,7 +1876,8 @@ function fxStatus(id,v){const c=CASES.find(x=>x.id===id);if(!c)return;c.case_sta
 function fxDel(b,id){if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirm delete?";b.classList.add("btn-pri");setTimeout(()=>{if(b.isConnected){b.dataset.ok="";b.textContent="Delete";b.classList.remove("btn-pri")}},4000);return}
   const c=CASES.find(x=>x.id===id);delMark(c);CASES=CASES.filter(x=>x.id!==id);dqBump();refresh();toast(`Record deleted (${c?c.subtype+" "+fmt(c.sample_date):""}).`)}
 function fxOk(id){const c=CASES.find(x=>x.id===id);if(!c)return;const codes=dqIssues().filter(x=>x.c===c).map(x=>x.code);c.dq_ok=[...new Set((c.dq_ok||[]).concat(codes))];dqBump();refresh();toast("Marked as reviewed.")}
-function dqOk(id,code){const c=CASES.find(x=>x.id===id);if(!c)return;c.dq_ok=[...new Set((c.dq_ok||[]).concat(code))];dqBump();refresh();openDQ();toast("Ignored for this patient.")}
+function dqOk(id,code){const c=CASES.find(x=>x.id===id);if(!c)return;c.dq_ok=[...new Set((c.dq_ok||[]).concat(code))];
+  if(code==="IC")CASES.filter(x=>x!==c&&normN(x.name)===normN(c.name)&&(x.ic||"")===(c.ic||"")).forEach(x=>x.dq_ok=[...new Set((x.dq_ok||[]).concat("IC"))]);dqBump();refresh();openDQ();toast("Ignored for this patient.")}
 function dqCase(c){const I=dqIssues().filter(x=>x.c===c);if(!I.length)return"";return`<div class="banner crit">${svg("list")}<div><b>Please check:</b><ul style="margin:4px 0 0;padding-left:18px">${I.map(x=>`<li><b>${DQ[x.code].l}</b> — ${x.msg} <button class="linkbtn" onclick="dqOk('${c.id}','${x.code}');closeModal();openCase('${c.id}')">Ignore</button></li>`).join("")}</ul></div></div>`}
 function alertBanner(){const A=mdroAlerts().filter(x=>!x.ack);if(!A.length)return"";
   return`<div class="banner crit alertb">${svg("chart")}<div><b>MDRO alert · ${A.length} signals</b><ul>${A.slice(0,4).map(x=>`<li><b>${esc(x.lbl)}${x.scope!=="Hospital"?" · "+esc(x.scope):" · whole hospital"}</b>: ${esc(x.txt)}</li>`).join("")}</ul><button class="btn btn-pri btn-sm" onclick="openAlerts()">Details &amp; send reminder</button></div></div>`}
@@ -2535,7 +2550,7 @@ function edBed(bed,idx){const W=WCFG[S.ward];const R=S.ed.rows;const i=idx!=null
    <div class="lbl">Close contact of an MDRO case (red, not added to the masterlist)</div><div class="devs">${CTAGS.map(([k,l])=>`<button type="button" class="dv md" aria-pressed="${(S.eb.ct||[]).includes(k)}" onclick="const A=S.eb.ct=S.eb.ct||[];const i=A.indexOf('${k}');if(i>=0)A.splice(i,1);else A.push('${k}');this.setAttribute('aria-pressed',i<0);$('eb_rsBox').hidden=!A.length">${esc(l)}</button>`).join("")}</div>${rsBlock("eb_",S.eb.rs,(S.eb.ct||[]).length)}
    <div class="lbl">MDRO (choose the organism if known)</div><div class="devs">${SUBTYPES.map(k=>`<button class="dv md" aria-pressed="${S.eb.mw.includes(k)||o.includes(k)}"${o.includes(k)?" disabled title='Tagged by UKI'":""} onclick="ebTog('mw','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.mw.includes('${k}'));ebOthShow()">${subL(k)}</button>`).join("")}</div>
    <div class="fld othf" id="ebMwoW"${S.eb.mw.some(k=>OTHM.includes(k))?"":" hidden"}><label for="ebMwo">Specify the organism (MRO / ESBL others) *</label><input id="ebMwo" value="${esc(S.eb.mwo)}" placeholder="e.g. Pseudomonas aeruginosa (MRO), Enterobacter cloacae (ESBL)"></div>
-   ${S.role!=="uki"?`<div class="lbl">Diet (ward only · for the diet order form)</div><div class="mrow"><div class="fld"><label for="ebDiet">Diet code</label><input id="ebDiet" list="dietList" value="${esc(r.diet||"")}" placeholder="e.g. ND, LFLSDD, RTF" autocomplete="off">${dietDL()}</div><div class="fld" style="flex:2"><label for="ebDn">Diet note (catatan)</label><input id="ebDn" value="${esc(r.dnote||"")}" placeholder="e.g. Puasa pagi sahaja / Not for tea time"></div></div>`:""}
+   ${S.role!=="uki"?`<div class="dietbox"><div class="lbl">🍽 Diet (ward only · for the diet order form)</div><div class="mrow"><div class="fld"><label for="ebDiet">Diet code</label><input id="ebDiet" list="dietList" value="${esc(r.diet||"")}" placeholder="e.g. ND, LFLSDD, RTF" autocomplete="off">${dietDL()}</div><div class="fld" style="flex:2"><label for="ebDn">Diet note (catatan)</label><input id="ebDn" value="${esc(r.dnote||"")}" placeholder="e.g. Puasa pagi sahaja / Not for tea time"></div></div></div>`:""}
    <div class="lbl">Device</div><div class="devs">${DEVS.map(([k,l])=>`<button class="dv" aria-pressed="${S.eb.dev.includes(k)}" onclick="ebTog('dev','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.dev.includes('${k}'))">${l}</button>`).join("")}</div>
    <div class="lbl">Infectious disease</div><div class="chkgrid sm">${INF.map(([k,p])=>`<label><input type="checkbox" value="${k}"${S.eb.inf.includes(k)?" checked":""} onchange="ebTog('inf','${k}',this.checked);ebOthShow()">${k}<small>${PREC_L[p]}</small></label>`).join("")}</div>
    <div class="fld othf" id="ebOthW"${S.eb.inf.includes("OTHERS")?"":" hidden"}><label for="ebOth">Specify the infectious disease / organism (OTHERS) *</label><input id="ebOth" value="${esc(S.eb.oth)}" placeholder="e.g. Mumps, Measles, Scabies, Leptospirosis"></div></div>
@@ -2674,9 +2689,11 @@ function collectCase(pre){const g=k=>{const e=$(pre+k);return!e?"":e.type==="che
   const need=(pre==="cf_"?[["name","Patient name"]]:[["name","Patient name"],["ic","IC / passport no."],["spec","Specimen type"],["subtype","Organism subtype"]]).filter(([k])=>!g(k));
   if(need.length){toast("Please fill in: "+need.map(n=>n[1]).join(", "));return null}
   const o={};COLS.forEach(([k,,,t])=>{if(t!=="auto")o[k]=g(k)});o.name=o.name.toUpperCase();o.tag=$(pre+"tag").value;o.month=o.sample_date?MONTHS[+o.sample_date.slice(5,7)-1]:(o.lab_date?MONTHS[+o.lab_date.slice(5,7)-1]:"");o.group=GROUP[o.subtype]||"";if(o.dis_status==="Died"&&o.dis_date){if(!o.dod)o.dod=o.dis_date;if(!o.pt_status)o.pt_status="DEATH"}if(o.dis_status!=="In ward"){o.dis_ward="";o.dis_bed="";o.in_date=""}else if(o.dis_bed&&WCFG[o.dis_ward]){const mb=matchBed(o.dis_ward,o.dis_bed);if(WCFG[o.dis_ward].beds.includes(mb))o.dis_bed=mb}else if(!o.in_date)o.in_date=TODAY;if(o.dis_status==="In ward")o.dis_date="";if(pre==="rg_"||!o.jkns)o.jkns=o.case_status==="NEW"?"YES":o.case_status==="REPEAT"?"NO":"";
+  {const d=String(o.ic||"").replace(/[\s-]/g,"");if(/^\d{12}$/.test(d))o.ic=d.slice(0,6)+"-"+d.slice(6,8)+"-"+d.slice(8);else if(/^[A-Z]{1,3}\s*\d{5,10}[A-Z]?$/i.test(String(o.ic||"").trim()))o.ic=String(o.ic).replace(/\s+/g,"").toUpperCase()}
   {const ic=icInfo(o);if(!o.age&&ic.age)o.age=ic.age;if(!o.gender&&ic.gender)o.gender=ic.gender}
   if(o.inf_type&&o.inf_type!=="BSI")BSI_K.forEach(k=>o[k]="");else if(o.pbsi==="YES")o.sbsi="";else if(o.pbsi==="NO")o.clabsi="";return o}
-function saveCase(id){const o=collectCase("cf_");if(!o)return;const c=CASES.find(x=>x.id===id);Object.assign(c,o);closeModal();refresh();savedPop(c,"Changes saved")}
+function saveCase(id){const o=collectCase("cf_");if(!o)return;const c=CASES.find(x=>x.id===id);const oldIc=c.ic;Object.assign(c,o);
+  if(o.ic&&oldIc!==o.ic){const sib=CASES.filter(x=>x!==c&&normN(x.name)===normN(c.name)&&(x.ic||"")===(oldIc||"")&&(!x.rn||!c.rn||normRN(x.rn)===normRN(c.rn)));sib.forEach(x=>x.ic=o.ic);if(sib.length)setTimeout(()=>toast(`IC also corrected in ${sib.length} other sample${sib.length>1?"s":""} of ${c.name}.`),1600)}closeModal();refresh();savedPop(c,"Changes saved")}
 
 /* ================= classification: Infection / Colonizer / Contaminant (logik sheet bulanan Excel) ================= */
 const CLS={INF:{l:"Infection (HAI)",c:"--crit",p:"p-crit"},COL:{l:"Colonization (HAI)",c:"--drop",p:"p-drop"},CONT:{l:"Contamination",c:"--warn",p:"p-warn"},OTHER:{l:"HCAI other facility",c:"--brand",p:"p-brand"},COMM:{l:"Not HCAI",c:"--ok",p:"p-ok"},UNREV:{l:"Awaiting review",c:"--empty",p:"p-mut"}};
@@ -2878,7 +2895,7 @@ function reviewDoc(c,r){const s=r.snap;const k=s.cls;const plan=r.items.filter(x
 function viewReview(cid,rid){const c=CASES.find(x=>x.id===cid);const r=(c.reviews||[]).find(x=>x.id===rid);
   openModal(`<div class="m-head"><div class="hx"><h3>UKI review form</h3><p>${esc(c.name)} · ${fmt(r.date)}</p></div>${xBtn()}</div><div class="m-body a4wrap">${reviewDoc(c,r)}</div>
    <div class="m-foot"><button class="btn btn-ghost" onclick="openProfile('${cid}')">Patient profile</button><span class="sp"></span><button class="btn btn-ghost" onclick="tryPrint()">Print</button><button class="btn btn-pri" onclick="dlReview('${cid}','${rid}')">${svg("up")}Download PDF</button></div>`,true)}
-function tryPrint(){try{window.print()}catch(e){}toast("In the real app this button opens the print dialog. In the preview, use Download PDF and print from there.")}
+function tryPrint(){document.body.classList.add("pmod");const off=()=>document.body.classList.remove("pmod");window.addEventListener("afterprint",off,{once:true});setTimeout(off,60000);try{window.print()}catch(e){}toast("In the real app this button opens the print dialog. In the preview, use Download PDF and print from there.")}
 function reviewPdf(c,r){if(!window.jspdf)return"";try{const{jsPDF}=window.jspdf;const d=new jsPDF({unit:"mm",format:"a4"});const s=r.snap;let y=18;
   d.setFont("helvetica","bold");d.setFontSize(11);d.text("INFECTION CONTROL UNIT · HOSPITAL TENGKU PERMAISURI NORASHIKIN",105,y,{align:"center"});y+=6;d.setFontSize(14);d.text("MDRO CASE REVIEW FORM",105,y,{align:"center"});y+=4;d.setLineWidth(.5);d.line(15,y,195,y);y+=7;
   const rows=[["Patient name",s.name],["No. KP",s.ic||"-"],["RN",s.rn||"-"],["Ward / bed when positive",s.ward+(s.bed?" / "+s.bed:"")],["Organism",s.subtype+(s.organism?" · "+s.organism:"")],["Specimen",s.spec+" ("+fmt(s.sample_date)+")"],["Report date",fmt(s.lab_date)],
@@ -2912,7 +2929,7 @@ function stepInfo(pre,i){const v=k=>{const e=$(pre+k);return e?String(e.value||"
   const M=STEP_REQ[i].filter(k=>Array.isArray(k)?!k.some(x=>v(x)):!v(k));return M.length?{st:"pend",t:"Not yet: "+M.map(reqLbl).join(", "),miss:M}:{st:"done",t:"✓ Done"}}
 function icProb(ic){ic=String(ic||"").trim().toUpperCase();if(!ic)return"IC / passport no. is empty";if(/^[A-Z]{1,3}\d{5,10}[A-Z]?$/.test(ic))return"";const d=ic.replace(/[^0-9]/g,"");if(/[A-Z]/.test(ic.replace(/[-\s]/g,""))&&!/^\d/.test(ic))return"";
   if(d.length!==12)return`IC "${ic}" has ${d.length} digits (Malaysian IC needs 12)`;const m=+d.slice(2,4),dd=+d.slice(4,6);if(m<1||m>12||dd<1||dd>31)return`IC "${ic}" does not start with a valid birth date (YYMMDD)`;return""}
-function caseProbs(c){const P=[];const i=icProb(c.ic);if(i)P.push(i);if(!isD(c.sample_date))P.push("Sample date not filled in");if(!c.ward)P.push("Ward at sampling empty");if(!c.case_status)P.push("NEW / REPEAT not set");return P}
+function caseProbs(c){const P=[];const ok=c.dq_ok||[];const i=icProb(c.ic);if(i&&!ok.includes("IC"))P.push(i);if(!isD(c.sample_date)&&!ok.includes("SDATE"))P.push("Sample date not filled in");if(!c.ward&&!ok.includes("WARD"))P.push("Ward at sampling empty");if(!c.case_status&&!ok.includes("STAT"))P.push("NEW / REPEAT not set");return P}
 function probTag(c){const P=caseProbs(c);return P.length?`<span class="probtag" title="${esc(P.join(" · "))}">⚠ ${esc(P[0])}${P.length>1?` +${P.length-1}`:""}</span>`:""}
 function savedPop(c,title){const P=caseProbs(c);const m=dataStatus(c).miss;openModal(`<div class="m-head"><div class="hx"><h3>✓ ${title}</h3><p>${esc(c.name)} · ${esc(c.subtype||"")} · ${esc(c.ic||"no IC")}</p></div>${xBtn()}</div>
   <div class="m-body">${P.length?`<div class="banner warn">${svg("list")}<div><b>Please check:</b><ul class="misslist" style="margin-top:6px">${P.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>`:""}
@@ -4041,7 +4058,7 @@ async function dietXlsx(){const c=censusOf(S.ward,TODAY);if(!c){toast("Submit to
     out=out.replace(/<mergeCell ref="A\d+:A\d+"\/>/g,"").replace(/<mergeCell ref="([A-Z]+)(6[2-9]|7\d):([A-Z]+)(\d+)"\/>/g,(m,a,n1,b2,n2)=>`<mergeCell ref="${a}${+n1+off}:${b2}${+n2+off}"/>`);
     let r0=17;const mg=[];grp.forEach(g=>{if(g.b.length>1)mg.push(`<mergeCell ref="A${r0}:A${r0+g.b.length-1}"/>`);r0+=g.b.length});
     out=out.replace(/<mergeCells count="\d+">/,()=>"<mergeCells>").replace("</mergeCells>",mg.join("")+"</mergeCells>");out=out.replace(/<mergeCells>([\s\S]*?)<\/mergeCells>/,(m,inner)=>`<mergeCells count="${(inner.match(/<mergeCell /g)||[]).length}">${inner}</mergeCells>`);
-    out=out.replace(/<dimension ref="A1:K\d+"\/>/,`<dimension ref="A1:K${70+off}"/>`).replace("<outlinePr ","<pageSetUpPr fitToPage=\"1\"/><outlinePr ").replace(/<pageSetup /,'<pageSetup fitToWidth="1" fitToHeight="1" ');
+    out=out.replace(/<dimension ref="A1:K\d+"\/>/,`<dimension ref="A1:K${70+off}"/>`).replace(/(<outlinePr[^>]*\/>)/,'$1<pageSetUpPr fitToPage="1"/>').replace(/<pageSetup /,'<pageSetup fitToWidth="1" fitToHeight="1" ');
     zip.file(path,out);const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     saveFile(`Borang_Pesanan_Makanan_${S.ward.replace(/\W+/g,"_")}_${TODAY}.xlsx`,blob)}catch(e){toast("Could not build the Excel form: "+(e.message||e))}}
 
