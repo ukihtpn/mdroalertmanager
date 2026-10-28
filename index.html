@@ -4050,6 +4050,10 @@ var ABX_GROUPS=["Aminoglycosides","B-lactamase","Carbapenems","Cephalosporins","
 var ABX_DRUGS=["Augmentin (amoxicillin-clavulanate)","Tazocin (piperacillin-tazobactam)","Unasyn (ampicillin-sulbactam)","Sulperazon (cefoperazone-sulbactam)","Meropenem","Imipenem","Ertapenem","Ceftriaxone","Cefuroxime","Ceftazidime","Cefepime","Cefazolin","Cefoperazone","Cephalexin","Ampicillin","Amoxicillin","Cloxacillin","Penicillin G","Gentamicin","Amikacin","Ciprofloxacin","Levofloxacin","Vancomycin","Teicoplanin","Colistin (polymyxin E)","Metronidazole","Clindamycin","Azithromycin","Doxycycline","Bactrim (co-trimoxazole)","Linezolid","Fosfomycin"];
 function abxDL(){return`<datalist id="abxList">${ABX_GROUPS.map(g=>`<option value="${g}">JKNS group</option>`).join("")}${ABX_DRUGS.map(d=>`<option value="${esc(d)}">${esc(jkAbx(d))}</option>`).join("")}</datalist>`}
 
+/* a case registered / changed in the app is written to LAB_SURVEILLANCE a few seconds after it is saved (no import needed) */
+function labSoon(){if(!liveOK()||S.role!=="uki"||!LINKS||!LINKS.wb||!LINKS.lab||!LINKS.lab.url)return;clearTimeout(window._labT);window._labT=setTimeout(async()=>{if(window._labBusy||window._syncing)return labSoon();
+  try{if(!LABMETA||Date.now()-(LABMETA.at||0)>10*60e3){const L=await loadLinks();if(L)await pullLab(L,true)}else await labPush(true)}catch(e){}},4000)}
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
@@ -4094,7 +4098,7 @@ async function syncNow(){if(!TOKEN||S.docMode&&!S.role)return;if(SYNC.busy){SYNC
     const pack={up:{cases:d.up.cases.map(o=>JSON.parse(dehydStr(o))),census:d.up.census.map(o=>{const x=JSON.parse(dehydStr(o));x._t=totalsOf(o);return x}),moves:d.up.moves.map(o=>JSON.parse(dehydStr(o))),
       store:d.up.store.map(x=>({coll:x.coll,id:x.id,o:JSON.parse(x.coll==="maps"?dehydStr(x.o):JSON.stringify(x.o))}))},del:d.del};
     const r=await GS("sync",TOKEN,pack);VER=r.ver||VER;
-    d.up.cases.forEach(o=>SNAP.cases[o.id]=dehydStr(o));d.up.census.forEach(o=>SNAP.census[o.id]=dehydStr(o));d.up.moves.forEach(o=>SNAP.moves[o.id]=dehydStr(o));
+    d.up.cases.forEach(o=>SNAP.cases[o.id]=dehydStr(o));if(d.up.cases.length&&typeof labSoon==='function')labSoon();d.up.census.forEach(o=>SNAP.census[o.id]=dehydStr(o));d.up.moves.forEach(o=>SNAP.moves[o.id]=dehydStr(o));
     d.up.store.forEach(x=>{SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o)});
     ["cases","census","moves"].forEach(k=>d.del[k].forEach(id=>delete SNAP[k][id]));d.del.store.forEach(s=>{const[c,id]=s.split("::");if(SNAP[c])delete SNAP[c][id]});
     SYNC.err="";SYNC.last=Date.now();syncSt("Saved "+fmtT(Date.now()),1)}
