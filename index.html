@@ -953,6 +953,7 @@ details.mvh[open]>summary{margin-bottom:8px}
 .mlpill{align-self:flex-start;width:fit-content}
 .uqleave .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.uqleave .fld{margin:0 0 8px}
 .m-body .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:520px){.m-body .row2{grid-template-columns:1fr}}
+.clast{font-size:11.5px;font-weight:600;margin-top:3px;color:var(--ink2,#445)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1408,7 +1409,7 @@ function stat(c,ico,label,n,sub,act){return`<${act?"button":"div"} class="stat" 
 /* UKI found the patient in this ward (Step 5 = In ward) but the ward's census has no bed for them yet */
 /* two ways of writing the same bed ("room 8/b2", "R8/2", "B 8/2") are the same bed */
 function bedEq(w,a,b){if(!a||!b)return false;if(String(a)===String(b))return true;if(!WCFG[w])return false;return matchBed(w,String(a))===matchBed(w,String(b))}
-function ukiIn(w){const lc=latestCensus(w);return CASES.filter(c=>c.dis_status==="In ward"&&c.dis_ward===w&&c.name&&c.case_status!=="REPEAT"&&!(lc&&lc.rows.some(r=>r.bed&&same(r,c)&&lc.date>=(c.in_date||"0"))))}
+function ukiIn(w){const lc=latestCensus(w);return CASES.filter(c=>c.dis_status==="In ward"&&c.dis_ward===w&&c.name&&c.case_status!=="REPEAT"&&!MOVES.some(m=>m.type!=="BED"&&m.from===w&&same(m,c)&&m.date>=(c.in_date||"0"))&&!(lc&&lc.rows.some(r=>r.bed&&same(r,c)&&lc.date>=(c.in_date||"0"))))}
 function wardNow(w){let n=wardNow0(w);const UB=WCFG[w]?ubOpen(w):[];if(UB.length){const rows=n?n.rows.slice():[];
     UB.forEach(x=>{const r=ubRow(x);const nr={w,bed:x.bed,name:x.name,rn:x.rn,ic:x.ic,ct:ctOf(x),rs:x.rs||null,orgs:allOrgs(r),inf:(x.inf||[]).map(k=>k==="OTHERS"&&x.oth?"OTHERS: "+x.oth:k),dev:[],r:null,ub:x};const i=rows.findIndex(y=>String(y.bed)===String(x.bed));if(i>=0)rows[i]=nr;else rows.push(nr)});
     n={...(n||{src:"uki",date:TODAY}),rows}}
@@ -1420,7 +1421,7 @@ function wardNow0(w){const W=WCFG[w];if(!W)return null;const c=censusOf(w,TODAY)
   if(c)return{src:"app",date:TODAY,rows:c.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   {const D=mapDayRows(w,TODAY);if(D&&D.rows.some(r=>r.name))return{src:bwOf(w,TODAY)?"bw":"uki",date:TODAY,carry:D.carry,rows:D.rows.map(r=>({w,bed:r.bed,name:r.name||"",rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:[...new Set((r.mdro||[]).concat(r.name?allOrgs(r):[]))],inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r:r.name?r:null,ub:r.ub||null}))}}
   for(let i=0;i<=2;i++){const d=addDays(TODAY,-i);const bh=i===0?bhOf(w,d):BEDHIST[w+"|"+d];if(bh&&!censusOf(w,d))return{src:i===0&&bwOf(w,d)?"bw":"sheet",date:d,rows:Object.entries(bh).map(([bed,t])=>({w,bed,name:"",orgs:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))}}
-  const lc=latestCensus(w);if(lc&&lc.date>=addDays(TODAY,-3))return{src:"app",date:lc.date,rows:lc.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
+  const lc=latestCensus(w);if(lc&&lc.date>=addDays(TODAY,-3))return{src:"app",date:lc.date,rows:lc.rows.filter(r=>r.name&&stillHere(r,w,lc.date,TODAY,lc.at)).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   return null}
 function inWardHTML(dw0){const uki=S.role==="uki";const dw=dw0||(uki?S.locW||"":"");const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase();const WL=(dw?[dw]:WARDS).filter(w=>WCFG[w]);
   const sel=x=>{const ct=(x.ct||[]).length;return K==="mdro"?(x.orgs.length||ct):K==="inf"?(x.inf.length&&!x.orgs.length&&!ct):(x.orgs.length||x.inf.length||ct)};
@@ -2138,7 +2139,7 @@ function uqSearch(){const box=$("uqRes");if(!box)return;const q=$("uqN").value.t
   const L=[...G.values()].slice(0,5);box.innerHTML=L.length?`<div class="lbl">Found in the masterlist · tap to use</div>`+L.map(cs=>{cs.sort((a,b)=>String(b.sample_date||b.lab_date).localeCompare(String(a.sample_date||a.lab_date)));const c=cs[0];
     return`<div class="ubpt"><div class="ubh"><div><b>${esc(c.name)}</b> <span class="mono hint" style="margin:0">RN ${esc(c.rn||"—")} · ${esc(c.ic||"")}</span></div><button class="btn btn-ghost btn-sm" onclick="uqUse('${c.id}')">Use this patient</button></div><table class="mini"><tbody>${cs.slice(0,5).map(x=>`<tr><td class="mono">${fmt(x.sample_date||x.lab_date)}</td><td><span class="pill p-crit">${esc(subL(x.subtype))}</span></td><td>${esc(x.spec||"")}</td><td>${esc(x.ward||"")}</td><td>${esc(x.case_status||"")}</td></tr>`).join("")}</tbody></table></div>`}).join(""):`<div class="hint">Not in the masterlist (no MDRO record). You can still save the patient with the infectious disease.</div>`}
 function uqUse(id){const c=CASES.find(x=>x.id===id);$("uqN").value=c.name;$("uqR").value=c.rn||"";$("uqI").value=c.ic||"";$("uqRes").innerHTML=`<div class="hint">Using <b>${esc(c.name)}</b> · MDRO from the masterlist: ${orgsOf(c).map(k=>esc(subL(k))).join(", ")||"—"}</div>`}
-function uqSave(){const U=S.uq;const name=$("uqN").value.trim().toUpperCase();if(!name){toast("Enter the patient name.");return}const oth=U.inf.includes("OTHERS")?($("uqOth").value||"").trim():"";if(U.inf.includes("OTHERS")&&!oth){toast("OTHERS ticked: please specify the disease / organism.");const e=$("uqOth");e.closest(".fld").classList.add("reqmiss");e.focus();return}
+function uqSave(){{const lv=document.querySelector('.uqleave');if(lv&&lv.open&&$("uqLD")&&$("uqLD").value){if(confirm("You opened \"Patient left the ward\". Save the "+($("uqLT").selectedOptions[0]||{}).text+" on "+fmt($("uqLD").value)+" instead of keeping the patient on this bed?"))return uqLeave()}}const U=S.uq;const name=$("uqN").value.trim().toUpperCase();if(!name){toast("Enter the patient name.");return}const oth=U.inf.includes("OTHERS")?($("uqOth").value||"").trim():"";if(U.inf.includes("OTHERS")&&!oth){toast("OTHERS ticked: please specify the disease / organism.");const e=$("uqOth");e.closest(".fld").classList.add("reqmiss");e.focus();return}
   const D=U.d||TODAY;const o={ward:U.w,date:D,bed:U.bed,name,rn:$("uqR").value.trim(),ic:$("uqI").value.trim(),inf:[...U.inf],mw:[...U.mw],ct:[...U.ct],rs:U.ct.length?rsRead("uq_"):null,oth,by:S.icn||"UKI",at:Date.now()};
   UBEDS.filter(x=>x.ward===U.w&&x.date===D&&!x.del&&(String(x.bed)===String(U.bed)||same(x,o))&&x.id!==U.id).forEach(x=>x.del=1);
   const ex=U.id&&UBEDS.find(x=>x.id===U.id);if(ex)Object.assign(ex,o);else UBEDS.push({id:"UB|"+uid(""),...o});
@@ -2149,9 +2150,7 @@ function uqSave(){const U=S.uq;const name=$("uqN").value.trim().toUpperCase();if
 function uqLeave(){const U=S.uq;const name=$("uqN").value.trim().toUpperCase()||U.bn;if(!name){toast("No patient on this bed.");return}const type=$("uqLT").value,d=$("uqLD").value||U.d||TODAY,to=type==="TRANSFER"?$("uqLTo").value:"";
   const p={name,rn:$("uqR").value.trim(),ic:$("uqI").value.trim()};if(MOVES.some(m=>m.type===type&&same(m,p)&&m.date===d&&m.from===U.w)){toast("This movement is already recorded.");return}
   MOVES.push({id:uid("M"),date:d,...pick(p),from:U.w,bed:String(U.bed),to,type,by:(S.icn||"UKI")+" (UKI mapping)",at:Date.now()});
-  if(type==="DEATH")mdroOf(p).forEach(c=>{c.dod=d;c.pt_status="DEATH"});
-  /* UKI entries for this patient in this ward after the date are removed (the entry ON the date stays: the patient was there that day) */
-  UBEDS.filter(x=>!x.del&&x.ward===U.w&&x.date>d&&same(x,p)).forEach(x=>{x.del=1;x.at=Date.now()});
+  applyLeave(p,type,d,U.w,to);
   closeModal();toast(`${name}: ${type==="TRANSFER"?"transfer to "+to:type==="DEATH"?"died":type==="OTHER_HOSP"?"to another hospital":"discharged"} on ${fmt(d)} · recorded in Movements.`);refresh()}
 function uqReg(){const U=S.uq;const name=$("uqN").value.trim().toUpperCase();if(!name){toast("Enter the patient name first.");return}const org=U.mw[0]||(U.ct[0]==="CRE"?"CRE":"");regFromWard(U.w,U.bed,name,$("uqR").value.trim(),$("uqI").value.trim(),org,U.ct.length?"Close contact "+U.ct.join(", ")+" · now positive":"")}
 function uqDel(id){const x=UBEDS.find(y=>y.id===id);if(x)x.del=1;closeModal();toast("Bed cleared.");refresh()}
@@ -3328,6 +3327,14 @@ function rMoves(){const q=S.mvQ.toUpperCase();const L=[...MOVES].filter(m=>!q||[
   ${L.slice(0,200).map(m=>`<tr><td class="mono">${fmt(m.date)} ${fmtT(m.at)}</td><td class="nm"><b>${esc(m.name)} ${mdroOf(m).length?'<span class="pill p-crit">MDRO</span>':""}</b><span class="mono">RN ${esc(m.rn)}</span></td><td>${tp[m.type]}</td><td>${esc(m.from)} · ${esc(m.bed)}</td><td>${esc(m.to||"—")}</td><td>${esc(m.by)}${m.auto?' <span class="pill p-brand">auto</span>':""}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No movements.</td></tr>'}
   </tbody></table></div></div>`}
 
+/* a discharge / transfer / death / other hospital: masterlist "Patient now" + UKI mapping beds follow it */
+function applyLeave(p,type,d,from,to){
+  CASES.filter(c=>same(c,p)&&c.dis_status==="In ward"&&(!from||!c.dis_ward||c.dis_ward===from)).forEach(c=>{
+    if(type==="TRANSFER"){c.dis_ward=to;c.dis_bed="";c.in_date=d}else{c.dis_status=type==="DEATH"?"Died":type==="OTHER_HOSP"?"Transferred to other hospital":"Discharged";c.dis_date=d;c.dis_bed=""}
+    if(type==="DEATH"){c.dod=d;c.pt_status="DEATH"}c.updated_at=Date.now()});
+  if(type==="DEATH")mdroOf(p).forEach(c=>{c.dod=d;c.pt_status="DEATH"});
+  /* UKI-filled beds after the date go (the day itself stays, the patient was there); a discharge dated today also clears today */
+  UBEDS.filter(x=>!x.del&&(!from||x.ward===from)&&(x.date>d||(d===TODAY&&x.date===TODAY))&&same(x,p)).forEach(x=>{x.del=1;x.at=Date.now()})}
 /* UKI records a discharge / transfer / death / bed change that the ward did not enter */
 function mvAdd(){S.mva={p:null};openModal(`<div class="m-head"><div class="hx"><h3>Record a patient movement</h3><p>UKI · saved straight away · shown in Movements and the patient's history</p></div>${xBtn()}</div>
   <div class="m-body"><div class="fld"><label for="mvaQ">Patient · search name / RN / IC (masterlist, census, UKI mapping)</label><input id="mvaQ" autocomplete="off" oninput="mvaSearch()" placeholder="min. 3 letters"></div><div id="mvaL"></div>
@@ -3347,8 +3354,7 @@ function mvaSave(){const name=$("mvaQ").value.trim().toUpperCase();if(!name){toa
   const type=$("mvaT").value,d=$("mvaD").value||TODAY,w=$("mvaW").value,bed=$("mvaB").value.trim(),to=type==="TRANSFER"?$("mvaTo").value:type==="BED"?$("mvaNbI").value.trim():"";
   if(type==="TRANSFER"&&to===w){toast("Choose a different ward.");return}if(type==="BED"&&!to){toast("Enter the new bed.");return}
   MOVES.push({id:uid("M"),date:d,name:p.name,rn:p.rn,ic:p.ic,from:w,bed,to,type,by:(S.icn||"UKI")+" (UKI)",at:Date.now()});
-  if(type==="DEATH")mdroOf(p).forEach(c=>{c.dod=d;c.pt_status="DEATH"});
-  if(type!=="BED")UBEDS.filter(x=>!x.del&&x.ward===w&&x.date>d&&same(x,p)).forEach(x=>{x.del=1;x.at=Date.now()});
+  if(type!=="BED")applyLeave(p,type,d,w,to);
   window._mDirty=false;closeModal();toast(`${p.name}: movement saved (${fmt(d)}).`);refresh()}
 
 /* ================= WARD: daily census ================= */
@@ -4287,15 +4293,23 @@ function creOpenN(){try{return CONTACTS.filter(x=>!x.del&&x.role!=="INDEX"&&ctSt
 function creWard(x){if(x.role==="INDEX"&&x.iw&&x.iw.length>1)return x.iw.join(" / ");if(x.ward)return String(x.ward).toUpperCase();const z=(x.seen||[])[0];if(z)return z.w;const l=ctNow(x);return l?l.ward:""}
 function creBed(x){if(x.bed)return x.bed;const z=(x.seen||[])[0];return z?z.b||"":""}
 function creMonth(x){return String(x.first||"").slice(0,7)}
+function creLast(x){const n=ctNow(x);if(n)return{st:"IN",ward:n.ward,bed:n.bed,date:n.date||TODAY};let L=null;const up=o=>{if(o&&o.date&&(!L||o.date>L.date))L=o};
+  MOVES.filter(m=>m.type!=="BED"&&same(m,x)).forEach(m=>up({st:m.type,ward:m.from,bed:m.bed,date:m.date,to:m.to}));
+  CENSUS.forEach(c=>{if(L&&c.date<=L.date)return;const r=c.rows.find(r=>r.name&&same(r,x));if(r)up({st:"SEEN",ward:c.ward,bed:r.bed,date:c.date})});
+  UBEDS.forEach(u=>{if(!u.del&&same(u,x))up({st:"SEEN",ward:u.ward,bed:u.bed,date:u.date})});(x.seen||[]).forEach(z=>up({st:"SEEN",ward:z.w,bed:z.b,date:z.d}));
+  if(!L&&x.first)L={st:/DEATH|MATI/i.test(x.sloc||"")?"DEATH":/DISCH/i.test(x.sloc||"")?"DISCHARGE":"SHEET",ward:creWard(x),bed:creBed(x),date:x.first};return L}
+function creLastTxt(l){if(!l||l.st==="IN")return"";const t={DISCHARGE:"Discharged",DEATH:"Died",OTHER_HOSP:"To other hospital",TRANSFER:"Transferred",SEEN:"Last seen",SHEET:"Admitted (sheet)"}[l.st]||"Last";
+  return`${t}${l.st==="TRANSFER"&&l.to?" to "+esc(l.to)+" from":""} ${esc(l.ward||"")}${l.bed?" · bed "+esc(l.bed):""} · ${fmt(l.date)}`}
 function rCreList(){if(S.role==="uki"&&typeof ctBackfill==="function")ctBackfill();creIxFromMaster();const F=S.cl&&S.cl.v===2?S.cl:(S.cl={v:2,st:"",w:"",m:"",q:"",role:"",open:{[TODAY.slice(0,7)]:true},inw:false});
   const A0=CONTACTS.filter(x=>!x.del);const isIx=x=>x.role==="INDEX";const nowIx=x=>!isIx(x)&&A0.some(y=>isIx(y)&&same(y,x));const A=A0.filter(x=>!nowIx(x));const ixOf=x=>x.ixId&&A.find(y=>y.id===x.ixId&&isIx(y));
   const wasCC=ix=>A0.filter(y=>!isIx(y)&&y.org==="CRE"&&same(y,ix)&&ctStat(y)[0]!=="clr");
-  const q=F.q.toUpperCase();const stOk=x=>{const st=ctStat(x)[0];return!F.st||(F.st==="pend"?st==="act":F.st==="off"?st==="clr":st===F.st)};
+  const q=F.q.toUpperCase();const recOk=x=>{const l=creLast(x);return!!((l&&l.date>=addDays(TODAY,-30))||(x.first&&x.first>=addDays(TODAY,-30)))};
+  const stOk=x=>{if(F.st==="rec")return recOk(x);const st=ctStat(x)[0];return!F.st||(F.st==="pend"?st==="act":F.st==="off"?st==="clr":st===F.st)};
   const wOk=x=>!F.w||creWard(x)===F.w||((ctNow(x)||{}).ward===F.w);const qOk=x=>!q||[x.name,x.rn,x.ic,x.index,creWard(x)].join(" ").toUpperCase().includes(q);
   /* groups: index + its contacts (same order as the CRE tracking sheet), then contacts without an index */
   const G=[];A.filter(isIx).forEach(ix=>{const kids=A.filter(y=>!isIx(y)&&y.ixId===ix.id);G.push({ix,kids,m:creMonth(ix)||"0000-00"})});
   const orphans=A.filter(y=>!isIx(y)&&!ixOf(y));
-  const V=[];G.forEach(g=>{let kids=F.role==="INDEX"?[]:g.kids.filter(k=>stOk(k)&&wOk(k)&&qOk(k));const ixHit=F.role!=="CONTACT"&&F.role!=="NOIX"&&(!F.st||F.st==="idx")&&wOk(g.ix)&&qOk(g.ix);
+  const V=[];G.forEach(g=>{let kids=F.role==="INDEX"?[]:g.kids.filter(k=>stOk(k)&&wOk(k)&&qOk(k));const ixHit=F.role!=="CONTACT"&&F.role!=="NOIX"&&(!F.st||F.st==="idx"||(F.st==="rec"&&recOk(g.ix)))&&wOk(g.ix)&&qOk(g.ix);
     if(F.st==="idx")kids=[];if(F.role==="NOIX")return;if(F.m&&g.m!==F.m)return;if(!ixHit&&!kids.length)return;V.push({...g,kids,ixHit})});
   const orph=(F.role&&F.role!=="NOIX"&&F.role!=="CONTACT")||F.st==="idx"?[]:orphans.filter(y=>stOk(y)&&wOk(y)&&qOk(y)&&(!F.m||creMonth(y)===F.m));
   const rows=[];window._CRL=rows;const by={};V.forEach(g=>(by[g.m]=by[g.m]||[]).push(g));const keys=Object.keys(by).sort().reverse();
@@ -4305,7 +4319,7 @@ function rCreList(){if(S.role==="uki"&&typeof ctBackfill==="function")ctBackfill
   const row=(x,lvl)=>{rows.push(x);const i=rows.length-1;const st=ctStat(x);const now=ctNow(x);const ix=isIx(x);
     return`<tr class="${ix?"cix":"ckid"}${st[0]==="clr"?" clr":""}"><td class="nm mh">${ix?"":`<span class="ctree">└</span>`}<button class="namebtn${ix?" mdro":st[0]==="clr"?"":" ccn"}" onclick="${ix?`creIndex('${x.id}')`:`creOpen(${i})`}">${esc(x.name)}</button><span class="mono">RN ${esc(x.rn||"—")}${x.ic?" · "+esc(x.ic):""}</span>${ix?"":(L=>L.length?`<span class="mlpill${L.some(c=>/CRE/.test(c.subtype))?" cre":""}" title="In the MDRO masterlist">MDRO: ${[...new Set(L.map(c=>subL(c.subtype)))].map(esc).join(", ")}</span>`:"")(mlOf(x))}</td>
      <td data-l="Type">${ix?`<span class="pill p-crit">INDEX</span><div class="hint" style="margin:0">${esc(x.index||x.orgName||"")}</div>${(x.eps||[]).length>1?`<div class="hint" style="margin:2px 0 0">Episodes: ${x.eps.map(e=>`${esc(e.w)}${e.d?" "+fmt(e.d):""}`).join(" · ")}</div>`:""}${wasCC(x).map(c=>{const I=A0.find(y=>y.id===c.ixId);return`<div class="wascc">Previously close contact${I?" of "+esc(I.name):""} · ${esc(creWard(c)||"")}${c.first?" · "+fmt(c.first):""}</div>`}).join("")}`:`<span class="pill p-warn">Close contact</span>${(I=>I?`<div class="hint" style="margin:2px 0 0">of ${esc(I.name)}${creWard(I)?" ("+esc(creWard(I))+")":""}</div>`:"")(ixOf(x))}${lvl==="orph"?`<div><button class="linkbtn" style="color:var(--crit)" onclick="creOpen(${i})">⚠ Link an index case</button></div>`:""}`}</td>
-     <td data-l="Date" class="mono">${fmt(x.first)}</td><td data-l="Ward identified / now"><b>${esc(creWard(x)||"—")}</b>${creBed(x)?`<span class="hint" style="margin:0"> · bed ${esc(creBed(x))}</span>`:""}${x.sloc?`<div class="hint" style="margin:2px 0 0">Sheet: ${esc(x.sloc)}</div>`:""}${now?`<div style="margin-top:3px"><span class="pill p-crit">Now in ${esc(now.ward)}${now.bed?" · "+esc(now.bed):""}</span></div>`:""}</td>
+     <td data-l="Date" class="mono">${fmt(x.first)}</td><td data-l="Ward identified / now"><b>${esc(creWard(x)||"—")}</b>${creBed(x)?`<span class="hint" style="margin:0"> · bed ${esc(creBed(x))}</span>`:""}${x.sloc?`<div class="hint" style="margin:2px 0 0">Sheet: ${esc(x.sloc)}</div>`:""}${now?"":(t=>t?`<div class="clast">${t}</div>`:"")(creLastTxt(creLast(x)))}${now?`<div style="margin-top:3px"><span class="pill p-crit">Now in ${esc(now.ward)}${now.bed?" · "+esc(now.bed):""}</span></div>`:""}</td>
      ${ix?`<td colspan="2">${(K=>{if(!K.length)return'<span class="hint" style="margin:0">No close contact yet</span>';const bw={};K.forEach(k=>{const w=creWard(k)||"?";bw[w]=(bw[w]||0)+1});const nb=K.filter(c=>nowIx(c)&&ctStat(c)[0]!=="clr");return`${nb.map(c=>{const I=A.find(y=>isIx(y)&&same(y,c));return`<div class="becix">${svg("up")}<span><b>${esc(c.name)}</b> close contact here (${esc(creWard(c)||"")}${c.first?" · "+fmt(c.first):""}${(st=>st[0]==="act"?", screening incomplete":"")(ctStat(c))}) → <b>now INDEX</b>${I?` ${fmt(I.first)} · ${esc(creWard(I)||"")}`:""}</span></div>`}).join("")}<div class="hint" style="margin:0 0 3px">${K.length} close contact${K.length>1?"s":""} in ${Object.keys(bw).length} ward${Object.keys(bw).length>1?"s":""}</div><div class="ixw">${Object.entries(bw).map(([w,n])=>`<button class="ixwc" onclick="S.ci={id:'${x.id}',w:'${esc(w)}',m:''};creIndex('${x.id}')">${esc(w)} · ${n}</button>`).join("")}</div>`})(A0.filter(y=>!isIx(y)&&y.ixId===x.id))}</td>`:["rs1","rs2"].map(k=>`<td data-l="${k==="rs1"?"D1":"D7"}" class="swc ${(v=>v&&v.st==="Negative"?"sw-neg":v&&v.st==="Positive"?"sw-pos":v&&v.st?"sw-pend":"sw-none")(x[k])}"><div class="rsq"><select aria-label="${k} status ${esc(x.name)}" onchange="creSw(${i},'${k}',this.value,null)"><option value="">Not taken</option>${RS_ST.map(v=>`<option${x[k]&&x[k].st===v?" selected":""}>${v}</option>`).join("")}</select><input type="date" aria-label="${k} date ${esc(x.name)}" value="${esc(x[k]&&x[k].d||"")}" max="${TODAY}" onchange="creSw(${i},'${k}',null,this.value)"></div></td>`).join("")}
      <td data-l="Status">${ix?"":`<span class="pill ${st[2]}">${st[1]}</span>`}</td>
      <td>${!ix&&st[0]==="pos"&&!mdroOf(x).some(c=>c.subtype==="CRE")?`<button class="btn btn-pri btn-sm" onclick="creReg(${i})">Register in masterlist</button>`:""}</td></tr>`};
@@ -4315,8 +4329,8 @@ function rCreList(){if(S.role==="uki"&&typeof ctBackfill==="function")ctBackfill
    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost" onclick="creXlsx()">${svg("up")}Export Excel</button>${S.role==="uki"?`<button class="btn btn-pri" onclick="creAdd()">+ Add close contact</button>`:""}</div></div>
    ${inW.length?`<div class="banner crit crealert" role="button" tabindex="0" onclick="S.cl.inw=!S.cl.inw;refresh()">${svg("bed")}<div><b>${inW.length} CRE patient${inW.length>1?"s are":" is"} in the wards now</b> (${nIx} index · ${inW.length-nIx} close contact${inW.length-nIx===1?"":"s"}). ${F.inw?"Tap to hide.":"Tap to see names and beds."}
      ${F.inw?`<div class="cinw">${inW.sort((a,b)=>(WARDS.indexOf(ctNow(a).ward)-WARDS.indexOf(ctNow(b).ward))).map(x=>{const l=ctNow(x);return`<span><b>${esc(l.ward)}${l.bed?" · bed "+esc(l.bed):""}</b> ${esc(x.name)} <i>${isIx(x)?"INDEX":"contact · "+esc(ctStat(x)[1])}</i></span>`}).join("")}</div>`:""}</div></div>`:""}
-   <div class="panel" style="margin-bottom:12px"><div class="crefil"><div class="seg">${[["","All"],["pend","Incomplete screening",cnt("act")],["pos","Close contact positive",cnt("pos")]].map(([k,l,c])=>`<button aria-pressed="${F.st===k}" onclick="S.cl.st='${k}';refresh()">${l}${c!=null?` <b class="mono">${c}</b>`:""}</button>`).join("")}</div>
-    <div class="hint" style="margin:0"><b>Incomplete screening</b> = close contacts whose rectal swab D1 / D7 is not taken or still pending (contact precaution continues) — update the swab straight in the table. <b>Close contact positive</b> = a close contact turned CRE positive: linked transmission, consider outbreak. Use the type filter for index cases only.</div>
+   <div class="panel" style="margin-bottom:12px"><div class="crefil"><div class="seg">${[["","All"],["pend","Incomplete screening",cnt("act")],["pos","Close contact positive",cnt("pos")],["rec","Admitted in the last 1 month",A.filter(recOk).length]].map(([k,l,c])=>`<button aria-pressed="${F.st===k}" onclick="S.cl.st='${k}';refresh()">${l}${c!=null?` <b class="mono">${c}</b>`:""}</button>`).join("")}</div>
+    <div class="hint" style="margin:0"><b>Incomplete screening</b> = close contacts whose rectal swab D1 / D7 is not taken or still pending (contact precaution continues) — update the swab straight in the table. <b>Close contact positive</b> = a close contact turned CRE positive: linked transmission, consider outbreak. <b>Admitted in the last 1 month</b> = index or close contact in a ward in the last 30 days, with the last ward · bed (discharge / transfer). Use the type filter for index cases only.</div>
     <div class="crefil2">${sel("clW",F.w,wards.map(w=>[w,w]),"All wards","S.cl.w=this.value;refresh()")}${sel("clM",F.m,months.map(m=>[m,MONTHS[+m.slice(5,7)-1]+" "+m.slice(0,4)]),"All months","S.cl.m=this.value;refresh()")}${sel("clR",F.role,[["INDEX","Index cases"],["CONTACT","Close contacts"],["NOIX","Contacts without index"]],"Index + close contacts","S.cl.role=this.value;refresh()")}
      <input type="search" placeholder="Search name / RN / IC" value="${esc(F.q)}" oninput="S.cl.q=this.value;clearTimeout(window._clq);window._clq=setTimeout(()=>{refresh();const e=document.querySelector('.crefil2 input');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}},300)"></div></div></div>
    ${keys.length||orph.length?keys.map(k=>{const gs=by[k];const nK=gs.reduce((a,g)=>a+g.kids.length,0);const open=F.open[k]||F.q||F.w||F.st||F.m;
