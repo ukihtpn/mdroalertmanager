@@ -960,6 +960,10 @@ details.mvh[open]>summary{margin-bottom:8px}
 .lastby{display:block;font-size:11.5px;color:var(--mut,#667);margin-top:2px}
 .audit{display:flex;flex-direction:column;gap:3px;font-size:13px}.audit i{font-style:normal;font-weight:700;font-size:11px;padding:1px 6px;border-radius:5px;margin-right:4px}
 .au-add{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}.au-edit{background:color-mix(in srgb,#f5c400 26%,transparent);color:#8a6a00}.au-del{background:color-mix(in srgb,var(--crit) 16%,transparent);color:var(--crit)}
+.jat input{width:110px}.jat td{vertical-align:top}
+.jadisc{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:8px}
+.jadisc label{display:flex;flex-direction:column;font-size:12px;font-weight:600}.jadisc input{width:100%}
+.pdsrc{font-size:10.5px;font-weight:700;color:var(--brand);margin-top:1px}.pdsrc.man{color:var(--warn)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1097,7 +1101,7 @@ const INF=[["COVID-19","drop",1],["PTB","air",1],["TRO PTB","air",1],["INFLUENZA
  ["EXTRA PULMONARY TB","std",0],["HEPATITIS","std",0],["HIV","std",0],["RVD","std",0],["SYPHILIS","std",0],["DF","std",0],["MALARIA","std",0],["OTHERS","std",0]];
 /* close contacts of an MDRO case: shown red (contact precaution) but never added to the masterlist / line listing */
 const CTAGS=[["CRE","CRE close contact"],["CREX","CRE known case (tracking list)"]];const ctL=k=>(CTAGS.find(x=>x[0]===k)||[k,k+" close contact"])[1];
-var AUDIT=[];/* activity log: who added / changed / deleted what, one entry per save */
+var AUDIT=[];var JKADM=[];var PDDISC=[];/* PD211 by discipline per month (KESELURUHAN): {id:"PD|YYYY-MM",ym,adm,pd,disc:{Medical:..},rows:[{label,d,adm,pd}]} *//* JKNS total admission / patient days per month, entered manually by UKI (from PD211): {id:"JA|YYYY-MM",ym,adm,pd,disc:{Medical:..},by,at} *//* activity log: who added / changed / deleted what, one entry per save */
 var CONTACTS=[];/* close-contact registry, kept after discharge so a readmission shows the history [{id,org,name,rn,ic,ward,first,index,rs1:{st,d},rs2:{st,d},by,at,del}] */
 const RS_ST=["Pending","Negative","Positive"];
 function ctRec(r){if(!r||!r.name)return null;const L=CONTACTS.filter(x=>!x.del&&same(x,r));return L.find(x=>x.role==="INDEX")||L.sort((a,b)=>(b.at||0)-(a.at||0))[0]||null}
@@ -1544,12 +1548,13 @@ function jkSet(m0,m1){const yr=String(YEAR);const inR=c=>c.sample_date&&c.sample
 function rJkns(){const m1=S.jkM1??CUR_M,m0=S.jkM0??0;const{rows,exc,dup}=jkSet(m0,m1);const bad=rows.filter(x=>x.miss.length);const F=S.jkF||"";const V=F==="miss"?bad:F==="exc"?[]:rows;
   const opt=cur=>MONTHS.slice(0,CUR_M+1).map((m,i)=>`<option value="${i}"${i===cur?" selected":""}>${m}</option>`).join("");
   return`<div class="mrow" style="align-items:flex-end"><div class="fld"><label for="jk0">From month</label><select id="jk0" onchange="S.jkM0=+this.value;refresh()">${opt(m0)}</select></div><div class="fld"><label for="jk1">To month</label><select id="jk1" onchange="S.jkM1=+this.value;refresh()">${opt(m1)}</select></div>
-    <div class="fld jkbtn" style="flex:none"><button class="btn btn-pri" onclick="jknsTemplate()">${svg("up")}Fill into the original JKNS template</button></div><div class="fld jkbtn" style="flex:none"><button class="btn btn-ghost" onclick="copyJkns()">Copy (paste at B9)</button></div></div>
+    <div class="fld jkbtn" style="flex:none"><button class="btn btn-pri" onclick="jknsTemplate()">${svg("up")}Fill into the original JKNS template</button></div><div class="fld jkbtn" style="flex:none"><button class="btn btn-ghost" onclick="copyJkns()" title="Only for an empty template">Copy (empty template only)</button></div></div>
    <div class="hint" style="margin:6px 0 0">The first time, choose the JKNS file. <b>A ${YEAR} JKNS file that is already filled in</b> (e.g. MDRO_MRSAB_HTPNK_${YEAR}.xlsx): manual entries are not changed; the app only fills empty cells and adds new cases at the bottom. <b>Blank / previous-year template</b>: the app fills all cases from row 9. TOTAL ADMISSION / PATIENT DAYS on each month sheet are also filled. Format, dropdowns, formulas, Bacteraemia &amp; Reporting Form sheets are kept. <button class="linkbtn" onclick="jknsTemplate(true)">Change template / file</button> · <button class="linkbtn" onclick="jkImport()">Pull details from the JKNS file into the app</button> · <button class="linkbtn" onclick="dlJkns()">Simple list only</button></div>
    <div class="banner ${finalUpto()?"info":"warn"}" style="margin-top:10px">${svg("list")}<div>${finalUpto()?`<b>Finalized per JKNS: Jan–${MON3[+finalUpto().slice(5,7)-1]} ${YEAR}.</b> These months are locked from LAB_SURVEILLANCE imports. <button class="linkbtn" onclick="jkReconcile()">Reconcile again</button> · <button class="linkbtn" onclick="unlockFinal()">Unlock</button>`:`<b>Not yet reconciled with JKNS.</b> If the JKNS file has been finalized, reconcile so the masterlist &amp; Analysis match JKNS.`}</div>${finalUpto()?"":`<button class="btn btn-pri btn-sm" style="margin-left:auto" onclick="jkReconcile()">Reconcile with JKNS file</button>`}</div>
    ${dqIssues().length?`<div class="hint" style="margin:8px 0 0">${svg("list")} ${dqIssues().length} data issues detected in the masterlist. <button class="linkbtn" onclick="S.dqF='';openDQ()">Review before sending to JKNS</button></div>`:""}
    <div class="jkstat"><button aria-pressed="${!F}" onclick="S.jkF='';refresh()"><b>${rows.length}</b>NEW cases included</button><button aria-pressed="${F==="miss"}" onclick="S.jkF='miss';refresh()" class="${bad.length?"w":""}"><b>${bad.length}</b>need completing</button><button aria-pressed="${F==="exc"}" onclick="S.jkF='exc';refresh()"><b>${exc.length}</b>excluded (repeat etc.)</button></div>
    ${dup.length?`<div class="banner warn">${svg("list")}<div><b>${dup.length} NEW cases may be repeats</b> (same patient &amp; organism already has an earlier NEW case): ${dup.slice(0,6).map(x=>`<button class="linkbtn" onclick="openCase('${x.c.id}')">${esc(x.c.name)} · ${esc(x.c.subtype)} ${fmt(x.c.sample_date)}</button>`).join(", ")}. Review and change the status to REPEAT if correct.</div></div>`:""}
+   ${jkAdmPanel()}
    ${F==="exc"?`<div class="tbl-wrap"><table><thead><tr><th>Patient / RN</th><th>Organism</th><th>Sample date</th><th>Reason</th></tr></thead><tbody>${exc.map(({c,why})=>`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn)}</span></td><td>${esc(subL(c.subtype))}</td><td class="mono">${fmt(c.sample_date)}</td><td>${esc(why)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty-row">None.</td></tr>'}</tbody></table></div>`
    :`<div class="tbl-wrap jkt"><table><thead><tr><th>Patient / RN</th><th>Sample date</th><th>T · Organism</th><th>V · Status</th><th>W · Infection</th><th>Y · HCAI</th><th>Empty columns</th></tr></thead><tbody>
    ${V.slice(0,150).map(({c,r,miss})=>`<tr><td class="nm"><button class="namebtn" onclick="openCase('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn||"—")}</span></td><td class="mono" style="white-space:nowrap"><b>${fmt(c.sample_date)}</b><div class="hint" style="margin:0">Lab ${fmt(c.lab_date)} · ${esc(c.ward||"")}</div></td><td data-l="T · Organism">${esc(r[18])}${r[19]?`<div class="hint" style="margin:0">${esc(r[19])}</div>`:""}</td><td data-l="V · Status">${esc(r[20]||"—")}</td><td data-l="W · Infection">${esc(r[21]||"—")}${r[22]?`<div class="hint" style="margin:0">${esc(r[22])}</div>`:""}</td><td data-l="Y · HCAI">${esc(r[23]||"—")}</td>
@@ -1610,9 +1615,14 @@ async function fillJkns(buf){await loadJSZip();const zip=await JSZip.loadAsync(b
   const MN=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];const DR=dayRows();
   for(const [name,path] of Object.entries(P)){const mi=MN.indexOf(name.trim().slice(0,3).toLowerCase());if(mi<0||name.length>9)continue;const ym=YEAR+"-"+pad(mi+1);
     const mo=MONTHLY.filter(x=>x.ym===ym);const adm=mo.length?mo.reduce((a,x)=>a+(+x.adm||0),0):DR.filter(r=>r.date.startsWith(ym)).reduce((a,r)=>a+(r.adm||0),0);const pd=mo.length?mo.reduce((a,x)=>a+(+x.pd||0),0):0;
-    let x=await zip.file(path).async("string");const V={D16:YEAR,C42:YEAR,B18:adm||"",B20:pd||""};
-    if(merge){const R=xlReadRows(x,SS);const g=ref=>{const m=ref.match(/([A-Z]+)(\d+)/);const c=R[+m[2]]&&R[+m[2]][m[1]];return c&&(c.f||!jkEmpty(c.v))};Object.keys(V).forEach(k=>{if(g(k)||V[k]==="")delete V[k]})}
+    let x=await zip.file(path).async("string");const MA=jkAdmOf(ym)||{},PDx=pdDiscOf(ym)||{};const V={D16:YEAR,C42:YEAR,B18:MA.adm??PDx.adm??(adm||""),B20:MA.pd??PDx.pd??(pd||"")};const man=new Set([(MA.adm??PDx.adm)!=null?"B18":"",(MA.pd??PDx.pd)!=null?"B20":""].filter(Boolean));
+    if(merge){const R=xlReadRows(x,SS);const g=ref=>{const m=ref.match(/([A-Z]+)(\d+)/);const c=R[+m[2]]&&R[+m[2]][m[1]];return c&&(c.f||!jkEmpty(c.v))};Object.keys(V).forEach(k=>{if(man.has(k))return;if(g(k)||V[k]==="")delete V[k]})}
     x=xlSetCells(x,V);zip.file(path,x)}
+  {const RF=P["MDRO Reporting Form"];const any=jkDiscAll();
+   if(RF&&any){let x=await zip.file(RF).async("string");const R=xlReadRows(x,SS);const V={};for(let r=28;r<=37;r++){const nm=String(R[r]&&R[r].A&&R[r].A.v||"").trim();const d=JK_DISC.find(k=>k.toLowerCase()===nm.toLowerCase());if(d)V["B"+r]=jkMonths().reduce((a,ym)=>a+(+jkDiscVal(ym,d)||0),0)}x=xlSetCells(x,V);zip.file(RF,x)}}
+  /* a P (MONTH) cell that was overwritten by pasting gets its formula back */
+  {let x=await zip.file(LL).async("string");x=x.replace(/<c r="P(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,(m,n,a,inner)=>{n=+n;if(n<9||(inner||"").includes("<f"))return m;const rw=ROWS[n]||(W[n]?{}:null);if(!rw&&!W[n])return m;
+     const st=(a.match(/\ss="\d+"/)||[""])[0];return`<c r="P${n}"${st}><f>IF(ISBLANK(O${n}),"",VLOOKUP(VALUE(MONTH(O${n})),'Table Drop Down List'!$A$2:$B$13,2,1))</f></c>`});zip.file(LL,x)}
   let wbx=await zip.file("xl/workbook.xml").async("string");wbx=wbx.replace(/<calcPr([^>]*?)\/>/,(m,a)=>`<calcPr${a.replace(/\sfullCalcOnLoad="[^"]*"/,"")} fullCalcOnLoad="1"/>`);zip.file("xl/workbook.xml",wbx);
   st.blob=await zip.generateAsync({type:"blob",compression:"DEFLATE",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});return st}
 function jknsTemplate(force){const go=async buf=>{try{toast("Filling the JKNS file…");const r=await fillJkns(buf);await saveFile(`MDRO_${YEAR}_HTPNK.xlsx`,r.blob);
@@ -1746,7 +1756,7 @@ function dlJkns(){const R=jkAoa();if(!window.XLSX)return;const m1=S.jkM1??CUR_M,
   const A=[["MDRO Surveillance Line Listing (MDRO/MOH/2022/2)"],["HOSPITAL",": HOSPITAL TENGKU PERMAISURI NORASHIKIN, KAJANG (HTPNK)"],["SURVEY PERIOD",`: ${MONTHS[m0]}–${MONTHS[m1]} ${YEAR}`],[],["NO"].concat(JK_L),["NO"].concat(JK_H)].concat(R.map((r,i)=>[i+1].concat(r)));
   const ws=XLSX.utils.aoa_to_sheet(A);ws["!cols"]=[{wch:5}].concat(JK_H.map((h,i)=>({wch:[0,8,12].includes(i)?28:14})));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"L.Listing Main");
   saveFile(`LineListing_MDRO_JKNS_${MON3[m0]}-${MON3[m1]}_${YEAR}.xlsx`,new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}))}
-function copyJkns(){const t=jkAoa().map(r=>r.map(v=>String(v).replace(/[\t\n]/g," ")).join("\t")).join("\n");try{navigator.clipboard.writeText(t).then(()=>toast(`${jkAoa().length} rows copied. In the JKNS template, click cell B in the first empty row (e.g. B9) and paste (Ctrl+V).`),()=>toast("Cannot copy here. Use Download Excel."))}catch(e){toast("Cannot copy here. Use Download Excel.")}}
+function copyJkns(){if(!confirm("Copy is only for an EMPTY JKNS template.\n\nFor a JKNS file that already has cases (e.g. Jan–Sep filled), use \"Fill into the original JKNS template\" instead: pasting over it mixes the columns of different patients.\n\nCopy anyway?"))return;const t=jkAoa().map(r=>r.map(v=>String(v??"").replace(/[\t\r\n]+/g," ").replace(/"/g,"'").replace(/\s{2,}/g," ").trim()).join("\t")).join("\n");try{navigator.clipboard.writeText(t).then(()=>toast(`${jkAoa().length} rows copied. In the JKNS template, click cell B in the first empty row (e.g. B9) and paste (Ctrl+V).`),()=>toast("Cannot copy here. Use Download Excel."))}catch(e){toast("Cannot copy here. Use Download Excel.")}}
 /* ===== Tab Jana laporan ===== */
 function rptCard(n,t,d,body){return`<div class="panel rpt"><div class="stephd"><span>${n}</span><div><b>${t}</b><p>${d}</p></div></div>${body}</div>`}
 function rReports(){const sm=S.rpM??CUR_M;const need=CASES.filter(c=>c.case_status==="NEW"&&c.sample_date>=addDays(TODAY,-60)&&["INF","COL"].includes(cls(c))&&!(c.reviews||[]).length).sort((a,b)=>b.lab_date.localeCompare(a.lab_date));
@@ -3252,6 +3262,19 @@ function transposed(A){if(A.length<3)return null;const beds=A.slice(1).filter(r=
   const dc=A[0].map((x,j)=>j>0?[j,okDate(toYmd(x))]:null).filter(x=>x&&x[1]);if(dc.length<5)return null;
   const cells=[];beds.forEach(r=>dc.forEach(([j,d])=>{const v=String(r[j]??"").trim();if(v)cells.push([d,String(r[0]).trim(),v])}));return{cells}}
 const BULAN={JANUARI:1,FEBRUARI:2,MAC:3,APRIL:4,MEI:5,JUN:6,JULAI:7,OGOS:8,SEPTEMBER:9,OKTOBER:10,NOVEMBER:11,DISEMBER:12};
+/* PD211 discipline name → JKNS discipline (confirmed by UKI) */
+function jkDiscMap(l){const t=String(l||"").toUpperCase();if(!/[A-Z]{3}/.test(t)||/^(JUMLAH|TOTAL|BIL|DISIPLIN|DISCIPLINE)/.test(t))return"";
+  if(/DENTIS|PERGIGIAN|ORAL|MAXILLO|PSYCHIATR|PSIKIATRI/.test(t))return"Others";if(/ORTHOP/.test(t))return"Ortho";if(/NEPHRO/.test(t))return"Nephro";if(/ONCOLOG/.test(t))return"Oncology";if(/UROLOG/.test(t))return"Urology";
+  if(/OBSTET|GYNA|GYNE|O\s*&\s*G|O&G/.test(t))return"O&G";if(/PAEDIATRIC|PEDIATRIC|NEONAT|PAED|KANAK/.test(t))return"Paed";if(/ADULT INTENSIVE|ANAEST|^ICU|INTENSIVE CARE UNIT/.test(t))return"Anaest";
+  if(/SURGERY|SURGICAL|SURGEON|PEMBEDAHAN/.test(t))return"Surgical";if(/MEDICINE|MEDICAL|PERUBATAN/.test(t))return"Medical";return"Others"}
+function parsePDDisc(A,sn){let ym="";const head=A.slice(0,10).map(r=>r.map(String).join(" ")).join(" ").toUpperCase();const m=head.match(/UNTUK BULAN\s+([A-Z]+)\s+TAHUN\s+(\d{4})/);if(m&&BULAN[m[1]])ym=m[2]+"-"+pad(BULAN[m[1]]);
+  if(!ym){const mi=+String(sn).trim();if(!(mi>=1&&mi<=12))return null;const y=(head.match(/\b(20\d\d)\b/)||[])[1]||YEAR;ym=y+"-"+pad(mi)}
+  let hi=-1,ca=-1,cp=-1;for(let i=0;i<Math.min(15,A.length);i++){const h=A[i].map(x=>String(x).replace(/\s+/g," ").trim().toUpperCase());const a=h.findIndex(x=>/^KEMASUKAN|^JUMLAH KEMASUKAN|^ADMISSION/.test(x));const d=h.findIndex(x=>/^(JUMLAH )?HARI PESAKIT|^PATIENT DAYS|^JUMLAH HARI PESAKIT/.test(x));if(a>=0&&d>=0){hi=i;ca=a;cp=d;break}}
+  const rows=[];let tot=null;for(let i=(hi>=0?hi+1:0);i<A.length;i++){const r=A[i];const lab=String(r[1]??"").replace(/\s+/g," ").trim();if(/WAD\s/i.test(r.map(String).join(" ")))break;
+    const a=hi>=0?ca:4,d=hi>=0?cp:8;const pn=v=>typeof v==="number"?v:(+String(v??"").replace(/[,\s]/g,"")||0);const adm=pn(r[a]),pd=pn(r[d]);if(!lab||!(adm||pd))continue;if(hi<0&&!(String(r[0]).trim().match(/^\d+$/)))continue;
+    if(/^(JUMLAH|TOTAL)/i.test(lab)){tot={adm,pd};continue}const dd=jkDiscMap(lab);if(!dd)continue;rows.push({label:lab,d:dd,adm,pd})}
+  if(rows.length<4)return null;const disc={};rows.forEach(x=>disc[x.d]=(disc[x.d]||0)+x.adm);const sA=rows.reduce((a,x)=>a+x.adm,0),sP=rows.reduce((a,x)=>a+x.pd,0);
+  return{ym,sheet:sn,disc,rows,adm:tot&&tot.adm?tot.adm:sA,pd:tot&&tot.pd?tot.pd:sP,hdr:hi>=0}}
 function parsePD211(A,R,sn){let ym="";for(let i=0;i<Math.min(10,A.length);i++){const t=A[i].map(String).join(" ").toUpperCase();const m=t.match(/UNTUK BULAN\s+([A-Z]+)\s+TAHUN\s+(\d{4})/);if(m&&BULAN[m[1]]){ym=m[2]+"-"+pad(BULAN[m[1]]);break}}
   if(!ym)return false;let hi=A.findIndex(r=>r.filter(x=>/^WAD\s/i.test(String(x).trim())).length>=5);if(hi<0)return false;
   const cols=A[hi].map((x,j)=>/^WAD\s/i.test(String(x).trim())?j:-1).filter(j=>j>=0);const F={beds_rasmi:/KATIL RASMI/,beds_op:/KATIL OPERASI/,adm:/^KEMASUKAN/,pd:/JUMLAH HARI PESAKIT/,home:/BALIK KE RUMAH/,trans_out:/PINDAH KE HOSPITAL/,deaths:/^MATI/,disc:/JUMLAH PESAKIT DISCAJ/,alos:/PURATA MASA TINGGAL/};
@@ -3270,7 +3293,7 @@ function pdHTML(R){if(!R.monthly.length)return"";const months=[...new Set(R.mont
 function analyseWb(wb,file){const R={file,daily:[],bedSheets:[],master:[],monthly:[],mmap:{},skipped:[],map:{},masterSheet:"",dailySheet:""};
   wb.SheetNames.forEach(sn=>{const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:""});if(!A.length){R.skipped.push(sn);return}
     if(/^\s*BWS\b/i.test(sn)){(R.bw=R.bw||[]).push(...parseBW(A,sn));return}{const ct=parseCreTrack(A,sn);if(ct){(R.cre=R.cre||[]).push(...ct);return}}if(wb.SheetNames.some(n=>/^\s*BWS\b/i.test(n))){R.skipped.push(sn);return}
-    if(parsePD211(A,R,sn))return;
+    {const dd=parsePDDisc(A,sn);if(dd)(R.pdd=R.pdd||[]).push(dd);if(parsePD211(A,R,sn)||dd)return}
     let hi=-1;for(let i=0;i<Math.min(6,A.length);i++){const h=A[i].map(x=>String(x).trim().toUpperCase());if(h.includes("DATE")||h[0]==="TARIKH"||(h[0]==="MONTH"&&h.some(x=>x.startsWith("PATIENT NAME")))){hi=i;break}}
     if(hi<0||!A[hi].some(x=>/BED|WAD|PATIENT/i.test(String(x)))){const T=transposed(A);if(T){T.sheet=sn;T.ward=T.auto=wardCode(sn);R.bedSheets.push(T);return}if(hi<0){R.skipped.push(sn);return}}
     const H=A[hi].map(x=>String(x).replace(/\s+/g," ").trim().toUpperCase());
@@ -3315,11 +3338,12 @@ function renderImp(){const R=IMP;const unm=Object.keys(R.map);const wardOpt=cur=
   ${R.jkns?`<div class="banner info">${svg("list")}<div><b>This is a JKNS line listing file (MDRO/MOH/2022/2)</b>, not LAB_SURVEILLANCE. It is not imported here. To make the masterlist &amp; Analysis match this finalized JKNS file, use <b>Reconcile with JKNS</b>.<div style="margin-top:8px"><button class="btn btn-pri btn-sm" onclick="const b=IMP.buf,n=IMP.file;closeModal();jkReconcileBuf(b,n)">Reconcile with this JKNS file</button></div></div></div>`:""}
   ${R.jkns&&!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?"":!R.daily.length&&!R.bedSheets.length&&!R.master.length&&!R.monthly.length?((R.bw||[]).length||(R.cre||[]).length?"":`<div class="banner warn">${svg("list")}<div>No recognised sheets in this file.</div></div>`):`<label class="imph" style="font-weight:600"><input type="checkbox" id="impSyn"${R.daily.length||R.master.length?" checked":""}> Remove sample (dummy) data from Analysis${R.master.length?" and Masterlist":""}</label>
     ${R.daily.length&&!R.master.length?`<div class="hint" style="margin:0">MDRO cases in Analysis are still sample data until the MASTERLIST (LAB SURVEILLANCE file) is imported.</div>`:""}`}
-  ${pdHTML(R)}
+  ${pdHTML(R)}${pddHTML(R)}
   ${bwImpHTML(R)}${creImpHTML(R)}
   ${R.skipped.length?`<details><summary class="hint">${R.skipped.length} sheets skipped</summary><div class="hint">${R.skipped.map(esc).join(" · ")}</div></details>`:""}`;
-  $("impFoot").innerHTML=`<button class="btn btn-ghost" onclick="askClose()">Cancel</button>${R.daily.length||R.bedSheets.length||R.master.length||R.monthly.length||(R.bw||[]).length||(R.cre||[]).length?`<button class="btn btn-pri" onclick="applyImport()">${svg("up")}Save to app</button>`:""}`}
+  $("impFoot").innerHTML=`<button class="btn btn-ghost" onclick="askClose()">Cancel</button>${R.daily.length||R.bedSheets.length||R.master.length||R.monthly.length||(R.pdd||[]).length||(R.bw||[]).length||(R.cre||[]).length?`<button class="btn btn-pri" onclick="applyImport()">${svg("up")}Save to app</button>`:""}`}
 function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB=0,nM=0,nP=0;
+  let nPDD=0;if(on("impPDD")&&(R.pdd||[]).length){nPDD=R.pdd.length;R.pdd.forEach(x=>{const id="PD|"+x.ym;const o={id,ym:x.ym,adm:x.adm,pd:x.pd,disc:x.disc,rows:x.rows,src:R.file,at:Date.now()};const i=PDDISC.findIndex(y=>y.id===id);if(i>=0)PDDISC[i]=o;else PDDISC.push(o)})}
   if(on("impP")){const K={};R.monthly.forEach(x=>{const code=x.code||R.mmap[x.label]||String(x.label||"").replace(/^WA[DR]D?\s+/i,"").trim().toUpperCase();if(!code)return;const k=code+"|"+x.ym;if(K[k]){["beds_rasmi","beds_op","adm","pd","disc","deaths","trans_out"].forEach(f=>K[k][f]+=x[f])}else K[k]={...x,ward:code}});
     MONTHLY=MONTHLY.filter(m=>!K[m.ward+"|"+m.ym]);Object.values(K).forEach(v=>{MONTHLY.push(v);nP++})}
   if(on("impSyn")){HIST=HIST.filter(h=>!h.syn);if(on("impM"))CASES=CASES.filter(c=>!c.syn)}
@@ -3331,7 +3355,7 @@ function applyImport(){const R=IMP;const on=id=>$(id)&&$(id).checked;let nD=0,nB
   let bwr=null;if(on("impBW")&&R.bw){bwr=bwSave(R.bw,R.file);nB+=bwr.nb}let crr=null;if(on("impCRE")&&R.cre)crr=creMerge(R.cre);
   let nF=0;window._pullUsed=new Set();window._pullUpd=0;if(on("impM"))R.master.forEach(o=>{if(isFinal(o.sample_date)){nF++;return}{const m=pullMerge(o);if(m==="upd"){window._pullUpd=(window._pullUpd||0)+1;return}if(m)return}CASES.push(o);nM++});
   IMPORTS.unshift({at:Date.now(),file:R.file,by:S.icn,nD,nB,nM,nP});IMP=null;closeModal();
-  toast(`Saved: ${nP?nP+" monthly ward statistics (PD211), ":""}${nD.toLocaleString()} daily totals, ${nB.toLocaleString()} bed statuses, ${nM} masterlist cases${crr?` · CRE tracking: ${crr.nc} close contacts, ${crr.ni} index cases (${crr.add} new)`:""}${bwr?` · Bedwatcher: ${bwr.nb} tagged beds in ${bwr.n} wards${bwr.stale.length?" ("+bwr.stale.length+" wards not updated, skipped)":""}`:""}${nF?` (${nF} cases in JKNS-finalized months skipped)`:""}.`);
+  toast(`Saved: ${nPDD?nPDD+" months of PD211 by discipline (JKNS admission), ":""}${nP?nP+" monthly ward statistics (PD211), ":""}${nD.toLocaleString()} daily totals, ${nB.toLocaleString()} bed statuses, ${nM} masterlist cases${crr?` · CRE tracking: ${crr.nc} close contacts, ${crr.ni} index cases (${crr.add} new)`:""}${bwr?` · Bedwatcher: ${bwr.nb} tagged beds in ${bwr.n} wards${bwr.stale.length?" ("+bwr.stale.length+" wards not updated, skipped)":""}`:""}${nF?` (${nF} cases in JKNS-finalized months skipped)`:""}.`);
   if(nD&&S.tab==="wards"){const last=HIST.filter(h=>h.src==="import").map(h=>h.date).sort().pop();if(last&&!WARDS.some(w=>censusOf(w,S.bwDate)))S.bwDate=last}refresh()}
 
 /* ================= UKI: movements ================= */
@@ -4471,11 +4495,11 @@ function creSoon(){if(!liveOK()||S.role!=="uki"||!LINKS||!LINKS.wbcre||!LINKS.cr
 
 /* ===== Activity log (who did what) ===== */
 function whoAmI(){return S.role==="uki"?(S.icn||"UKI")+" (UKI)":(S.staff||"Staff")+" ("+(S.ward||"ward")+")"}
-const AUD_COLL={cases:"Masterlist case",census:"Daily census",moves:"Movement",ukibeds:"UKI mapping bed",contacts:"CRE line listing",outbreaks:"Outbreak",planreq:"Floor plan request",final:"Final report",monthly:"Monthly total",hist:"Census sheet total",imports:"Import",deleted:"Deleted record",bedwatch:"Bedwatcher",maps:"Floor plan",bedhist:"Census sheet beds"};
+const AUD_COLL={cases:"Masterlist case",census:"Daily census",moves:"Movement",ukibeds:"UKI mapping bed",contacts:"CRE line listing",outbreaks:"Outbreak",planreq:"Floor plan request",final:"Final report",monthly:"Monthly total",hist:"Census sheet total",imports:"Import",deleted:"Deleted record",bedwatch:"Bedwatcher",maps:"Floor plan",bedhist:"Census sheet beds",jkadm:"JKNS total admission"};
 function audLabel(k,o){if(!o)return"";if(k==="cases")return[o.name,o.subtype,o.ward].filter(Boolean).join(" · ");if(k==="census")return(o.ward||"")+" · "+fmt(o.date)+" · "+((o.rows||[]).filter(r=>r.name).length)+" patients";
   if(k==="moves")return({DISCHARGE:"Discharge",DEATH:"Died",OTHER_HOSP:"Other hospital",TRANSFER:"Transfer",BED:"Bed change"}[o.type]||o.type)+" · "+(o.name||"")+" · "+(o.from||"")+(o.bed?" bed "+o.bed:"")+(o.to?" → "+o.to:"")+" · "+fmt(o.date);
   if(k==="ukibeds")return(o.ward||"")+" bed "+(o.bed||"")+" · "+(o.name||"")+" · "+fmt(o.date)+(o.del?" (cleared)":"");if(k==="contacts")return(o.role==="INDEX"?"Index ":"Close contact ")+(o.name||"")+(o.del?" (removed)":"");
-  if(k==="planreq")return o.ward||"";if(k==="maps")return String(o.code||"");if(k==="bedhist"||k==="bedwatch")return(o.ward||"")+" "+(o.date?fmt(o.date):"");return o.name||o.ward||o.file||o.title||""}
+  if(k==="jkadm")return MONTHS[+String(o.ym||"").slice(5,7)-1]+" "+String(o.ym||"").slice(0,4)+(o.adm!=null?" · admission "+o.adm:"")+(o.pd!=null?" · patient days "+o.pd:"");if(k==="planreq")return o.ward||"";if(k==="maps")return String(o.code||"");if(k==="bedhist"||k==="bedwatch")return(o.ward||"")+" "+(o.date?fmt(o.date):"");return o.name||o.ward||o.file||o.title||""}
 /* called by the save: one log entry per save + a "last changed by" stamp on each changed record */
 function auditStamp(d){if(!S.role)return;const who=whoAmI(),now=Date.now(),items=[];const was=(k,id)=>!!(SNAP[k]&&SNAP[k][id]);
   ["cases","census","moves"].forEach(k=>d.up[k].forEach(o=>{items.push({c:k,a:was(k,o.id)?"edit":"add",l:audLabel(k,o)});o.mby=who;o.mat=now}));
@@ -4502,13 +4526,45 @@ function rAudit(){auditDemo();const F=S.au||(S.au={q:"",who:"",d:"",c:""});const
   ${L.slice(0,300).map(e=>`<tr><td class="mono"><b>${fmt(ymd(new Date(e.at)))}</b><div class="hint" style="margin:0">${fmtT(e.at)}</div></td><td><b>${esc(e.by)}</b></td><td><div class="audit">${(e.items||[]).map(i=>`<span><i class="au-${i.a}">${audA[i.a]||i.a}</i> ${esc(AUD_COLL[i.c]||i.c)}${i.l?" · "+esc(i.l):""}</span>`).join("")}${e.n>(e.items||[]).length?`<span class="hint" style="margin:0">+ ${e.n-(e.items||[]).length} more</span>`:""}</div></td></tr>`).join("")||'<tr><td colspan="3" class="empty-row">No activity recorded yet.</td></tr>'}
   </tbody></table></div></div>`}
 
+/* ===== JKNS: total admission & patient days, entered by UKI each month ===== */
+const JK_DISC=["Anaest","Medical","Nephro","Oncology","O&G","Ortho","Paed","Surgical","Urology","Others"];
+const jkAdmOf=ym=>JKADM.find(x=>x.ym===ym&&!x.del);
+/* admission by discipline goes to the Reporting Form only when every month so far has its breakdown (otherwise the yearly totals already in the file are kept) */
+const jkMonths=()=>{const o=[];for(let i=0;i<=(S.jkM1??CUR_M);i++)o.push(YEAR+"-"+pad(i+1));return o};
+/* discipline admission for a month: manual entry first, else PD211 discipline table */
+const jkDiscVal=(ym,d)=>{const e=jkAdmOf(ym);if(e&&e.disc&&JK_DISC.some(k=>e.disc[k]!=null))return e.disc[d]??0;const p=pdDiscOf(ym);return p?p.disc[d]??0:null};
+const jkDiscAll=()=>jkMonths().every(ym=>JK_DISC.some(d=>jkDiscVal(ym,d)!=null));
+function jkAdmPanel(){const open=S.jaOpen??true;const months=MONTHS.slice(0,CUR_M+1).map((m,i)=>({m,i,ym:YEAR+"-"+pad(i+1)}));const D=S.jaD||"";
+  const sum=k=>months.reduce((a,x)=>a+(+((jkAdmOf(x.ym)||{})[k]??(pdDiscOf(x.ym)||{})[k])||0),0);const dsum=d=>months.reduce((a,x)=>a+(+jkDiscVal(x.ym,d)||0),0);
+  const totD=JK_DISC.reduce((a,d)=>a+dsum(d),0),totA=sum("adm");
+  return`<details class="panel jkadm" ${open?"open":""} ontoggle="S.jaOpen=this.open" style="margin-top:12px"><summary><div class="gh"><b>Total admission &amp; patient days (JKNS)</b><span>Taken automatically from PD211 (Import › Link Google Sheets › PD211 › Pull now). Type a number only to correct a month. Filled into each month sheet (TOTAL ADMISSION / TOTAL PATIENT DAYS) and the MDRO Reporting Form (admission by discipline).</span></div></summary>
+   <div class="tbl-wrap"><table class="mini jat"><thead><tr><th>Month</th><th>Total admission</th><th>Total patient days</th><th>By discipline</th><th>Entered by</th></tr></thead><tbody>
+   ${months.map(({m,i,ym})=>{const e=jkAdmOf(ym)||{};const P=pdDiscOf(ym);const ds=JK_DISC.reduce((a,d)=>a+(+jkDiscVal(ym,d)||0),0);const tA=e.adm??(P&&P.adm);const bad=ds&&tA&&ds!==+tA;
+     return`<tr><td><b>${m}</b></td><td><input type="number" min="0" inputmode="numeric" value="${e.adm??""}" placeholder="${P?P.adm:""}" onchange="jkAdmSet('${ym}','adm',this.value)" aria-label="Total admission ${m}">${P&&e.adm==null?'<div class="pdsrc">PD211</div>':e.adm!=null?'<div class="pdsrc man">manual</div>':""}</td><td><input type="number" min="0" inputmode="numeric" value="${e.pd??""}" placeholder="${P?P.pd:""}" onchange="jkAdmSet('${ym}','pd',this.value)" aria-label="Patient days ${m}">${P&&e.pd==null?'<div class="pdsrc">PD211</div>':""}</td>
+      <td><button class="linkbtn" onclick="S.jaD=S.jaD==='${ym}'?'':'${ym}';refresh()">${ds?ds.toLocaleString()+" in "+JK_DISC.filter(d=>+jkDiscVal(ym,d)).length+" disciplines"+(e.disc&&Object.keys(e.disc).length?"":P?" (PD211)":""):"Enter by discipline"}</button>${bad?`<div class="hint" style="margin:0;color:var(--crit)">≠ total admission (${(+tA).toLocaleString()})</div>`:""}
+       ${D===ym?`<div class="jadisc">${JK_DISC.map(d=>`<label>${esc(d)}<input type="number" min="0" value="${(e.disc||{})[d]??""}" placeholder="${P&&P.disc[d]!=null?P.disc[d]:""}" onchange="jkAdmSet('${ym}','disc:${d}',this.value)"></label>`).join("")}<button class="btn btn-ghost btn-sm" onclick="jkAdmSumDisc('${ym}')">Use the sum as total admission</button></div>`:""}</td>
+      <td class="hint" style="margin:0">${e.by?esc(e.by)+" · "+fmtT(e.at):""}</td></tr>`}).join("")}
+   </tbody><tfoot><tr><td><b>Total</b></td><td><b>${totA.toLocaleString()}</b></td><td><b>${sum("pd").toLocaleString()}</b></td><td>${totD?`<b>${totD.toLocaleString()}</b>${totD===totA?` <span class="hint" style="margin:0;color:var(--ok)">· matches</span>`:jkDiscAll()?` <span class="hint" style="margin:0;color:var(--crit)">· disciplines ≠ total admission: the Reporting Form will show "CHECK BACK THE TOTAL ADMISSION"</span>`:""}`:'<span class="hint" style="margin:0">—</span>'}</td><td></td></tr></tfoot></table></div>
+   <div class="hint" style="margin:6px 0 0">Months left empty keep what is already in the JKNS file. ${jkDiscAll()?'<b style="color:var(--ok)">Admission by discipline (Reporting Form) will be written: every month has its breakdown.</b>':"Admission by discipline in the Reporting Form is written only when <b>every month</b> from January has its discipline breakdown; until then the yearly figures already in the file are kept."}</div></details>`}
+function jkAdmSet(ym,k,v){let e=jkAdmOf(ym);if(!e){e={id:"JA|"+ym,ym,disc:{}};JKADM.push(e)}const n=v===""?null:Math.max(0,Math.round(+v));
+  if(k.startsWith("disc:")){e.disc=e.disc||{};const d=k.slice(5);if(n==null)delete e.disc[d];else e.disc[d]=n}else{if(n==null)delete e[k];else e[k]=n}e.by=whoAmI();e.at=Date.now();refresh()}
+function jkAdmSumDisc(ym){const e=jkAdmOf(ym);if(!e)return;e.adm=JK_DISC.reduce((a,d)=>a+(+((e.disc||{})[d])||0),0);e.by=whoAmI();e.at=Date.now();refresh()}
+
+function pddHTML(R){const L=(R.pdd||[]).slice().sort((a,b)=>a.ym.localeCompare(b.ym));if(!L.length)return"";
+  return`<div class="impsec"><label class="imph"><input type="checkbox" id="impPDD" checked> PD211 by discipline · total admission &amp; patient days for JKNS <span class="pill p-brand">${L.length} month${L.length>1?"s":""}</span></label>
+   <div class="hint" style="margin:0 0 6px 26px">Used for the JKNS file: TOTAL ADMISSION / PATIENT DAYS on each month sheet and admission by discipline in the MDRO Reporting Form.</div>
+   <details><summary>View table</summary><div class="tbl-wrap"><table class="mini num"><thead><tr><th>Month</th><th>Admission</th><th>Patient days</th>${JK_DISC.map(d=>`<th>${esc(d)}</th>`).join("")}</tr></thead><tbody>
+   ${L.map(x=>`<tr><td>${MON3[+x.ym.slice(5)-1]} ${x.ym.slice(0,4)}</td><td><b>${x.adm.toLocaleString()}</b></td><td>${x.pd.toLocaleString()}</td>${JK_DISC.map(d=>`<td>${x.disc[d]?x.disc[d].toLocaleString():"—"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+   <div class="hint">${esc(L[0].rows.map(r=>r.label+" → "+r.d).join(" · "))}</div></details></div>`}
+const pdDiscOf=ym=>PDDISC.find(x=>x.ym===ym&&!x.del);
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
 let TOKEN="";try{TOKEN=sessionStorage.getItem("mdro_tok")||""}catch(e){}
 const CENSUS_DAYS=35;
 const COLLS={cases:()=>CASES,census:()=>CENSUS,moves:()=>MOVES};
-const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS,bedwatch:()=>BWATCH,audit:()=>AUDIT};
+const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS,bedwatch:()=>BWATCH,audit:()=>AUDIT,jkadm:()=>JKADM,pddisc:()=>PDDISC};
 let SNAP={},SYNC={busy:false,again:false,timer:null,err:"",last:0},VER=0;
 const BLOB=new Map(),REV=new Map();           /* drive id -> dataURL, dataURL -> drive id */
 
@@ -4564,8 +4620,8 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
 /* ---------- load ---------- */
 /* one-time fix: W7 new plan (from 16/10/2026) had bed 42 typed instead of 36 */
 function fixW7Bed(){let n=0;CENSUS.forEach(c=>{if(c.ward==="W7"&&c.date>="2026-10-16"&&!(c.rows||[]).some(r=>r.bed==="36"))(c.rows||[]).forEach(r=>{if(r.bed==="42"){r.bed="36";n++}})});if(n)syncSoon()}
-function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BWATCH=[];AUDIT=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
-  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedwatch")BWATCH.push(x.o);else if(x.coll==="audit")AUDIT.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
+function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BWATCH=[];AUDIT=[];JKADM=[];PDDISC=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
+  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedwatch")BWATCH.push(x.o);else if(x.coll==="audit")AUDIT.push(x.o);else if(x.coll==="jkadm")JKADM.push(x.o);else if(x.coll==="pddisc")PDDISC.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
@@ -4577,7 +4633,7 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
 async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
-  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:x.coll==="bedwatch"?BWATCH:x.coll==="audit"?AUDIT:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
+  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:x.coll==="bedwatch"?BWATCH:x.coll==="audit"?AUDIT:x.coll==="jkadm"?JKADM:x.coll==="pddisc"?PDDISC:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
     SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o);n++});
   (ch.deleted||[]).forEach(s=>{const[k,id]=s.split("::");const A={cases:CASES,census:CENSUS,moves:MOVES}[k];if(A){const i=A.findIndex(x=>x.id===id);if(i>=0)A.splice(i,1);delete SNAP[k][id];n++}});
   VER=ch.ver||VER;if(n&&S.role&&$("modalBg").hidden&&S.tab!=="register"&&S.tab!=="census")refresh()}
