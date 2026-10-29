@@ -957,6 +957,9 @@ details.mvh[open]>summary{margin-bottom:8px}
 .clast2{display:flex;flex-direction:column;font-size:12px;line-height:1.35}.clast2 b{font-size:12px}
 .nm .pill{align-self:flex-start;width:fit-content}
 .dlab{font-size:11px;color:var(--mut,#667);font-weight:600}
+.lastby{display:block;font-size:11.5px;color:var(--mut,#667);margin-top:2px}
+.audit{display:flex;flex-direction:column;gap:3px;font-size:13px}.audit i{font-style:normal;font-weight:700;font-size:11px;padding:1px 6px;border-radius:5px;margin-right:4px}
+.au-add{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}.au-edit{background:color-mix(in srgb,#f5c400 26%,transparent);color:#8a6a00}.au-del{background:color-mix(in srgb,var(--crit) 16%,transparent);color:var(--crit)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1094,6 +1097,7 @@ const INF=[["COVID-19","drop",1],["PTB","air",1],["TRO PTB","air",1],["INFLUENZA
  ["EXTRA PULMONARY TB","std",0],["HEPATITIS","std",0],["HIV","std",0],["RVD","std",0],["SYPHILIS","std",0],["DF","std",0],["MALARIA","std",0],["OTHERS","std",0]];
 /* close contacts of an MDRO case: shown red (contact precaution) but never added to the masterlist / line listing */
 const CTAGS=[["CRE","CRE close contact"],["CREX","CRE known case (tracking list)"]];const ctL=k=>(CTAGS.find(x=>x[0]===k)||[k,k+" close contact"])[1];
+var AUDIT=[];/* activity log: who added / changed / deleted what, one entry per save */
 var CONTACTS=[];/* close-contact registry, kept after discharge so a readmission shows the history [{id,org,name,rn,ic,ward,first,index,rs1:{st,d},rs2:{st,d},by,at,del}] */
 const RS_ST=["Pending","Negative","Positive"];
 function ctRec(r){if(!r||!r.name)return null;const L=CONTACTS.filter(x=>!x.del&&same(x,r));return L.find(x=>x.role==="INDEX")||L.sort((a,b)=>(b.at||0)-(a.at||0))[0]||null}
@@ -1399,13 +1403,13 @@ const svg=(k,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 function tabsFor(){
   if(S.role==="uki"){const pend=ACTIVE().filter(c=>c.form_done!=="YES"&&recentLab(c)).length;const miss=WARDS.filter(w=>!censusOf(w,TODAY)).length;
     const fpu=formCases().filter(c=>fstat(c)!=="verified").length;
-    return[["dash","Dashboard","dash"],["master","Masterlist","list",pend],["creL","CRE line listing","bed",creOpenN()||0],["register","Register case","form"],["analysis","Analysis","chart"],["formsU","MDRO form","form",fpu],["mapping","Mapping","map"],["wards","Ward census","table",miss],["moves","Movements","move"],["reports","Generate report","chart"]]}
+    return[["dash","Dashboard","dash"],["master","Masterlist","list",pend],["creL","CRE line listing","bed",creOpenN()||0],["register","Register case","form"],["analysis","Analysis","chart"],["formsU","MDRO form","form",fpu],["mapping","Mapping","map"],["wards","Ward census","table",miss],["moves","Movements","move"],["audit","Activity log","list"],["reports","Generate report","chart"]]}
   const fp=wardCases().filter(c=>fstat(c)!=="verified").length;const done=!!censusOf(S.ward,TODAY);
   return[["census","Daily census","up",done?0:"!"],["wdash","Dashboard","dash"],["mapping","Mapping","map"],["forms","MDRO form","form",fp]]}
 function renderNav(){{const fb=$("findBtn");if(fb)fb.hidden=S.role!=="uki";const sb=$("syncBtn");if(sb)sb.hidden=S.role!=="uki"}const T=tabsFor();
   $("snav").innerHTML=T.map(([id,l,i,c])=>`<button class="snav" aria-selected="${S.tab===id}" onclick="go('${id}')">${svg(i)}${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("");
   $("tabs").innerHTML=T.map(([id,l,i,c])=>`<button class="tab" role="tab" aria-selected="${S.tab===id}" onclick="go('${id}')">${l}${c?`<span class="cnt">${c}</span>`:""}</button>`).join("")}
-function go(t){if(t!=="mapping"&&S.map&&S.map.edit){S.map.edit=false;S.map.arm=""}S.tab=t;applyPlanBeds();S.tab=t;destroyCharts();renderNav();const R={creL:rCreList,reports:rReports,dash:rDash,formsU:rFormsUki,ukirev:rUkiRev,wdash:rWardDash,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
+function go(t){if(t!=="mapping"&&S.map&&S.map.edit){S.map.edit=false;S.map.arm=""}S.tab=t;applyPlanBeds();S.tab=t;destroyCharts();renderNav();const R={audit:rAudit,creL:rCreList,reports:rReports,dash:rDash,formsU:rFormsUki,ukirev:rUkiRev,wdash:rWardDash,register:rRegister,analysis:rAnalysis,mapping:rMapping,master:rMaster,wards:rWards,moves:rMoves,census:rCensus,forms:rForms};
   $("main").innerHTML=`<div class="page on" id="pg">${R[t]()}</div>`;after(t);window.scrollTo(0,0)}
 function after(t){if(t==="register")wireRegister();if(t==="census")paintEd();if(t==="analysis"){drawCharts();addPngBtns()}if(t==="wdash")drawWardCharts();if(t==="mapping")afterMap()}
 function refresh(){applyPlanBeds();try{crexFix()}catch(e){}dqBump();renderNav();const y=window.scrollY;go(S.tab);window.scrollTo(0,y)}
@@ -2914,7 +2918,7 @@ function rMasterGroups(L){const by={};L.forEach(c=>{const k=mlKey(c);(by[k]=by[k
 /* ================= Profil pesakit ================= */
 function openProfile(id){const c0=CASES.find(x=>x.id===id);const C=CASES.filter(x=>same(x,c0)).sort((a,b)=>b.sample_date.localeCompare(a.sample_date));const l=locate(c0);
   const mv=MOVES.filter(m=>same(m,c0)).sort((a,b)=>b.at-a.at);const att=C.flatMap(c=>(c.att||[]).map(a=>({a,c})));const revs=C.flatMap(c=>(c.reviews||[]).map(r=>({r,c}))).sort((a,b)=>b.r.at-a.r.at);
-  openModal(`<div class="m-head"><div class="hx"><h3>${esc(c0.name)}</h3><p>RN ${esc(c0.rn)} · KP ${esc(c0.ic)}</p></div>${xBtn()}</div>
+  openModal(`<div class="m-head"><div class="hx"><h3>${esc(c0.name)}</h3><p>RN ${esc(c0.rn)} · KP ${esc(c0.ic)}</p>${lastBy(C.slice().sort((a,b)=>(b.mat||0)-(a.mat||0))[0])}</div>${xBtn()}</div>
   <div class="m-body">
    <div class="prof-top"><div><span>Current location</span>${locPill(l,c0)}<small>${locSub(l)}</small></div><div><span>Tag MDRO</span><div class="pills">${[...new Set(C.filter(c=>c.tag==="Aktif").map(c=>c.subtype))].map(s=>`<span class="pill p-crit">${esc(s)}</span>`).join("")||'<span class="pill p-mut">None active</span>'}</div></div><div><span>Status</span><span class="pill ${OV[overall(C[0])].p}">${OV[overall(C[0])].l}</span></div></div>
    <div class="profact"><button class="btn btn-pri" onclick="openReview('${C[0].id}')">${svg("form")}Generate UKI review form (for printing)</button>${revs.length?`<button class="btn btn-ghost" onclick="viewReview('${revs[0].c.id}','${revs[0].r.id}')">Print latest review (${fmt(revs[0].r.date)})</button>`:""}<span class="hint" style="margin:0">Generated forms are saved as PDF in this profile (UKI review &amp; Attachments sections).</span></div>
@@ -3336,7 +3340,7 @@ function rMoves(){const q=S.mvQ.toUpperCase();const L=[...MOVES].filter(m=>!q||[
   return`<div class="sec-h"><div><h2>Patient movements</h2><p>Recorded when the ward confirms a patient not in the census, when the system detects the patient in another ward, or when UKI records it here or on the mapping.</p></div>${S.role==="uki"?`<button class="btn btn-pri" onclick="mvAdd()">+ Record movement</button>`:""}</div>
   <div class="panel"><div class="toolbar"><input type="search" id="mvQ" placeholder="Search name, RN, ward" value="${esc(S.mvQ)}" oninput="S.mvQ=this.value;clearTimeout(window._mv);window._mv=setTimeout(()=>{refresh();const e=$('mvQ');e.focus();e.setSelectionRange(e.value.length,e.value.length)},250)"><span class="hint" style="margin:0">${L.length} records</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>Date of movement</th><th>Name / RN</th><th>Type</th><th>From (ward · last bed)</th><th>Transferred to / outcome</th><th>Recorded by</th></tr></thead><tbody>
-  ${L.slice(0,200).map(m=>`<tr><td class="mono"><b>${fmt(m.date)}</b><div class="hint" style="margin:0">recorded ${fmtT(m.at)}</div></td><td class="nm"><b>${esc(m.name)} ${mdroOf(m).length?'<span class="pill p-crit">MDRO</span>':""}</b><span class="mono">RN ${esc(m.rn)}</span></td><td>${tp[m.type]}</td><td>${esc(m.from)} · ${esc(m.bed)}</td><td>${m.type==="TRANSFER"?`Transferred to ward <b>${esc(m.to||"—")}</b>`:m.type==="BED"?`Moved to bed <b>${esc(m.to||"—")}</b> (same ward)`:m.type==="DISCHARGE"?"Discharged home":m.type==="DEATH"?"Died in ward":m.type==="OTHER_HOSP"?"Transferred to another hospital":esc(m.to||"—")}</td><td>${esc(m.by)}${m.auto?' <span class="pill p-brand">auto</span>':""}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No movements.</td></tr>'}
+  ${L.slice(0,200).map(m=>`<tr><td class="mono"><b>${fmt(m.date)}</b><div class="hint" style="margin:0">recorded ${fmtT(m.at)}</div></td><td class="nm"><b>${esc(m.name)} ${mdroOf(m).length?'<span class="pill p-crit">MDRO</span>':""}</b><span class="mono">RN ${esc(m.rn)}</span></td><td>${tp[m.type]}</td><td>${esc(m.from)} · ${esc(m.bed)}</td><td>${m.type==="TRANSFER"?`Transferred to ward <b>${esc(m.to||"—")}</b>`:m.type==="BED"?`Moved to bed <b>${esc(m.to||"—")}</b> (same ward)`:m.type==="DISCHARGE"?"Discharged home":m.type==="DEATH"?"Died in ward":m.type==="OTHER_HOSP"?"Transferred to another hospital":esc(m.to||"—")}</td><td>${esc(m.by)}${m.auto?' <span class="pill p-brand">auto</span>':""}${m.mby&&m.mby!==m.by?`<div class="hint" style="margin:0">changed by ${esc(m.mby)} ${fmtT(m.mat)}</div>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No movements.</td></tr>'}
   </tbody></table></div></div>`}
 
 /* a discharge / transfer / death / other hospital: masterlist "Patient now" + UKI mapping beds follow it */
@@ -4245,7 +4249,7 @@ function ctRegHTML(ward){if(typeof ctBackfill==="function"&&S.role==="uki")ctBac
      <td data-l="D1">${rsCell(x.rs1)}</td><td data-l="D7">${rsCell(x.rs2)}</td><td data-l="Status"><span class="pill ${st[2]}">${st[1]}</span></td></tr>`}).join(""):`<tr><td colspan="6" class="empty-row">No close contacts for this filter.</td></tr>`}</tbody></table></div></div>`}
 const rsCell=x=>x&&x.st?`<span class="pill ${x.st==="Positive"?"p-crit":x.st==="Negative"?"p-ok":"p-warn"}">${esc(x.st)}</span>${x.d?`<div class="hint mono" style="margin:0">${fmt(x.d)}</div>`:""}`:'<span class="pz">Not taken</span>';
 function ctOpen(i){const x=(window._CTL||[])[i];if(!x)return;const st=ctStat(x);const can=S.role==="uki"||x.ward===S.ward;window._CTX=x;
-  openModal(`<div class="m-head"><div class="hx"><h3>${esc(x.name)}</h3><p>${esc(ctL(x.org))} · RN ${esc(x.rn||"—")}${x.ic?" · "+esc(x.ic):""}</p></div>${xBtn()}</div>
+  openModal(`<div class="m-head"><div class="hx"><h3>${esc(x.name)}</h3><p>${esc(ctL(x.org))} · RN ${esc(x.rn||"—")}${x.ic?" · "+esc(x.ic):""}</p>${lastBy(x)}</div>${xBtn()}</div>
   <div class="m-body"><div class="banner ${st[0]==="clr"?"ok":"crit"}" style="margin-bottom:10px">${svg("list")}<div><b>${st[1]}</b> · contact since ${fmt(x.first)}${x.index?` · ${esc(x.index)}`:""}</div></div>
    ${st[0]!=="clr"?precBox("contact","CRE CLOSE CONTACT · CONTACT PRECAUTION until rectal swab D1 &amp; D7 are both negative"):""}
    ${mlBox(x)}${x.org==="CRE"?`<div class="lbl">Identified as close contact</div><div><b>${esc(creWard(x)||"—")}</b>${creBed(x)?" · bed "+esc(creBed(x)):""}${x.sloc?` <span class="hint" style="margin:0">· sheet: ${esc(x.sloc)}</span>`:""}${(n=>n?` <span class="pill p-crit">Now in ${esc(n.ward)}${n.bed?" · "+esc(n.bed):""}</span>`:"")(ctNow(x))}</div>`:""}
@@ -4465,13 +4469,46 @@ async function crePush(quiet,force){if(!LINKS||!LINKS.wbcre||window._creBusy)ret
   catch(e){toast("Write to CRE TRACKING failed: "+String(e.message||e).replace(/^Error:\s*/,""))}finally{window._creBusy=0}}
 function creSoon(){if(!liveOK()||S.role!=="uki"||!LINKS||!LINKS.wbcre||!LINKS.cre||!LINKS.cre.url)return;clearTimeout(window._creT);window._creT=setTimeout(async()=>{if(window._creBusy)return creSoon();try{if(!Object.keys(CREMETA).length){await crePull(true)}else await crePush(true)}catch(e){}},4000)}
 
+/* ===== Activity log (who did what) ===== */
+function whoAmI(){return S.role==="uki"?(S.icn||"UKI")+" (UKI)":(S.staff||"Staff")+" ("+(S.ward||"ward")+")"}
+const AUD_COLL={cases:"Masterlist case",census:"Daily census",moves:"Movement",ukibeds:"UKI mapping bed",contacts:"CRE line listing",outbreaks:"Outbreak",planreq:"Floor plan request",final:"Final report",monthly:"Monthly total",hist:"Census sheet total",imports:"Import",deleted:"Deleted record",bedwatch:"Bedwatcher",maps:"Floor plan",bedhist:"Census sheet beds"};
+function audLabel(k,o){if(!o)return"";if(k==="cases")return[o.name,o.subtype,o.ward].filter(Boolean).join(" · ");if(k==="census")return(o.ward||"")+" · "+fmt(o.date)+" · "+((o.rows||[]).filter(r=>r.name).length)+" patients";
+  if(k==="moves")return({DISCHARGE:"Discharge",DEATH:"Died",OTHER_HOSP:"Other hospital",TRANSFER:"Transfer",BED:"Bed change"}[o.type]||o.type)+" · "+(o.name||"")+" · "+(o.from||"")+(o.bed?" bed "+o.bed:"")+(o.to?" → "+o.to:"")+" · "+fmt(o.date);
+  if(k==="ukibeds")return(o.ward||"")+" bed "+(o.bed||"")+" · "+(o.name||"")+" · "+fmt(o.date)+(o.del?" (cleared)":"");if(k==="contacts")return(o.role==="INDEX"?"Index ":"Close contact ")+(o.name||"")+(o.del?" (removed)":"");
+  if(k==="planreq")return o.ward||"";if(k==="maps")return String(o.code||"");if(k==="bedhist"||k==="bedwatch")return(o.ward||"")+" "+(o.date?fmt(o.date):"");return o.name||o.ward||o.file||o.title||""}
+/* called by the save: one log entry per save + a "last changed by" stamp on each changed record */
+function auditStamp(d){if(!S.role)return;const who=whoAmI(),now=Date.now(),items=[];const was=(k,id)=>!!(SNAP[k]&&SNAP[k][id]);
+  ["cases","census","moves"].forEach(k=>d.up[k].forEach(o=>{items.push({c:k,a:was(k,o.id)?"edit":"add",l:audLabel(k,o)});o.mby=who;o.mat=now}));
+  d.up.store.forEach(x=>{if(x.coll==="audit")return;items.push({c:x.coll,a:was(x.coll,x.id)?((x.o&&x.o.del)?"del":"edit"):"add",l:audLabel(x.coll,x.o)});if(["contacts","ukibeds","outbreaks","planreq","final"].includes(x.coll)&&x.o&&typeof x.o==="object"){x.o.mby=who;x.o.mat=now}});
+  ["cases","census","moves"].forEach(k=>d.del[k].forEach(id=>{let o=null;try{o=JSON.parse(SNAP[k][id])}catch(e){}items.push({c:k,a:"del",l:audLabel(k,o)})}));
+  d.del.store.forEach(t=>{const[c,id]=t.split("::");if(c==="audit")return;let o=null;try{o=JSON.parse(SNAP[c][id])}catch(e){}items.push({c,a:"del",l:audLabel(c,o)})});
+  if(!items.length)return;const e={id:"AU|"+uid(""),at:now,by:who,role:S.role,ward:S.ward||"",n:items.length,items:items.slice(0,60)};AUDIT.push(e);d.up.store.push({coll:"audit",id:e.id,o:e});d.n++}
+const audA={add:"Added",edit:"Changed",del:"Deleted"};
+function lastBy(o){return o&&o.mby?`<span class="lastby">Last changed by <b>${esc(o.mby)}</b> · ${fmt(ymd(new Date(o.mat)))} ${fmtT(o.mat)}</span>`:""}
+function auditDemo(){if(AUDIT.length||(typeof liveOK==="function"&&liveOK()))return;const t=Date.now(),h=36e5;const E=(dt,by,items)=>AUDIT.push({id:"AU|d"+AUDIT.length,at:t-dt,by,role:/UKI/.test(by)?"uki":"ward",n:items.length,items:items.map(([a,c,l])=>({a,c,l}))});
+  E(5*h,"SN Hasnah (W3)",[["add","census","W3 · "+fmt(TODAY)+" · 28 patients"],["add","moves","Transfer · RAZAK BIN YUSOF · W3 bed 4 → W7 · "+fmt(TODAY)]]);
+  E(3*h,"DR ANEESA (UKI)",[["add","ukibeds","W1 bed 32 · DEMO PATIENT A · "+fmt(TODAY)],["add","contacts","Close contact DEMO PATIENT A"]]);
+  E(2*h,"DR ANEESA (UKI)",[["edit","contacts","Close contact LOW SOO HAR"]]);E(1*h,"DR ANEESA (UKI)",[["add","moves","Discharge · DEMO PATIENT A · W1 bed 32 · "+fmt(addDays(TODAY,-2))],["del","ukibeds","W1 bed 32 · DEMO PATIENT A · "+fmt(TODAY)+" (cleared)"]]);
+  E(.5*h,"SN Faizah (ICU MB)",[["edit","census","ICU MB · "+fmt(TODAY)+" · 10 patients"]])}
+function rAudit(){auditDemo();const F=S.au||(S.au={q:"",who:"",d:"",c:""});const q=F.q.toUpperCase();
+  const L=AUDIT.filter(e=>(!F.who||e.by===F.who)&&(!F.d||ymd(new Date(e.at))===F.d)&&(!F.c||(e.items||[]).some(i=>i.c===F.c))&&(!q||[e.by,...(e.items||[]).map(i=>i.l)].join(" ").toUpperCase().includes(q))).sort((a,b)=>b.at-a.at);
+  const people=[...new Set(AUDIT.map(e=>e.by))].sort();const colls=[...new Set(AUDIT.flatMap(e=>(e.items||[]).map(i=>i.c)))];
+  return`<div class="sec-h"><div><h2>Activity log</h2><p>Who added, changed or deleted data, and when. Recorded automatically on every save (UKI and wards). Changes pulled automatically from linked sheets are listed under the UKI user who was logged in.</p></div></div>
+  <div class="panel"><div class="toolbar"><input type="search" id="auQ" placeholder="Search patient, ward, person" value="${esc(F.q)}" oninput="S.au.q=this.value;clearTimeout(window._au);window._au=setTimeout(()=>{refresh();const e=$('auQ');e.focus();e.setSelectionRange(e.value.length,e.value.length)},300)">
+   <select class="tsel" onchange="S.au.who=this.value;refresh()"><option value="">Everyone</option>${people.map(p=>`<option${p===F.who?" selected":""}>${esc(p)}</option>`).join("")}</select>
+   <select class="tsel" onchange="S.au.c=this.value;refresh()"><option value="">All data</option>${colls.map(c=>`<option value="${c}"${c===F.c?" selected":""}>${esc(AUD_COLL[c]||c)}</option>`).join("")}</select>
+   <input type="date" value="${F.d}" max="${TODAY}" onchange="S.au.d=this.value;refresh()"><span class="hint" style="margin:0">${L.length} saves</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>
+  ${L.slice(0,300).map(e=>`<tr><td class="mono"><b>${fmt(ymd(new Date(e.at)))}</b><div class="hint" style="margin:0">${fmtT(e.at)}</div></td><td><b>${esc(e.by)}</b></td><td><div class="audit">${(e.items||[]).map(i=>`<span><i class="au-${i.a}">${audA[i.a]||i.a}</i> ${esc(AUD_COLL[i.c]||i.c)}${i.l?" · "+esc(i.l):""}</span>`).join("")}${e.n>(e.items||[]).length?`<span class="hint" style="margin:0">+ ${e.n-(e.items||[]).length} more</span>`:""}</div></td></tr>`).join("")||'<tr><td colspan="3" class="empty-row">No activity recorded yet.</td></tr>'}
+  </tbody></table></div></div>`}
+
 /* ================= LIVE · Google Apps Script + Google Sheet ================= */
 const LIVE=true;
 const GS=(fn,...a)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(e))[fn](...a));
 let TOKEN="";try{TOKEN=sessionStorage.getItem("mdro_tok")||""}catch(e){}
 const CENSUS_DAYS=35;
 const COLLS={cases:()=>CASES,census:()=>CENSUS,moves:()=>MOVES};
-const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS,bedwatch:()=>BWATCH};
+const STORES={monthly:()=>MONTHLY,hist:()=>HIST,imports:()=>IMPORTS,final:()=>FINAL,outbreaks:()=>OUTB,ukibeds:()=>UBEDS,planreq:()=>PLANREQ,contacts:()=>CONTACTS,deleted:()=>DELS,bedwatch:()=>BWATCH,audit:()=>AUDIT};
 let SNAP={},SYNC={busy:false,again:false,timer:null,err:"",last:0},VER=0;
 const BLOB=new Map(),REV=new Map();           /* drive id -> dataURL, dataURL -> drive id */
 
@@ -4503,7 +4540,7 @@ function diffAll(){const up={cases:[],census:[],moves:[],store:[]},del={cases:[]
   return{up,del,n}}
 function syncSoon(ms){clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncNow,ms??700)}
 async function syncNow(){if(!TOKEN||S.docMode&&!S.role)return;if(SYNC.busy){SYNC.again=true;return}
-  const d=diffAll();if(!d.n){syncSt();return}SYNC.busy=true;syncSt("Saving…");
+  const d=diffAll();if(!d.n){syncSt();return}try{if(typeof auditStamp==="function")auditStamp(d)}catch(e){}SYNC.busy=true;syncSt("Saving…");
   try{const all=[...d.up.cases,...d.up.census,...d.up.moves,...d.up.store.map(x=>x.o)];const big=[...new Set(bigStrings(all,[]))];
     for(const s of big){const id=await GS("uploadBlob",TOKEN,s);BLOB.set(id,s);REV.set(s,id)}
     const pack={up:{cases:d.up.cases.map(o=>JSON.parse(dehydStr(o))),census:d.up.census.map(o=>{const x=JSON.parse(dehydStr(o));x._t=totalsOf(o);return x}),moves:d.up.moves.map(o=>JSON.parse(dehydStr(o))),
@@ -4527,8 +4564,8 @@ addEventListener("beforeunload",e=>{if(TOKEN&&diffAll().n){syncNow();e.preventDe
 /* ---------- load ---------- */
 /* one-time fix: W7 new plan (from 16/10/2026) had bed 42 typed instead of 36 */
 function fixW7Bed(){let n=0;CENSUS.forEach(c=>{if(c.ward==="W7"&&c.date>="2026-10-16"&&!(c.rows||[]).some(r=>r.bed==="36"))(c.rows||[]).forEach(r=>{if(r.bed==="42"){r.bed="36";n++}})});if(n)syncSoon()}
-function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BWATCH=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
-  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedwatch")BWATCH.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
+function loadAll(d){CASES=d.cases||[];CENSUS=d.census||[];MOVES=d.moves||[];MONTHLY=[];HIST=[];IMPORTS=[];FINAL=[];OUTB=[];UBEDS=[];PLANREQ=[];CONTACTS=[];DELS=[];BWATCH=[];AUDIT=[];BEDHIST={};MAPS=JSON.parse(JSON.stringify(PLANS));
+  (d.store||[]).forEach(x=>{if(x.coll==="monthly")MONTHLY.push(x.o);else if(x.coll==="hist")HIST.push(x.o);else if(x.coll==="imports")IMPORTS.push(x.o);else if(x.coll==="final")FINAL.push(x.o);else if(x.coll==="outbreaks")OUTB.push(x.o);else if(x.coll==="ukibeds")UBEDS.push(x.o);else if(x.coll==="planreq")PLANREQ.push(x.o);else if(x.coll==="contacts")CONTACTS.push(x.o);else if(x.coll==="deleted")DELS.push(x.o);else if(x.coll==="bedwatch")BWATCH.push(x.o);else if(x.coll==="audit")AUDIT.push(x.o);else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps"){if(!(PLANS[x.id]&&(PLANS[x.id].v||0)>((x.o&&x.o.v)||0)))MAPS[x.id]=x.o}});
   (d.oldTotals||[]).forEach(t=>HIST.push({...t,_d:true}));VER=d.ver||0;
   if(d.icn&&d.icn.length){ICN.length=0;d.icn.forEach(n=>ICN.push(n))}
   snapAll()}
@@ -4540,7 +4577,7 @@ async function boot(user,pre){syncSt("Loading data…");const d=pre||await GS("g
 async function poll(){if(!TOKEN||SYNC.busy||document.hidden||window._polling)return;window._polling=1;setTimeout(()=>window._polling=0,60000);try{const v=await GS("getVersion");if(v===VER)return;const ch=await GS("getChanges",TOKEN,VER,CENSUS_DAYS);mergeChanges(ch)}catch(e){}finally{window._polling=0}}
 function mergeChanges(ch){const local=diffAll();const dirty=new Set([...local.up.cases,...local.up.census,...local.up.moves].map(o=>o.id));let n=0;
   [["cases",CASES],["census",CENSUS],["moves",MOVES]].forEach(([k,A])=>(ch[k]||[]).forEach(o=>{if(dirty.has(o.id))return;const i=A.findIndex(x=>x.id===o.id);if(i>=0)A[i]=o;else A.push(o);SNAP[k][o.id]=dehydStr(o);n++}));
-  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:x.coll==="bedwatch"?BWATCH:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
+  (ch.store||[]).forEach(x=>{const A=x.coll==="monthly"?MONTHLY:x.coll==="hist"?HIST:x.coll==="imports"?IMPORTS:x.coll==="final"?FINAL:x.coll==="outbreaks"?OUTB:x.coll==="ukibeds"?UBEDS:x.coll==="planreq"?PLANREQ:x.coll==="contacts"?CONTACTS:x.coll==="deleted"?DELS:x.coll==="bedwatch"?BWATCH:x.coll==="audit"?AUDIT:null;if(A){const i=A.findIndex(y=>y.id===x.id);if(i>=0)A[i]=x.o;else A.push(x.o)}else if(x.coll==="bedhist")BEDHIST[x.id]=x.o;else if(x.coll==="maps")MAPS[x.id]=x.o;
     SNAP[x.coll]=SNAP[x.coll]||{};SNAP[x.coll][x.id]=x.coll==="bedhist"?JSON.stringify(x.o):dehydStr(x.o);n++});
   (ch.deleted||[]).forEach(s=>{const[k,id]=s.split("::");const A={cases:CASES,census:CENSUS,moves:MOVES}[k];if(A){const i=A.findIndex(x=>x.id===id);if(i>=0)A.splice(i,1);delete SNAP[k][id];n++}});
   VER=ch.ver||VER;if(n&&S.role&&$("modalBg").hidden&&S.tab!=="register"&&S.tab!=="census")refresh()}
