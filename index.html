@@ -1030,6 +1030,13 @@ a.srcchip:hover{background:color-mix(in srgb,#16a34a 18%,var(--panel))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .srcchip:not(.off){color:#4ade80}}
 
 .ubh{margin:0 0 10px;font-size:12.5px}.ubh summary{cursor:pointer;font-weight:700;color:var(--mut)}.ubh ul{margin:6px 0 0;padding-left:18px}.ubh li.del{opacity:.6;text-decoration:line-through}
+/* dark mode: light tinted boxes that kept light backgrounds */
+.precsum{background:color-mix(in srgb,var(--crit) 9%,var(--panel));color:var(--ink)}
+.precsum b{color:var(--crit)}
+:root[data-theme="dark"] .dietbox{background:#3a3114;border-color:#7a6420;color:var(--ink)}
+:root[data-theme="dark"] .dietbox input,:root[data-theme="dark"] .bedtab td input.dt,:root[data-theme="dark"] .bedtab td input[data-k="dnote"]{background:#2a2410;color:var(--ink)}
+:root[data-theme="dark"] .p-diet{background:#3a3114;color:#f5d27a;border-color:#7a6420}
+:root[data-theme="dark"] .planguide>div.cur{background:#3a3114;color:var(--ink)}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1410,7 +1417,12 @@ function _W7_POS_unused(){const o={};Object.entries(W7_COORDS).forEach(([b,[x,y]
 function censusOf(ward,date){return CENSUS.find(c=>c.ward===ward&&c.date===date)}
 function latestCensus(ward,upto){return CENSUS.filter(c=>c.ward===ward&&c.date<=(upto||"9999")).sort((a,b)=>b.date.localeCompare(a.date)||b.at-a.at)[0]}
 function locate(pt){
-  let best=null;for(const c of CENSUS){const r=c.rows.find(r=>same(r,pt));if(r&&(!best||c.at>best.at))best={ward:c.ward,bed:r.bed,date:c.date,at:c.at}}
+  let best=null;const take=(o)=>{if(!best||o.date>best.date||(o.date===best.date&&o.at>best.at))best=o};
+  for(const c of CENSUS){const r=c.rows.find(r=>same(r,pt));if(r)take({ward:c.ward,bed:r.bed,date:c.date,at:c.at||0})}
+  /* a newer placement by UKI (mapping, "Place on this bed", bed change) is the current bed */
+  for(const x of UBEDS)if(!x.del&&x.name&&same(x,pt))take({ward:x.ward,bed:x.bed,date:x.date,at:x.at||0,uki:1});
+  for(const c of CASES)if(c.dis_status==="In ward"&&c.dis_ward&&c.dis_bed&&c.in_date&&same(c,pt))take({ward:c.dis_ward,bed:String(c.dis_bed),date:c.in_date,at:c.mat||Date.parse(c.in_date+"T12:00:00")||0,uki:1});
+  for(const m of MOVES)if(m.type==="BED"&&same(m,pt))take({ward:m.from,bed:String(m.to),date:m.date,at:m.at||0});
   let mv=null;for(const m of MOVES)if(m.type!=="BED"&&same(m,pt)&&(!mv||m.at>mv.at))mv=m;
   if(mv&&(!best||mv.at>best.at)){if(mv.type==="TRANSFER")return{st:"TR",ward:mv.to,from:mv.from,bed:mv.bed,date:mv.date,at:mv.at};
     return{st:mv.type==="DEATH"?"DIED":mv.type==="OTHER_HOSP"?"OH":"DC",ward:mv.from,bed:mv.bed,date:mv.date,at:mv.at}}
@@ -2706,7 +2718,7 @@ function nowHTML(p){const E=trailOf(p);const st=E.filter(e=>e.t==="stay");if(!st
   const how=mv?(mv.type==="BED"?`bed change from bed ${esc(mv.bed)} on ${fmt(mv.date)}${mv.by?" · "+esc(mv.by):""}`:mv.type==="TRANSFER"?`transferred from ${esc(mv.from)} bed ${esc(mv.bed)} on ${fmt(mv.date)}${mv.by?" · "+esc(mv.by):""}`:""):
     P?(P.ward!==L.ward?`before: ${esc(P.ward)} bed ${esc(P.bed)} (until ${fmt(P.to)}) → ${esc(L.ward)}`:`before: bed ${esc(P.bed)} (until ${fmt(P.to)}) → bed ${esc(L.bed)}`):`first recorded in the ${esc(L.ward)} census on ${fmt(L.from)} (new admission / transfer in)`;
   const out=MOVES.filter(m=>same(m,p)&&m.type!=="BED"&&m.date>=L.to).sort((a,b)=>b.at-a.at)[0];
-  return`<div class="nowbox"><div><span>Now</span><b>${esc(L.ward)} · bed ${esc(L.bed)}</b><small>since ${fmt(L.from)} · ${days} day${days>1?"s":""} in this bed (to ${fmt(L.to)})</small></div><div><span>How</span><b style="font-weight:600">${how}</b>${out?`<small>Latest: ${out.type==="TRANSFER"?"transfer to "+esc(out.to):out.type==="DISCHARGE"?"discharged":out.type==="OTHER_HOSP"?"to another hospital":"died"} on ${fmt(out.date)}</small>`:""}</div></div>`}
+  return`<div class="nowbox"><div><span>Current location</span><b>${esc(L.ward)} · bed ${esc(L.bed)}</b><small>since ${fmt(L.from)} · ${days} day${days>1?"s":""} in this bed (to ${fmt(L.to)})</small></div><div><span>How the patient got here (last movement)</span><b style="font-weight:600">${how}</b>${out?`<small>Latest: ${out.type==="TRANSFER"?"transfer to "+esc(out.to):out.type==="DISCHARGE"?"discharged":out.type==="OTHER_HOSP"?"to another hospital":"died"} on ${fmt(out.date)}</small>`:""}</div></div>`}
 function trailHTML(p){const E0=trailOf(p);if(!E0.length)return'<div class="hint" style="margin:0">No movement records.</div>';
   /* a bed change with no movement record between two stays in the same ward is shown as "bed change (not recorded)" */
   const E=[];let prev=null;E0.forEach(e=>{if(e.t==="stay"){if(prev&&prev.ward===e.ward&&prev.bed!==e.bed&&!MOVES.some(m=>m.type==="BED"&&same(m,p)&&m.date>=prev.to&&m.date<=e.from))E.push({t:"inf",d:e.from,ward:e.ward,a:prev.bed,b:e.bed,last:prev.to,first:e.from});prev=e}E.push(e)});
