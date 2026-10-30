@@ -1476,11 +1476,11 @@ function wardNow(w){let n=wardNow0(w);const UB=WCFG[w]?ubOpen(w):[];if(UB.length
   const U=WCFG[w]?ukiIn(w):[];if(!U.length)return n;const o=n||{src:"uki",date:"",rows:[]};
   const rows=o.rows.slice();U.filter(c=>!rows.some(r=>r.name&&same(r,c))).forEach(c=>{const db=c.dis_bed?matchBed(w,c.dis_bed):"";const i=db?rows.findIndex(r=>!r.name&&bedEq(w,r.bed,db)):-1;
     const x={w,bed:i>=0?rows[i].bed:db,name:c.name,rn:c.rn,ic:c.ic,orgs:[...new Set([c.subtype].concat(i>=0?rows[i].orgs:[]))],inf:i>=0?rows[i].inf:[],dev:[],r:null,ukiIn:c};if(i>=0)rows[i]=x;else rows.push(x)});return{...o,rows}}
-function bhOf(w,d){const a=BEDHIST[w+"|"+d],b=typeof bwOf==="function"?bwOf(w,d):null;if(!b||!Object.keys(b).length)return a||null;const o={...(a||{})};Object.entries(b).forEach(([bed,x])=>o[bed]=[...new Set((o[bed]||[]).concat(x.t))]);return o}
+function bhOf(w,d){const a=bhNoDengue(BEDHIST[w+"|"+d]),b=typeof bwOf==="function"?bwOf(w,d):null;if(!b||!Object.keys(b).length)return a||null;const o={...(a||{})};Object.entries(b).forEach(([bed,x])=>o[bed]=[...new Set((o[bed]||[]).concat(x.t))]);return o}
 function wardNow0(w){const W=WCFG[w];if(!W)return null;const c=censusOf(w,TODAY);
   if(c)return{src:cUki(c)?"ukic":"app",by:c.by,date:TODAY,rows:c.rows.filter(r=>r.name).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   {const D=mapDayRows(w,TODAY);if(D&&D.rows.some(r=>r.name))return{src:bwOf(w,TODAY)?"bw":"uki",date:TODAY,carry:D.carry,rows:D.rows.map(r=>({w,bed:r.bed,name:r.name||"",rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:[...new Set((r.mdro||[]).concat(r.name?allOrgs(r):[]))],inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r:r.name?r:null,ub:r.ub||null}))}}
-  for(let i=0;i<=2;i++){const d=addDays(TODAY,-i);const bh=i===0?bhOf(w,d):BEDHIST[w+"|"+d];if(bh&&!censusOf(w,d))return{src:i===0&&bwOf(w,d)?"bw":"sheet",date:d,rows:Object.entries(bh).map(([bed,t])=>({w,bed,name:"",orgs:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))}}
+  for(let i=0;i<=2;i++){const d=addDays(TODAY,-i);const bh=i===0?bhOf(w,d):bhNoDengue(BEDHIST[w+"|"+d]);if(bh&&!censusOf(w,d))return{src:i===0&&bwOf(w,d)?"bw":"sheet",date:d,rows:Object.entries(bh).map(([bed,t])=>({w,bed,name:"",orgs:t.filter(x=>tagPrec(x)==="mdro"),inf:t.filter(x=>tagPrec(x)!=="mdro"),dev:[]}))}}
   const lc=latestCensus(w);if(lc&&lc.date>=addDays(TODAY,-3))return{src:"app",date:lc.date,rows:lc.rows.filter(r=>r.name&&stillHere(r,w,lc.date,TODAY,lc.at)).map(r=>({w,bed:r.bed,name:r.name,rn:r.rn,ic:r.ic,ct:ctOf(r),rs:r.rs||null,orgs:allOrgs(r),inf:(r.inf||[]).map(k=>k==="OTHERS"&&r.oth?"OTHERS: "+r.oth:k),dev:r.dev||[],r}))};
   return null}
 function inWardHTML(dw0){const uki=S.role==="uki";const dw=dw0||(uki?S.locW||"":"");const K=S.locK||"mdro";const q=(S.locQ||"").toUpperCase();const WL=(dw?[dw]:WARDS).filter(w=>WCFG[w]);
@@ -3319,7 +3319,7 @@ const MDRO_TAGS=["MRSA","ESBL","MRO","CRE","VRE","VRSA"];
 function tagPrec(t){t=String(t).toUpperCase();if(MDRO_TAGS.includes(t))return"mdro";if(INFP[t])return INFP[t];
   if(/EXTRA|SPINE|EPTB/.test(t))return"std";if(/COVID|INFLU|RSV|PERTUS|ADENO|RHINO|MYCOPLASMA/.test(t))return"drop";if(/PTB|VARICELLA|CHICKEN|MEASLES|ZOSTER/.test(t))return"air";
   if(/AGE|ROTA|DIFF|DYSENT|HFMD|SALMON|NORO|SCABIES/.test(t))return"contact";return"std"}
-function tagsOf(v){return[...new Set(String(v).toUpperCase().split(/[,;\/&+\n]|\bDAN\b/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean).map(x=>x==="COVID"?"COVID-19":x==="ADENOVIR"?"ADENOVIRUS":x))]}
+function tagsOf(v){return[...new Set(String(v).toUpperCase().split(/[,;\/&+\n]|\bDAN\b/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean).filter(x=>!isDengue(x)).map(x=>x==="COVID"?"COVID-19":x==="ADENOVIR"?"ADENOVIRUS":x))]}
 function wardCode(label){const L=" "+String(label).toUpperCase().replace(/\s+/g," ").trim()+" ";
   let m=L.match(/[\s(W]([678])\s?([AB])(?=OBS|\b|\s)/)||L.match(/WARD\s?([678])([AB])/);if(m)return m[1]+m[2]+" WCC";
   if(/NICU/.test(L))return"NICU";if(/PICU/.test(L))return"PICU";if(/SCN/.test(L))return"SCN";
@@ -3394,7 +3394,7 @@ function analyseWb(wb,file){const R={file,daily:[],bedSheets:[],master:[],monthl
     R.skipped.push(sn)});
   const ds=R.daily.map(d=>d.date).sort();R.dMin=ds[0];R.dMax=ds[ds.length-1];return R}
 /* "RVD: 2, HEP B : 1,HEP C : 1" / "TB SPINE :1" / "RVD-1" / "hep c:1" -> {RVD:2,"HEP B":1,"HEP C":1} */
-function parseOthers(v){const m={};String(v||"").replace(/(\d)\s*\)?\s+(?=[A-Z])/gi,"$1,").split(/[,\n\/&]+|\s+DAN\s+/i).forEach(p=>{p=p.trim();if(!p||!/[A-Z]/i.test(p))return;const x=/^COVID|^H\dN\d$/i.test(p)?null:p.match(/^(.*?)(?:[\s:;=\-x×]+\(?|\()(\d+)\)?\s*$/i);let k=(x?x[1]:p).replace(/[\s:;=\-]+$/,"").trim().toUpperCase().replace(/\s+/g," ");const n=x?+x[2]:1;if(!k)return;m[k]=(m[k]||0)+n});return m}
+function parseOthers(v){const m={};String(v||"").replace(/(\d)\s*\)?\s+(?=[A-Z])/gi,"$1,").split(/[,\n\/&]+|\s+DAN\s+/i).forEach(p=>{p=p.trim();if(!p||!/[A-Z]/i.test(p))return;const x=/^COVID|^H\dN\d$/i.test(p)?null:p.match(/^(.*?)(?:[\s:;=\-x×]+\(?|\()(\d+)\)?\s*$/i);let k=(x?x[1]:p).replace(/[\s:;=\-]+$/,"").trim().toUpperCase().replace(/\s+/g," ");const n=x?+x[2]:1;if(!k||isDengue(k))return;m[k]=(m[k]||0)+n});return m}
 function parseDaily(rows,H,R){const ix=k=>H.indexOf(k),sw=k=>H.findIndex(h=>h.startsWith(k));
   const iD=ix("DATE"),iW=H.findIndex(h=>/^WA(R)?D\s*\/\s*UNIT/.test(h)),iA=sw("TOTAL ADMISSION"),iT=sw("TOTAL TRANSFER IN"),iR=ix("REMARKS");
   const iC=Object.fromEntries(JCOLS.map(k=>[k,ix(k)]));const iV={cvl:ix("CVL"),trachy:ix("TRACHY"),vent:ix("VENTILATOR"),cbd:ix("CBD/SPC")};
@@ -4170,7 +4170,10 @@ function parseBW(A,sn){const out=[];const U=v=>String(v==null?"":v).replace(/\s+
       out.push(blk)})}
   return out}
 /* today's (or a given day's) Bedwatcher tags for a ward */
-function bwOf(w,d){const x=BWATCH.find(b=>b.ward===w&&b.date===(d||TODAY));if(!x)return null;const o={};Object.entries(x.beds).forEach(([b,v])=>{if(!v.off)o[b]=v});return o}
+/* dengue (DF / DHF / DSS) is not an infection-control isolation tag: left out everywhere */
+function bhNoDengue(o){if(!o)return o;let ch=0;const r={};Object.entries(o).forEach(([b,t])=>{const u=(t||[]).filter(k=>!isDengue(k));if(u.length!==(t||[]).length)ch=1;if(u.length)r[b]=u});return ch?(Object.keys(r).length?r:null):o}
+const isDengue=t=>/^(DF|DHF|DSS|DENGUE( FEVER)?|DEMAM DENGGI|DENGGI|SUSP(ECTED)? DENGUE|DENGUE (FEVER )?WARNING SIGNS?)$/i.test(String(t||"").replace(/[^A-Z ]/gi," ").replace(/\s+/g," ").trim());
+function bwOf(w,d){const x=BWATCH.find(b=>b.ward===w&&b.date===(d||TODAY));if(!x)return null;const o={};Object.entries(x.beds).forEach(([b,v])=>{if(v.off)return;const t=(v.t||[]).filter(k=>!isDengue(k));if(t.length)o[b]=t.length===(v.t||[]).length?v:{...v,t}});return o}
 function bwOff(w,bed){const x=BWATCH.find(b=>b.ward===w&&b.date===TODAY);if(!x||!x.beds[bed])return;x.beds[bed].off={by:S.icn||"UKI",at:Date.now()};x.at=Date.now();closeModal();toast(`Bedwatcher tag on ${w} bed ${bed} cancelled (wrong bed). Tap the correct bed to add it.`);refresh()}
 function bwOffBox(w,bed){const x=(bwOf(w)||{})[bed];if(!x||S.role!=="uki")return"";return`<div class="banner warn" style="margin-bottom:10px">${svg("bed")}<div><b>MyWard Bedwatcher · bed ${esc(bed)}:</b> ${x.t.map(esc).join(", ")}. If the ward put it on the wrong bed: <button class="btn btn-ghost btn-sm" style="color:var(--crit)" onclick="bwOff('${esc(w)}','${esc(bed)}')">Cancel this tag</button></div></div>`}
 /* Bedwatcher tags → census fields: exact organisms go to MDRO, diseases to the list, anything else to OTHERS */
