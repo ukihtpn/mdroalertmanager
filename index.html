@@ -1009,6 +1009,18 @@ details.jkadm .gh{display:flex;flex-direction:column;gap:2px}
 .jkdc big{font-size:15px;font-weight:800}
 .jkdc .jdt-t{border:2px solid var(--brand)}
 
+.jkdc.jdt>div{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--dc) 35%,var(--line));border-left:5px solid var(--dc);background:color-mix(in srgb,var(--dc) 9%,var(--panel))}
+.jkdc.jdt>div b{color:var(--dc)}
+.jkdc.jdt>div big{color:var(--ink)}
+.jkdc.jdt>div small{color:var(--mut);font-weight:700;font-size:11px}
+.jkdc.jdt>div .jbar{position:absolute;left:0;bottom:0;height:4px;background:var(--dc);opacity:.75}
+.jkdc.jdt>div.zero{opacity:.55}
+.jkdc.jdt>div.ok{box-shadow:inset 0 0 0 2px var(--ok)}
+.jkdc.jdt>div.no{box-shadow:inset 0 0 0 2px var(--crit)}
+.jkdc.jdt>.jdt-t{border:0;border-left:5px solid var(--brand);background:color-mix(in srgb,var(--brand) 70%,#000);color:#fff}
+.jkdc.jdt>.jdt-t b,.jkdc.jdt>.jdt-t big{color:#fff}
+.jkdc.jdt>.jdt-t .jkok,.jkdc.jdt>.jdt-t .jkno{color:#fff;font-weight:700}
+
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
 .docmode .doc-bar .btn{display:none}
@@ -4630,6 +4642,7 @@ const jkMonths=()=>{const o=[];for(let i=0;i<=(S.jkM1??CUR_M);i++)o.push(YEAR+"-
 /* discipline admission for a month: manual entry first, else PD211 discipline table */
 const jkDiscVal=(ym,d)=>{const e=jkAdmOf(ym);if(e&&e.disc&&JK_DISC.some(k=>e.disc[k]!=null))return e.disc[d]??0;const p=pdDiscOf(ym);return p?p.disc[d]??0:null};
 const jkDiscAll=()=>jkMonths().every(ym=>JK_DISC.some(d=>jkDiscVal(ym,d)!=null));
+const JKDC={Anaest:"#7c3aed",Medical:"#2563eb",Nephro:"#0891b2",Oncology:"#db2777",["O&G"]:"#e11d48",Ortho:"#ea580c",Paed:"#16a34a",Surgical:"#ca8a04",Urology:"#0d9488",Others:"#64748b"};
 function jkAdmPanel(){const open=S.jaOpen??true;const FV=window._jkFV;if(FV===undefined)jkFileVals().then(v=>{if(v&&S.tab==="reports")refresh()});const months=MONTHS.slice(0,CUR_M+1).map((m,i)=>({m,i,ym:YEAR+"-"+pad(i+1)}));const D=S.jaD||"";
   const sum=k=>months.reduce((a,x)=>a+(+((jkAdmOf(x.ym)||{})[k]??(pdDiscOf(x.ym)||{})[k])||0),0);const dsum=d=>months.reduce((a,x)=>a+(+jkDiscVal(x.ym,d)||0),0);
   const totD=JK_DISC.reduce((a,d)=>a+dsum(d),0),totA=sum("adm");
@@ -4643,7 +4656,7 @@ function jkAdmPanel(){const open=S.jaOpen??true;const FV=window._jkFV;if(FV===un
    </tbody><tfoot>${(()=>{const has=months.filter(x=>JK_DISC.some(d=>+jkDiscVal(x.ym,d)));if(!has.length)return"";const last=has[has.length-1].i;const to=Math.min(S.jaTo??last,CUR_M);const R=months.filter(x=>x.i<=to);
      const ds=d=>R.reduce((a,x)=>a+(+jkDiscVal(x.ym,d)||0),0);const tot=JK_DISC.reduce((a,d)=>a+ds(d),0);const tA=R.reduce((a,x)=>a+(+((jkAdmOf(x.ym)||{}).adm??(pdDiscOf(x.ym)||{}).adm)||0),0);const noB=R.filter(x=>!JK_DISC.some(d=>+jkDiscVal(x.ym,d)));const cmp=FV&&Object.keys(FV.disc).length&&to===last;
      return`<tr><td colspan="5"><div class="jdt-h"><b>Admission by discipline · total January – <select class="tsel" aria-label="Up to month" onchange="S.jaTo=+this.value;refresh()">${months.map(x=>`<option value="${x.i}"${x.i===to?" selected":""}>${x.m}</option>`).join("")}</select> ${YEAR}</b><span class="hint" style="margin:0">Sum of the monthly breakdown (PD211, or your corrections) · the same figures go to the MDRO Reporting Form "Total No. of Admission in the Department"</span></div>
-      <div class="jkdc">${JK_DISC.map(d=>{const v=ds(d),f=cmp?FV.disc[d]:null;return`<div class="${f==null?"":v===+f?"ok":"no"}"><b>${esc(d)}</b><span><big>${v.toLocaleString()}</big></span>${cmp?`<span>JKNS file ${f==null?"—":(+f).toLocaleString()}</span>`:""}</div>`}).join("")}<div class="jdt-t"><b>TOTAL</b><span><big>${tot.toLocaleString()}</big></span><span>${tot===tA?'<span class="jkok">= total admission</span>':`<span class="jkno">total admission ${tA.toLocaleString()}</span>`}</span></div></div>
+      <div class="jkdc jdt">${JK_DISC.map(d=>{const v=ds(d),f=cmp?FV.disc[d]:null;const pc=tot?Math.round(v/tot*1000)/10:0;return`<div class="${f==null?"":v===+f?"ok":"no"}${v?"":" zero"}" style="--dc:${JKDC[d]||"#64748b"}"><b>${esc(d)}</b><span><big>${v.toLocaleString()}</big> <small>${v?pc+"%":""}</small></span><i class="jbar" style="width:${Math.max(pc,v?2:0)}%"></i>${cmp?`<span>JKNS file ${f==null?"—":(+f).toLocaleString()}</span>`:""}</div>`}).join("")}<div class="jdt-t"><b>TOTAL</b><span><big>${tot.toLocaleString()}</big></span><span>${tot===tA?'<span class="jkok">= total admission</span>':`<span class="jkno">total admission ${tA.toLocaleString()}</span>`}</span></div></div>
       ${noB.length?`<div class="hint" style="margin:6px 0 0;color:var(--warn)">No discipline breakdown yet for ${noB.map(x=>x.m).join(", ")}: not included in the discipline totals.</div>`:""}</td></tr>`})()}<tr><td><b>Total</b></td><td><b>${totA.toLocaleString()}</b>${FV?"<div class='pdsrc'>"+jkCmp(totA,Object.values(FV.months).reduce((a,x)=>a+(+x.adm||0),0))+"</div>":""}</td><td><b>${sum("pd").toLocaleString()}</b>${FV?"<div class='pdsrc'>"+jkCmp(sum("pd"),Object.values(FV.months).reduce((a,x)=>a+(+x.pd||0),0))+"</div>":""}</td><td>${totD?`<b>${totD.toLocaleString()}</b>${FV&&Object.keys(FV.disc).length?" "+jkCmp(totD,Object.values(FV.disc).reduce((a,b)=>a+(+b||0),0)):""}${totD===totA?` <span class="hint" style="margin:0;color:var(--ok)">· matches</span>`:jkDiscAll()?` <span class="hint" style="margin:0;color:var(--crit)">· disciplines ≠ total admission: the Reporting Form will show "CHECK BACK THE TOTAL ADMISSION"</span>`:""}`:'<span class="hint" style="margin:0">—</span>'}</td><td></td></tr></tfoot></table></div>
    <div class="hint" style="margin:6px 0 0">${FV?`Compared with the JKNS file saved in the app (${esc(FV.file||"Fill into the original JKNS template")}). `:`To compare with the JKNS file, choose it once with <b>Change template / file</b>. `}Months left empty keep what is already in the JKNS file. ${jkDiscAll()?'<b style="color:var(--ok)">Admission by discipline (Reporting Form) will be written: every month has its breakdown.</b>':"Admission by discipline in the Reporting Form is written only when <b>every month</b> from January has its discipline breakdown; until then the yearly figures already in the file are kept."}</div></details>`}
 function jkAdmSet(ym,k,v){let e=jkAdmOf(ym);if(!e){e={id:"JA|"+ym,ym,disc:{}};JKADM.push(e)}const n=v===""?null:Math.max(0,Math.round(+v));
