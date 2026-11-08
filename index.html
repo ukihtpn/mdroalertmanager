@@ -1046,6 +1046,18 @@ a.srcchip:hover{background:color-mix(in srgb,#16a34a 18%,var(--panel))}
 .lg-brand h1{font-size:clamp(20px,6.2vw,27px);overflow-wrap:anywhere}
 @media (max-width:520px){.lg-card{padding:22px 16px 18px;border-radius:16px}.lg-brand{flex-direction:column;align-items:flex-start;gap:10px}.lg-brand .div{display:none}.lg-brand img{width:64px}.lg-tiles{gap:10px}.lg-tile{padding:14px 12px;min-width:0}.lg-tile span{overflow-wrap:anywhere}}
 .btn-warn{background:var(--warn-bg,#fff4e0);color:var(--warn,#b45309);border:1px solid currentColor}
+.scanp{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.scanh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)}
+.scanh .sp{flex:1}
+.scang{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.scanimg{max-height:72vh;overflow:auto;background:#fff;border-right:1px solid var(--line)}
+.scnm{position:absolute;left:2px;transform:translateY(-50%);background:var(--ok);color:#fff;font-weight:900;font-size:11px;line-height:1;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff}
+.scanin{max-height:72vh;overflow:auto;padding:8px 10px}
+.scnrow{display:flex;gap:6px;align-items:center;margin:0 0 6px}
+.scnrow input{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.scnb{min-width:44px;font-family:var(--mono,monospace)}
+.scnn{flex:1;font-weight:700;font-size:13px}.scnn small{display:block;color:var(--mut);font-weight:500}
+@media(max-width:760px){.scang{grid-template-columns:1fr}.scanimg{max-height:55vh;border-right:0;border-bottom:1px solid var(--line)}}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1269,7 +1281,12 @@ function sameLoose(a,b){if(same(a,b))return true;const ra=normRN(a.rn),rb=normRN
   const A=normN(a.name).split(" ").filter(w=>w.length>1),B=normN(b.name).split(" ").filter(w=>w.length>1);if(A.length<2||B.length<2)return false;
   const sim=(x,y)=>{if(x===y)return true;if(Math.abs(x.length-y.length)>1||x.length<4)return false;let i=0,j=0,e=0;while(i<x.length&&j<y.length){if(x[i]===y[j]){i++;j++}else{if(++e>1)return false;if(x.length>y.length)i++;else if(y.length>x.length)j++;else{i++;j++}}}return e+(x.length-i)+(y.length-j)<=1};
   const [S1,L1]=A.length<=B.length?[A,B]:[B,A];return S1.filter(w=>L1.some(v=>sim(w,v))).length>=Math.max(2,S1.length-0)}
-function same(a,b){const ra=normRN(a.rn),rb=normRN(b.rn);if(ra&&rb)return ra===rb;const ia=normR(a.ic),ib=normR(b.ic);if(ia&&ib)return ia===ib;const na=normN(a.name),nb=normN(b.name);return!!na&&na===nb}
+/* UKI confirmed "same RN / IC but a different patient" (record error): the case keeps the other name in nx */
+function notSame(id,nm){const c=CASES.find(x=>x.id===id);if(!c)return;if(!confirm(`${c.name} and ${nm} have the same ${normRN(c.rn)?"RN":"IC"}.\n\nMark them as different patients? ${c.name}'s MDRO will no longer show on ${nm}'s bed, and ${c.name}'s location will no longer follow ${nm}.`))return;
+  c.nx=[...new Set((c.nx||[]).concat(normN(nm)))];toast(`${c.name} is no longer matched to ${nm}. Report the duplicate RN to the Medical Records unit.`);openCase(id)}
+function undoNotSame(id,n){const c=CASES.find(x=>x.id===id);if(!c)return;c.nx=(c.nx||[]).filter(x=>x!==n);if(!c.nx.length)delete c.nx;openCase(id)}
+function nxHit(a,b){if(!a.nx&&!b.nx)return false;const na=normN(a.name),nb=normN(b.name);return!!(na&&nb&&((a.nx&&a.nx.includes(nb))||(b.nx&&b.nx.includes(na))))}
+function same(a,b){const ra=normRN(a.rn),rb=normRN(b.rn);if(ra&&rb)return ra===rb&&!nxHit(a,b);const ia=normR(a.ic),ib=normR(b.ic);if(ia&&ib)return ia===ib&&!nxHit(a,b);const na=normN(a.name),nb=normN(b.name);return!!na&&na===nb}
 const bedKey=b=>String(b||"").toUpperCase().trim().replace(/^.*\bCTG\s*(\d+).*$/,"CTG $1").replace(/\s*\/\s*/g,"/").replace(/\bBED\b/g,"").replace(/[()]/g," ").replace(/\s+/g," ").trim();
 function matchBed(ward,b){const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds;let f=L.find(x=>bedKey(x)===k);if(f)return f;
   const tok=k.split(" ").sort().join(" ");f=L.find(x=>bedKey(x).split(" ").sort().join(" ")===tok);if(f)return f;
@@ -1427,7 +1444,7 @@ function censusOf(ward,date){return CENSUS.find(c=>c.ward===ward&&c.date===date)
 function latestCensus(ward,upto){return CENSUS.filter(c=>c.ward===ward&&c.date<=(upto||"9999")).sort((a,b)=>b.date.localeCompare(a.date)||b.at-a.at)[0]}
 function locate(pt){
   let best=null;const take=(o)=>{if(!best||o.date>best.date||(o.date===best.date&&o.at>best.at))best=o};
-  for(const c of CENSUS){const r=c.rows.find(r=>same(r,pt));if(r)take({ward:c.ward,bed:r.bed,date:c.date,at:c.at||0})}
+  for(const c of CENSUS){const r=c.rows.find(r=>same(r,pt));if(r)take({ward:c.ward,bed:r.bed,date:c.date,at:c.at||0,nm:r.name})}
   /* a newer placement by UKI (mapping, "Place on this bed", bed change) is the current bed */
   for(const x of UBEDS)if(!x.del&&x.name&&same(x,pt))take({ward:x.ward,bed:x.bed,date:x.date,at:x.at||0,uki:1});
   for(const c of CASES)if(c.dis_status==="In ward"&&c.dis_ward&&c.dis_bed&&c.in_date&&same(c,pt))take({ward:c.dis_ward,bed:String(c.dis_bed),date:c.in_date,at:c.mat||Date.parse(c.in_date+"T12:00:00")||0,uki:1});
@@ -2975,7 +2992,7 @@ function openCase(id){if(!id){go("register");return}S.nnoteEdit=null;
   openModal(`<div class="m-head"><div class="hx"><h3>${esc(c.name)}</h3><p>${esc(subL(c.subtype))} · ${esc(c.spec)} · sample ${fmt(c.sample_date)} · ${c.month}</p></div>${xBtn()}</div>
   <div class="m-body">
    ${S.role==="uki"?(dqBump(),dqCase(c)):""}
-   ${labStatHTML(c)}<div class="banner info">${svg("bed")}<div>Current location: ${locPill(l,c)} <span class="hint">${locSub(l)}</span></div></div>
+   ${labStatHTML(c)}<div class="banner info">${svg("bed")}<div>Current location: ${locPill(l,c)} <span class="hint">${locSub(l)}</span>${l.st==="IN"&&l.nm&&normN(l.nm)!==normN(c.name)?`<div class="hint" style="margin:4px 0 0;color:var(--warn)"><b>Name on that census bed: ${esc(l.nm)}</b> (matched by the same ${normRN(c.rn)?"RN":"IC"}).${S.role==="uki"?` <button class="btn btn-ghost btn-sm" onclick="notSame('${c.id}','${esc(String(l.nm).replace(/'/g,""))}')">Not the same patient</button>`:""}</div>`:""}${(c.nx||[]).length&&S.role==="uki"?`<div class="hint" style="margin:4px 0 0">Not matched to: ${c.nx.map(n=>`<span class="bwchip">${esc(n)} <button class="linkbtn" onclick="undoNotSame('${c.id}','${esc(n)}')">undo</button></span>`).join(" ")} <span style="margin-left:4px">(same ${normRN(c.rn)?"RN":"IC"}, different patient)</span></div>`:""}</div></div>
    ${(c.labSkip||[]).length?`<div class="banner warn">${svg("list")}<div><b>Not written to LAB_SURVEILLANCE</b> (the sheet's dropdown does not accept the value): ${c.labSkip.map(x=>`<div>${esc(x.a1)} · ${esc(x.hd||x.k)}: "<b>${esc(x.v)}</b>"${(x.L||[]).length?` <span class="hint" style="margin:0">· allowed: ${x.L.map(esc).join(", ")}</span>`:""}</div>`).join("")}<div class="hint" style="margin:4px 0 0">Change the value below to one from the list (or add it to the dropdown in the sheet), then Save changes. <button class="linkbtn" onclick="delete CASES.find(x=>x.id==='${c.id}').labSkip;openCase('${c.id}')">Dismiss</button></div></div></div>`:""}
    ${snoteBox(c,"cf_notes")}${nnoteBox(c)}${cmtBox(c)}
    <div class="qacts"><button class="btn btn-ghost btn-sm" onclick="openProfile('${c.id}')">${svg("list")}Patient profile</button><button class="btn btn-pri btn-sm" onclick="openReview('${c.id}')">${svg("form")}Generate UKI review form</button>${(c.reviews||[]).length?`<button class="btn btn-ghost btn-sm" onclick="viewReview('${c.id}','${c.reviews[0].id}')">View review ${fmt(c.reviews[0].date)}</button>`:""}</div>
@@ -3639,7 +3656,7 @@ function rCensus(){if(!S.ed||S.ed.ward!==S.ward||(S.ed.date||TODAY)!==CD())edIni
     <div class="fld" style="grid-column:1/-1;min-width:0"><label for="edRem">Notes (remarks)</label><input id="edRem" value="${esc(S.ed.remarks)}" oninput="S.ed.remarks=this.value" placeholder="Optional"></div></div></div>
   ${layoutPanel()}
   <div class="panel stepbox" id="st2box"><div class="stephd"><span>3</span><div><b>Load the patient name list</b><p>${S.ed.rows.some(r=>r.name)?"Yesterday's list has been loaded. Import today's Excel to replace the list":"Import today's Excel or paste the list"} (bed, disease and device columns are optional). A PDF of the diet order form (BORANG PESANAN MAKANAN) can be read too, or fill directly on the ward plan in Step 4.</p></div></div>
-   <div class="btnrow"><button class="btn btn-pri" onclick="$('fileIn').click()">${svg("up")}Import Excel / CSV / PDF</button><button class="btn btn-ghost" onclick="openPaste()">Paste</button>${S.ed&&S.ed.rows.length?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="clearList()">Clear list</button>`:""}<button class="btn btn-ghost" onclick="askUseLast()" ${last?"":"disabled"}>${last?"Copy list from "+fmt(last.date):"Copy previous list"}</button>${S.edUndo&&S.edUndo.ward===S.ward?`<button class="btn btn-ghost" onclick="edUndo()">↶ Undo</button>`:""}</div>
+   <div class="btnrow"><button class="btn btn-pri" onclick="$('fileIn').click()">${svg("up")}Import Excel / CSV / PDF</button><button class="btn btn-ghost" onclick="openPaste()">Paste</button>${S.ed&&S.ed.rows.length?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="clearList()">Clear list</button>`:""}<button class="btn btn-ghost" onclick="askUseLast()" ${last?"":"disabled"}>${last?"Copy list from "+fmt(last.date):"Copy previous list"}</button>${S.edUndo&&S.edUndo.ward===S.ward?`<button class="btn btn-ghost" onclick="edUndo()">↶ Undo</button>`:""}</div>${scanPanelHTML()}
    <div class="hint" style="margin:10px 0 0">Want to try? Download a sample Excel (dummy data for this ward): <button class="linkbtn" onclick="sampleXlsx(true)">with bed</button> · <button class="linkbtn" onclick="sampleXlsx(false)">without bed</button></div>
    <div class="hint" id="st2" style="margin:8px 0 0"></div></div>
   <div class="panel stepbox" id="st4box"><div class="stephd"><span>4</span><div><b>Ward plan · tap a bed</b><p>Red = MDRO. Tap a bed to add / edit a patient, disease, device or MDRO. The patient list is in Step 5.</p></div></div>
@@ -3754,23 +3771,113 @@ function askUseLast(){const D=CD();const l=latestCensus(S.ward,addDays(D,-1));if
 function useLast(){const D=CD();const l=latestCensus(S.ward,addDays(D,-1));if(!l)return;edSnap();if(D<TODAY){S.ed.rows=l.rows.map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])],mw:[...(r.mw||[])]})).sort((a,b)=>bedIdx(S.ward,a.bed)-bedIdx(S.ward,b.bed));refresh();toast("List "+fmt(l.date)+" copied. Check it against the "+fmt(D)+" list.");return}const keep=S.ed.rows.filter(r=>r._in);S.ed.rows=currentIn(S.ward).map(r=>({...r,inf:[...(r.inf||[])],dev:[...(r.dev||[])]})).sort((a,b)=>bedIdx(S.ward,a.bed)-bedIdx(S.ward,b.bed)).concat(keep.filter(k=>!l.rows.some(r=>same(r,k))));refresh();toast("List "+fmt(l.date)+" loaded. Remove patients who have left, add new patients. Press Undo to go back.")}
 /* PDF patient list (e.g. BORANG PESANAN MAKANAN printed from Excel): read the text, rebuild the table, then use the same reader as Excel.
    A scanned PDF (picture only) has no text: it is offered as a ward plan picture as before. */
-async function pdfGrid(f){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const out=[];
-  for(let pn=1;pn<=Math.min(pdf.numPages,6);pn++){const pg=await pdf.getPage(pn);const tc=await pg.getTextContent();const it=tc.items.map(t=>({s:String(t.str||"").trim(),x:t.transform[4],y:t.transform[5]})).filter(t=>t.s);if(!it.length)continue;
-    const leg=it.filter(t=>/^(SARAPAN|MAKAN|MINUM|KOD RINGKASAN)/i.test(t.s)).map(t=>t.x);const lx=leg.length?Math.min(...leg)-4:Infinity;
-    const lines=[];it.filter(t=>t.x<lx).sort((a,b)=>b.y-a.y||a.x-b.x).forEach(t=>{const L=lines.find(l=>Math.abs(l.y-t.y)<3);if(L)L.it.push(t);else lines.push({y:t.y,it:[t]})});
+/* rebuild table rows from positioned text pieces {s,x,y} (y grows upwards); tol = same-line tolerance */
+function gridFromItems(it,tol,out){
+    const leg=it.filter(t=>/^(SARAPAN|MAKAN|MINUM|KOD RINGKASAN|HIDANGAN)/i.test(t.s)).map(t=>t.x);const lx=leg.length?Math.min(...leg)-4:Infinity;
+    const lines=[];it.filter(t=>t.x<lx).sort((a,b)=>b.y-a.y||a.x-b.x).forEach(t=>{const L=lines.find(l=>Math.abs(l.y-t.y)<tol);if(L)L.it.push(t);else lines.push({y:t.y,it:[t]})});
     const hl=lines.find(l=>l.it.some(t=>/NAMA|NAME/i.test(t.s))&&l.it.some(t=>/KATIL|BED/i.test(t.s)));
-    if(!hl){lines.forEach(l=>out.push(l.it.sort((a,b)=>a.x-b.x).map(t=>t.s)));continue}
+    if(!hl){lines.forEach(l=>out.push(l.it.sort((a,b)=>a.x-b.x).map(t=>t.s)));return}
     const cols=hl.it.slice().sort((a,b)=>a.x-b.x).map(t=>({h:t.s,x:t.x}));
     lines.forEach(l=>{if(l.y>hl.y){out.push(l.it.sort((a,b)=>a.x-b.x).map(t=>t.s).concat([]));return}if(l===hl){out.push(cols.map(c=>c.h));return}
-      if(l.it.some(t=>/TANDATANGAN|COP PENERIMA/i.test(t.s)))return;const row=cols.map(()=>"");l.it.sort((a,b)=>a.x-b.x).forEach(t=>{/* headers are centred over their column: take the nearest header (a tie goes to the right) */let k=0,bd=1e9;cols.forEach((c,ci)=>{const d=Math.abs(c.x-t.x);if(d<=bd){bd=d;k=ci}});row[k]=(row[k]?row[k]+" ":"")+t.s});out.push(row)})}
+      if(l.it.some(t=>/TANDATANGAN|COP PENERIMA|JUMLAH PESANAN|DIISI OLEH|OLEH PIHAK/i.test(t.s)))return;const row=cols.map(()=>"");l.it.sort((a,b)=>a.x-b.x).forEach(t=>{/* headers are centred over their column: take the nearest header (a tie goes to the right) */let k=0,bd=1e9;cols.forEach((c,ci)=>{const d=Math.abs(c.x-t.x);if(d<=bd){bd=d;k=ci}});row[k]=(row[k]?row[k]+" ":"")+t.s});out.push(row)})}
+async function pdfGrid(f){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const out=[];
+  for(let pn=1;pn<=Math.min(pdf.numPages,6);pn++){const pg=await pdf.getPage(pn);const tc=await pg.getTextContent();const it=tc.items.map(t=>({s:String(t.str||"").trim(),x:t.transform[4],y:t.transform[5]})).filter(t=>t.s);if(!it.length)continue;gridFromItems(it,3,out)}
   return out}
+/* scanned PDF / photo of the list (CamScanner etc.): read the words with Tesseract on the device, then the same table rebuild */
+function loadTessA(){if(window.Tesseract)return Promise.resolve();if(typeof loadTess==="function")return loadTess();if(window._TESSP)return window._TESSP;window._TESSP=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";sc.onload=res;sc.onerror=()=>rej(new Error("Tesseract could not be loaded"));document.head.appendChild(sc)});return window._TESSP}
+function tsvWords(tsv){return String(tsv||"").split("\n").slice(1).map(l=>l.split("\t")).filter(c=>c.length>=12&&c[0]==="5"&&String(c[11]).trim()).map(c=>({t:c[11].trim(),x0:+c[6],y0:+c[7],x1:+c[6]+ +c[8],y1:+c[7]+ +c[9],conf:+c[10],b:+c[2],p:+c[3],l:+c[4]}))}
+function wordsToItems(W,band){W=W.filter(w=>w.t&&!/^[|_\-—=~.,:;'"`]+$/.test(w.t)&&(w.conf==null||w.conf>15));if(!W.length)return{it:[],tol:3};const hs=W.map(w=>w.y1-w.y0).sort((a,b)=>a-b);const h=hs[Math.floor(hs.length/2)]||20;
+  /* words on one text line that sit close together become one piece ("NUR AQILAH QISTINA") */
+  /* inside the table each row is the space between two ruled lines: a cell with two text lines stays one row */
+  const B=(band||[]);const ry=yc=>{for(let k=0;k<B.length-1;k++)if(yc>B[k]&&yc<B[k+1]&&B[k+1]-B[k]<h*7)return(B[k]+B[k+1])/2;return yc};
+  const L=[];W.slice().sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1)).forEach(w=>{const yc=ry((w.y0+w.y1)/2);const l=L.find(z=>Math.abs(z.yc-yc)<h*0.55);if(l){l.w.push(w);if(!B.length)l.yc=(l.yc*(l.w.length-1)+yc)/l.w.length}else L.push({yc,w:[w]})});
+  const it=[];L.forEach(l=>{const ws=l.w.sort((a,b)=>a.x0-b.x0);let cur=null;ws.forEach(w=>{const wd=/^[A-Za-z@'.()-]+$/;if(cur&&w.x0-cur.x1<h*0.9&&wd.test(w.t)&&wd.test(cur.s.split(" ").pop())){cur.s+=" "+w.t;cur.x1=w.x1}else{if(cur)it.push(cur);cur={s:w.t,x:w.x0,x1:w.x1,y:-l.yc}}});if(cur)it.push(cur)});
+  it.forEach(t=>{t.s=t.s.replace(/[|]/g,"").trim()});return{it:it.filter(t=>t.s),tol:h*0.6}}
+async function ocrGrid(f,say){await loadTessA();const out=[];let imgs=[];
+  if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;for(let pn=1;pn<=Math.min(pdf.numPages,3);pn++){const pg=await pdf.getPage(pn);const v0=pg.getViewport({scale:1});const vp=pg.getViewport({scale:(window._ocrMax||3400)/Math.max(v0.width,v0.height)});const cv=document.createElement("canvas");cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:cx,viewport:vp}).promise;imgs.push(cv)}}
+  else{const u=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f)});const im=await new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=j;i.src=u});const k=Math.min(3.2,(window._ocrMax||3400)/Math.max(im.width,im.height));const cv=document.createElement("canvas");cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);const cx=cv.getContext("2d");cx.drawImage(im,0,0,cv.width,cv.height);imgs.push(cv)}
+  window._scan=null;for(let i=0;i<imgs.length;i++){if(say)say(`Reading page ${i+1} of ${imgs.length}…`);const cv=imgs[i];
+    if(i===0){try{const k=Math.min(1,1800/Math.max(cv.width,cv.height));const sc=document.createElement("canvas");sc.width=Math.round(cv.width*k);sc.height=Math.round(cv.height*k);sc.getContext("2d").drawImage(cv,0,0,sc.width,sc.height);window._scan={img:sc.toDataURL("image/jpeg",.8),w:cv.width,h:cv.height,name:f.name,words:[]}}catch(e){}}
+    const band=cleanTable(cv);
+    const r=await Tesseract.recognize(cv,"eng",{},{text:true,tsv:true,blocks:true});const D=r&&r.data||{};
+    let W=(D.words&&D.words.length?D.words.map(w=>({t:w.text,x0:w.bbox.x0,y0:w.bbox.y0,x1:w.bbox.x1,y1:w.bbox.y1,conf:w.confidence,sy:(w.symbols||[]).map(c=>({t:c.text,x0:c.bbox.x0,x1:c.bbox.x1}))})):tsvWords(D.tsv));
+    if(i===0&&window._scan)window._scan.words=W.map(w=>({t:String(w.t||""),y:(w.y0+w.y1)/2,x:w.x0}));
+    const T=(band.xs||[]).length>=4?ruledTable(W,band,band.xs):null;if(T){T.forEach(r=>out.push(r));continue}
+    const P=wordsToItems(W,band);if(P.it.length)gridFromItems(P.it,P.tol,out)}
+  return out}
+/* table with ruled columns: columns = spaces between the vertical lines, rows = text lines (or one ruled row when it holds a single entry) */
+function ruledTable(W0,ys,xs){let W=W0.filter(w=>w.t&&String(w.t).trim()&&!/^[|_\-—=~.,:;'"`\[\]]+$/.test(w.t)&&(w.conf==null||w.conf>10));if(W.length<8)return null;
+  const hs=W.map(w=>w.y1-w.y0).sort((a,b)=>a-b);const h=hs[Math.floor(hs.length/2)]||20;
+  /* a word that runs across a column line (the line was erased, so two cells read as one word) is cut at the line */
+  const S=[];W.forEach(w=>{let parts=[w];xs.forEach(v=>{parts=parts.flatMap(p=>{if(!(p.x0<v-3&&p.x1>v+3))return[p];
+      /* use the letter boxes when Tesseract gives them, else cut by length */
+      if(p.sy&&p.sy.length===p.t.length&&p.sy.length>1){const L=p.sy.filter(c=>(c.x0+c.x1)/2<v),R=p.sy.filter(c=>(c.x0+c.x1)/2>=v);if(!L.length||!R.length)return[p];return[{...p,t:L.map(c=>c.t).join(""),sy:L,x1:L[L.length-1].x1},{...p,t:R.map(c=>c.t).join(""),sy:R,x0:R[0].x0}]}
+      const n=p.t.length,k=Math.round(n*(v-p.x0)/(p.x1-p.x0));if(k<=0||k>=n)return[p];return[{...p,t:p.t.slice(0,k),x1:v,sy:null},{...p,t:p.t.slice(k),x0:v,sy:null}]})});S.push(...parts)});W=S;
+  const C=xs.slice().sort((a,b)=>a-b);const colOf=x=>{for(let i=0;i<C.length-1;i++)if(x>=C[i]&&x<C[i+1])return C[i+1]-C[i]>h*0.8?i:-1;return-1};
+  /* rows */
+  const yc=w=>(w.y0+w.y1)/2;const cl=L=>{const R=[];L.slice().sort((a,b)=>yc(a)-yc(b)).forEach(w=>{const r=R.find(z=>Math.abs(z.y-yc(w))<h*0.6);if(r){r.w.push(w);r.y=(r.y*(r.w.length-1)+yc(w))/r.w.length}else R.push({y:yc(w),w:[w]})});return R};
+  const B=ys.slice().sort((a,b)=>a-b);const rows=[];const used=new Set();
+  for(let k=0;k<B.length-1;k++){const inB=W.filter(w=>!used.has(w)&&yc(w)>B[k]&&yc(w)<B[k+1]);if(!inB.length)continue;inB.forEach(w=>used.add(w));const R=cl(inB);
+    /* one entry per ruled row (text may wrap to 2 lines) unless several lines carry their own number */
+    const num=R.filter(r=>r.w.some(w=>/^[\d$S]{5,9}\.?$/.test(w.t)&&/\d{4}/.test(w.t))).length;if(R.length>1&&num<=1&&B[k+1]-B[k]<h*4.2)rows.push({y:(B[k]+B[k+1])/2,w:inB});else rows.push(...R)}
+  rows.push(...cl(W.filter(w=>!used.has(w))));rows.sort((a,b)=>a.y-b.y);
+  const nc=C.length-1;const grid=rows.map(r=>{const cells=Array(nc).fill("");const out=[];r.w.slice().sort((a,b)=>yc(a)-yc(b)||a.x0-b.x0).sort((a,b)=>Math.abs(yc(a)-yc(b))<h*0.6?a.x0-b.x0:yc(a)-yc(b)).forEach(w=>{const c=colOf((w.x0+w.x1)/2);if(c<0)out.push(w.t);else cells[c]=(cells[c]?cells[c]+" ":"")+w.t});return{cells,out:out.join(" "),y:r.y}});
+  const hi=grid.findIndex(g=>g.cells.some(c=>/NAMA|NAME|PESAKIT/i.test(c)));if(hi<0)return null;
+  const H=grid[hi].cells.map(c=>c.toUpperCase());const body=grid.slice(hi+1).filter(g=>!/TANDATANGAN|COP PEMESAN|COP PENERIMA|JUMLAH PESANAN|DIISI OLEH/i.test(g.cells.join(" ")+g.out));
+  /* header words often split / misread: label the columns from what is in them */
+  const ni=H.findIndex(c=>/NAMA|NAME|PESAKIT/.test(c));H[ni]="NAMA";
+  const score=(i,re)=>body.filter(g=>re.test(String(g.cells[i]||"").replace(/\s/g,""))).length;
+  if(!H.some(c=>/KATIL|BED/.test(c))){let bi=-1,bs=0;H.forEach((c,i)=>{if(i>=ni||/MRN|RN|CUB|BIL/.test(c)&&!/^\W*$/.test(c)&&/MRN|^RN|CUB|BIL/.test(c))return;const sc=score(i,/^(R?\d{1,2}(\/?B?\d)?|EXT\d|ISO\d+)$/i);if(sc>bs){bs=sc;bi=i}});if(bi>=0)H[bi]="KATIL"}
+  if(!H.some(c=>/MRN|\bRN\b|^RN/.test(c))){let bi=-1,bs=0;H.forEach((c,i)=>{if(i===ni||/KATIL/.test(c))return;const sc=score(i,/^[\dSs$OBIl]{5,8}\.?$/);if(sc>bs){bs=sc;bi=i}});if(bi>=0)H[bi]="MRN"}
+  H.forEach((c,i)=>{if(/DI?ET|D[LI1]ET|OIET|^\W*[IL1]?ET\W*$|KOD/.test(c)&&!/KATIL|NAMA|MRN/.test(c))H[i]="DIET";else if(/CATAT|REMARK/.test(c))H[i]="CATATAN";else if(/^CU|CUB/.test(c)&&!/KATIL|NAMA|MRN|DIET/.test(c))H[i]="CUB"});
+  return grid.slice(0,hi).map(g=>[g.cells.join(" ").trim()+(g.out?" "+g.out:"")]).concat([H],body.map(g=>g.cells))}
+/* grey → black/white, find the table's ruled lines (row borders), then erase all long lines so the text in boxed cells can be read */
+function cleanTable(cv){const w=cv.width,h=cv.height,cx=cv.getContext("2d");const d=cx.getImageData(0,0,w,h);const a=d.data;const dk=new Uint8Array(w*h);
+  for(let j=0,p=0;j<a.length;j+=4,p++){const g=.3*a[j]+.59*a[j+1]+.11*a[j+2];const v=g>170?255:g<90?0:g;a[j]=a[j+1]=a[j+2]=v;dk[p]=g<128?1:0}
+  const er=new Uint8Array(w*h);const mh=Math.round(w*0.04),mv=Math.round(h*0.022);const rowLen=new Float32Array(h);
+  for(let y=0;y<h;y++){let x=0;while(x<w){if(dk[y*w+x]){let k=x;while(k<w&&dk[y*w+k])k++;if(k-x>=mh){for(let q=x;q<k;q++)er[y*w+q]=1;rowLen[y]+=k-x}x=k}else x++}}
+  const colLen=new Float32Array(w);for(let x=0;x<w;x++){let y=0;while(y<h){if(dk[y*w+x]){let k=y;while(k<h&&dk[k*w+x])k++;if(k-y>=mv){for(let q=y;q<k;q++)er[q*w+x]=1;colLen[x]+=k-y}y=k}else y++}}
+  const E=(p)=>{a[p*4]=a[p*4+1]=a[p*4+2]=255};for(let p=0;p<w*h;p++)if(er[p]){E(p);const x=p%w;if(x>0)E(p-1);if(x<w-1)E(p+1);if(p>=w)E(p-w);if(p<w*h-w)E(p+w)}cx.putImageData(d,0,0);
+  const ys=[];for(let y=0;y<h;y++)if(rowLen[y]>=w*0.18){if(ys.length&&y-ys[ys.length-1].b<=3)ys[ys.length-1].b=y;else ys.push({a:y,b:y})}
+  const xs=[];for(let x=0;x<w;x++)if(colLen[x]>=h*0.1){if(xs.length&&x-xs[xs.length-1].b<=4)xs[xs.length-1].b=x;else xs.push({a:x,b:x})}
+  const r=ys.map(z=>(z.a+z.b)/2);r.xs=xs.map(z=>(z.a+z.b)/2);return r}
 async function pdfNameList(f){let G=null;try{G=await pdfGrid(f)}catch(e){}
   const hasHead=G&&G.slice(0,40).some(r=>r.some(x=>/nama|name/i.test(x))&&r.some(x=>/katil|bed/i.test(x)));
-  if(!hasHead){askPlanFromFile(f);return}
-  const wtxt=(G.slice(0,10).flat().find(x=>/^(WAD|WARD|W)\s*\d/i.test(String(x)))||"");const wc=wtxt?wardCode(wtxt):"";
+  if(!hasHead){scanList(f);return}window._ocrList=0;listFromGrid(G,f)}
+/* scanned PDF / photo of the patient list (CamScanner etc.): read it with OCR on the device */
+async function scanList(f){toast("Scanned list: reading the text on this device… 20–60 seconds the first time.");let G=null;
+  try{G=await ocrGrid(f,m=>toast("Scanned list: "+m))}catch(e){G=null;console.warn("OCR:",e)}
+  const ok=G&&G.slice(0,60).some(r=>r.some(x=>/nama|name/i.test(x))&&r.some(x=>/katil|bed/i.test(x)));if(!ok){askPlanFromFile(f,1);return}window._ocrList=1;listFromGrid(G,f)}
+function listFromGrid(G,f){
+  const wtxt=(G.slice(0,10).flat().find(x=>/^(WAD|WARD|W)\s*\d/i.test(String(x)))||((G.slice(0,10).map(r=>r.join(" ")).join("\n").match(/\b(?:WAD|WARD)\s*(?:\/\s*UNIT\s*:?\s*(?:WAD|WARD)?\s*)?(\d+[A-Z]?(?:\s*(?:WCC|MB|ISO))?)/i)||[])[0])||"").replace(/^(?:WAD|WARD)\s*\/\s*UNIT\s*:?\s*/i,"");const wc=wtxt?wardCode(wtxt):"";
   const rows=parseGrid(G).filter(r=>r.name&&!/^\d+$/.test(r.name));if(!rows.length){toast("No patient names found in this PDF.");return}
+  if(window._ocrList)ocrClean(rows);
   if(wc&&S.ward&&wc!==S.ward&&!confirm(`This PDF is for ${wc}, but you are filling the census for ${S.ward}. Load it anyway?`))return;
-  gridDateWarn();loadRows(rows,f.name);toast(`${rows.length} patients read from the PDF${window._gridDate?" ("+fmt(window._gridDate)+")":""}. Check the beds, then fill Step 1 (admissions / transfers in) if not done.`)}
+  gridDateWarn();if(window._ocrList&&window._scan){window._scan.ward=S.ward;window._scan.date=CD();S.scanZ=S.scanZ||100}loadRows(rows,f.name);toast(`${rows.length} patients read from the ${window._ocrList?"scanned ":""}PDF${window._gridDate?" ("+fmt(window._gridDate)+")":""}. ${window._ocrList?"Scanned text can have mistakes: check every name, RN and bed. ":""}Check the beds, then fill Step 1 (admissions / transfers in) if not done.`)}
+/* the scanned picture next to the list: ✓ marks the lines the app read; type in what it missed */
+function scanPanelHTML(){const X=window._scan;if(!X||!S.ed||X.ward!==S.ward||X.date!==CD()||S.scanHide)return X&&S.scanHide&&X.ward===S.ward?`<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="S.scanHide=0;refresh()">Show the scanned list</button></div>`:"";
+  const W=WCFG[S.ward];const R=S.ed.rows.filter(r=>r.name);const dg=t=>String(t||"").replace(/\$/g,"8").replace(/\D/g,"");const nn=t=>String(t||"").toUpperCase().replace(/[^A-Z]/g,"");
+  const marks=[];R.forEach(r=>{let w=r.rn&&X.words.find(x=>dg(x.t).length>=5&&dg(x.t).endsWith(dg(r.rn).slice(-5)));if(!w){const f=nn(String(r.name).split(" ")[0]);if(f.length>=3)w=X.words.find(x=>nn(x.t)===f)}if(w)marks.push({y:w.y/X.h*100,b:r.bed})});
+  const used=new Set(R.map(r=>String(r.bed)));const empty=(W?W.beds:[]).filter(b=>!used.has(String(b))&&!isExt(b));const nob=S.ed.rows.map((r,i)=>({r,i})).filter(x=>x.r.name&&!x.r.bed);const z=S.scanZ||100;
+  return`<div class="scanp"><div class="scanh"><b>Scanned list</b> <span class="hint" style="margin:0">${esc(X.name)} · <span style="color:var(--ok);font-weight:800">✓</span> = line read by the app. A line with no ✓ was missed: type it on the right.</span><span class="sp"></span><button class="btn btn-ghost btn-sm" onclick="S.scanZ=Math.max(60,(S.scanZ||100)-25);refresh()" aria-label="Zoom out">−</button><button class="btn btn-ghost btn-sm" onclick="S.scanZ=Math.min(300,(S.scanZ||100)+25);refresh()" aria-label="Zoom in">+</button><button class="btn btn-ghost btn-sm" onclick="S.scanHide=1;refresh()">Hide</button></div>
+   <div class="scang"><div class="scanimg"><div style="position:relative;width:${z}%"><img src="${X.img}" alt="Scanned patient list" style="width:100%;display:block">${marks.map(m=>`<span class="scnm" style="top:${m.y}%">✓</span>`).join("")}</div></div>
+    <div class="scanin">${nob.length?`<div class="lbl">Read without a bed (${nob.length})</div>${nob.map(({r,i})=>`<div class="scnrow"><span class="scnn">${esc(r.name)}<small>${esc(r.rn||"")}</small></span><input list="bedList" placeholder="Bed" aria-label="Bed for ${esc(r.name)}" onchange="S.ed.rows[${i}].bed=matchBed(S.ward,this.value);refresh()"></div>`).join("")}`:""}
+     <div class="lbl">Beds with no patient in the list (${empty.length})</div><div class="hint" style="margin:0 0 6px">If the picture shows a patient on one of these beds, type the name (and RN) and press Add.</div>
+     ${empty.map(b=>`<div class="scnrow"><b class="scnb">${esc(b)}</b><input id="scn_n_${esc(b)}" placeholder="Name" aria-label="Name for bed ${esc(b)}" onkeydown="if(event.key==='Enter')scanAdd('${esc(b)}')"><input id="scn_r_${esc(b)}" placeholder="RN" inputmode="numeric" aria-label="RN for bed ${esc(b)}" style="max-width:96px" onkeydown="if(event.key==='Enter')scanAdd('${esc(b)}')"><button class="btn btn-ghost btn-sm" onclick="scanAdd('${esc(b)}')">Add</button></div>`).join("")||`<div class="hint">Every bed has a patient.</div>`}</div></div></div>`}
+function scanAdd(b){const n=($("scn_n_"+b)||{}).value||"",rn=($("scn_r_"+b)||{}).value||"";if(!n.trim()){toast("Type the patient's name first.");return}S.ed.rows.push({bed:b,name:n.trim().toUpperCase(),rn:rn.replace(/\D/g,""),ic:"",inf:[],dev:[],mw:[]});S.ed._dirty=true;const st=document.querySelector(".scanimg")?.scrollTop||0;refresh();const e=document.querySelector(".scanimg");if(e)e.scrollTop=st;toast(`Bed ${b}: ${n.trim().toUpperCase()} added.`)}
+/* scanned text: keep only what looks like a bed / RN / name / diet code; drop stray marks left by the table lines */
+function ocrClean(rows){const DC=new Set(DIET_CODES.map(d=>d[0]).concat(DIET_EXTRA).filter(Boolean).map(x=>x.toUpperCase()));
+  rows.forEach(r=>{let rn=String(r.rn||"").toUpperCase().replace(/\$/g,"8").replace(/^S/,"8").replace(/[O]/g,"0").replace(/[LI|!]/g,"1").replace(/[S]/g,"5").replace(/[B]/g,"8").replace(/\D/g,"");r.rn=rn.length>=5&&rn.length<=8?rn:"";
+    r.name=String(r.name||"").toUpperCase().replace(/[^A-Z@'\/ .-]/g," ").split(/\s+/).filter((t,i,A)=>t&&(t.length>2||/^(A\/[LP]|AL|AP|BIN|BT|BN|@|MD)$/.test(t)||(i>0&&i<A.length-1))).join(" ").replace(/^[^A-Z]+|[^A-Z]+$/g,"").trim();
+    let b=String(r.bed||"").toUpperCase().replace(/\s+/g,"").replace(/[|\[\]()]/g,"");const m=b.match(/R?\d{1,2}(?:\/?B?\d)?|ISO\d+|EXT\d+/);r.bed=m?m[0]:"";
+    if(r.diet!=null){const ds=String(r.diet).toUpperCase().replace(/HPO/g,"HPD").replace(/0D\b/g,"DD").replace(/[^A-Z ,\/()]/g," ").split(/[\s,]+/).filter(t=>DC.has(t)||t.split("/").every(x=>/^(ND|DD|HPD|SD|LSD|LFD|BD|MP|VEG|LSLF|LFLS|LSLFDD|LFLSDD|LSDD|LFLSD|LFLSDD|LSLCDD|SDDD|LFDD|HSDD|NBM|RTF|SOFT|DIET|\(?LSDD\)?|\(?LFLS\)?)$/.test(x)));r.diet=ds.join(" ")}
+    if(r.dnote!=null)r.dnote=String(r.dnote).replace(/^[^A-Za-z]+|[^A-Za-z.)]+$/g,"").trim()});
+  /* a bed number missing between two running numbers (e.g. 3 · ? · 5) */
+  rows.forEach((r,i)=>{if(r.bed||i===0||i===rows.length-1)return;const a=rows[i-1].bed,b=rows[i+1].bed;if(/^\d+$/.test(a)&&/^\d+$/.test(b)&&+b-+a===2)r.bed=String(+a+1)});
+  /* a stamp / signature read as a row: no RN and no diet code */
+  for(let i=rows.length-1;i>=0;i--){const r=rows[i];if(!r.name||(!r.rn&&!r.diet))rows.splice(i,1)}
+  /* a bed read twice, or in a different style from the rest (e.g. "1" among "R5/B1"): left empty for the ward / UKI to fill */
+  const sl=rows.filter(r=>/\//.test(r.bed)).length>rows.length/2;const seen=new Set();rows.forEach(r=>{if(!r.bed)return;if(seen.has(r.bed)||(sl&&!/\/|ISO|EXT/.test(r.bed)&&!/^R\d+$/.test(r.bed)))r.bed="";else seen.add(r.bed)});return rows}
 function parseGrid(grid){grid=grid.filter(r=>r.some(c=>String(c??"").trim()!==""));if(!grid.length)return[];
   /* the header row may be below a title (e.g. "WAD 3 _BORANG PESANAN MAKANAN"): look in the first 20 rows for a row with both a bed and a name column */
   {const hi=grid.slice(0,20).findIndex(r=>{const t=r.map(x=>String(x??"").toLowerCase());return t.some(x=>/nama|name/.test(x))&&t.some(x=>/katil|bed/.test(x))});
@@ -3831,9 +3938,9 @@ function useSheet(){const wb=window._wbList;const n=$("wsSel").value;closeModal(
 function gridDateWarn(){const d=window._gridDate;if(!d||d===CD())return;
   if(S.role==="uki"&&d<TODAY&&d>=addDays(TODAY,-60)){if(confirm(`This list is dated ${fmt(d)}, not ${fmt(CD())}.\n\nOK = save it as the census for ${fmt(d)} (back-dated)\nCancel = use it for ${fmt(CD())}`)){S.cdate=d===TODAY?"":d;S.edUndo=null;edInit();refresh();toast("Census date set to "+fmt(d)+".")}return}
   setTimeout(()=>toast(`Note: this list is dated ${fmt(d)}, not ${fmt(CD())}. Check that it is the right list before submitting.`),400)}
-function askPlanFromFile(f){openModal(`<div class="m-head"><div class="hx"><h3>This is an image / PDF, not a patient list</h3><p>${esc(f.name)}</p></div>${xBtn()}</div>
-  <div class="m-body"><p>The patient list must be an <b>Excel / CSV</b> file. Is this a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p></div>
-  <div class="m-foot"><button class="btn btn-ghost" onclick="askClose()">No, cancel</button><button class="btn btn-pri" id="usePlanBtn">Yes, use as the new floor plan</button></div>`);
+function askPlanFromFile(f,tried){const scan=!tried&&S.tab==="census";window._scanF=f;openModal(`<div class="m-head"><div class="hx"><h3>${scan?"Patient list or floor plan?":tried?"No patient table found in this file":"This is an image / PDF, not a patient list"}</h3><p>${esc(f.name)}</p></div>${xBtn()}</div>
+  <div class="m-body">${scan?`<p>Is this a <b>photo / scan of the patient list</b> (e.g. diet order form)? The app can read it on this device (20–60 seconds). Scanned text can have mistakes, so check every name, RN and bed afterwards.</p><p>Or is it a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p>`:tried?`<p>The text could not be read as a table with <b>KATIL / BED</b> and <b>NAMA / NAME</b> columns. Take the photo straight and close, with good light, or use the Excel / PDF printed from the computer.</p><p>Or is it a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p>`:`<p>The patient list must be an <b>Excel / CSV</b> file. Is this a <b>new floor plan</b> for ${esc(S.ward||S.map.ward)}?</p>`}</div>
+  <div class="m-foot"><button class="btn btn-ghost" onclick="askClose()">Cancel</button><span class="sp"></span>${scan?`<button class="btn btn-pri" onclick="closeModal();scanList(window._scanF)">Read as patient list</button>`:""}<button class="btn ${scan?"btn-ghost":"btn-pri"}" id="usePlanBtn">Use as the new floor plan</button></div>`);
   $("usePlanBtn").onclick=async()=>{if(S.role==="ward"){closeModal();openPlanShare(f);return}const w=S.role==="ward"?S.ward:S.map.ward;try{const img=await planFromFile(f);newPlan(w,img);closeModal();openPlanUpdate();toast("New plan loaded. Check the bed list, then place each bed on the plan.")}catch(err){toast("Could not read the file: "+(err.message||err))}}}
 function clearList(){if(!S.ed)return;if(!confirm("Clear the whole patient list? You can press Undo afterwards."))return;edSnap();S.ed.rows=[];S.ed.pre=1;refresh();toast("Patient list cleared.")}
 function submitCensus(){const W=WCFG[S.ward];
