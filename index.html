@@ -1061,6 +1061,9 @@ a.srcchip:hover{background:color-mix(in srgb,#16a34a 18%,var(--panel))}
 .pnmb{cursor:pointer;border-bottom:1px dashed transparent}.pnmb:hover,.pnmb:focus{border-bottom-color:var(--brand);outline:none}
 .pnmed{font-size:11px;color:var(--mut2);font-weight:500}
 .pill.pill-sm{font-size:10.5px;padding:1px 7px}
+.ebleave{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
+.ebleave summary{cursor:pointer;font-size:13.5px}
+.ebleave[open] summary{margin-bottom:8px}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -2896,6 +2899,12 @@ function edBed(bed,idx){const W=WCFG[S.ward];const R=S.ed.rows;const i=idx!=null
    <div class="lbl">Device</div><div class="devs">${DEVS.map(([k,l])=>`<button class="dv" aria-pressed="${S.eb.dev.includes(k)}" onclick="ebTog('dev','${k}',this.getAttribute('aria-pressed')!=='true');this.setAttribute('aria-pressed',S.eb.dev.includes('${k}'))">${l}</button>`).join("")}</div>
    <div class="lbl">Infectious disease</div><div class="chkgrid sm">${INF.map(([k,p])=>`<label><input type="checkbox" value="${k}"${S.eb.inf.includes(k)?" checked":""} onchange="ebTog('inf','${k}',this.checked);ebOthShow()">${k}<small>${PREC_L[p]}</small></label>`).join("")}</div>
    <div class="fld othf" id="ebOthW"${S.eb.inf.includes("OTHERS")?"":" hidden"}><label for="ebOth">Specify the infectious disease / organism (OTHERS) *</label><input id="ebOth" value="${esc(S.eb.oth)}" placeholder="e.g. Mumps, Measles, Scabies, Leptospirosis"></div></div>
+  ${i>=0&&r.name?(()=>{const l=locate(r);const fw=l.st==="TR"?l.from:l.st==="IN"?l.ward:S.ward;return`<details class="ebleave"><summary><b>Patient is not here any more</b> · discharged / died / transferred / other hospital</summary>
+   <div class="row2"><div class="fld"><label for="ebLT">What happened</label><select id="ebLT" onchange="$('ebLTo').hidden=this.value!=='TRANSFER'"><option value="DISCHARGE">Discharged home</option><option value="DEATH">Died</option><option value="TRANSFER">Transferred to another ward</option><option value="OTHER_HOSP">Transferred to another hospital</option></select></div>
+    <div class="fld"><label for="ebLD">Date</label><input type="date" id="ebLD" value="${CD()}" max="${TODAY}"></div></div>
+   <div class="row2"><div class="fld"><label for="ebLW">Last ward</label><select id="ebLW">${WARDS.map(w=>`<option${w===fw?" selected":""}>${esc(w)}</option>`).join("")}</select></div><div class="fld"><label for="ebLB">Last bed</label><input id="ebLB" value="${esc(r.bed||(l.bed||""))}"></div></div>
+   <div class="fld" id="ebLTo" hidden><label for="ebLToW">To ward</label><select id="ebLToW">${WARDS.filter(w=>w!==S.ward).map(w=>`<option>${esc(w)}</option>`).join("")}</select></div>
+   <button class="btn btn-pri btn-sm" onclick="ebLeave()">Save and take off the list</button></details>`})():""}
   <div class="m-foot">${i>=0?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="ebRemove()">Remove</button>`:""}<span class="sp"></span><button class="btn btn-ghost" onclick="askClose()">Cancel</button><button class="btn btn-pri" onclick="ebSave()">Save</button></div>`,true);
   const chk=()=>{const t={name:$("ebN").value.trim().toUpperCase(),rn:$("ebR").value.trim(),ic:$("ebI").value.trim()};const m=t.name||t.rn||t.ic?orgsOf(t):[];$("ebMd").innerHTML=m.length?`<div class="banner crit" style="margin:8px 0 0">${svg("bed")}<div><b>MDRO · ${m.join(", ")}</b> tagged by UKI · contact precautions.</div></div>`:""};["ebN","ebR","ebI"].forEach(x=>$(x).addEventListener("change",chk));chk();
   $("ebN").addEventListener("input",()=>{clearTimeout(window._ebq);window._ebq=setTimeout(ebSearch,200)});$("ebR").addEventListener("input",()=>{clearTimeout(window._ebq);window._ebq=setTimeout(()=>ebSearch($("ebR").value),200)})}
@@ -2922,6 +2931,11 @@ function ebSave(){const E=S.eb;const name=$("ebN").value.trim().toUpperCase();if
   const nb=$("ebMv").value;const old=r.bed;Object.assign(r,{name,rn:$("ebR").value.trim(),ic:$("ebI").value.trim(),inf:[...E.inf],dev:[...E.dev],mw:[...E.mw],ct:[...(E.ct||[])],rs:(E.ct||[]).length?(S.role==="uki"?rsRead("eb_"):((E.rs&&E.rs.rs)||null)):null,oth:E.oth,mwo:E.mwo});if($("ebDiet")){r.diet=$("ebDiet").value.trim().toUpperCase();r.dnote=$("ebDn").value.trim()}if((E.ct||[]).length)ctUpsert(r,S.ward,E.ct,r.rs,E.oth);
   if(nb!==old){const o=nb&&R.find(y=>y!==r&&y.name&&y.bed===nb);if(o)o.bed=old||"";r.bed=nb}
   S.ed.touched=true;closeModal();S.map.focus=r.bed;if(S.tab==="census")paintEd();else refresh();toast(`${name}${r.bed?" in bed "+r.bed:" no bed yet"}.${allOrgs(r).length?" Marked as MDRO.":""}`)}
+/* the patient on the list has left: record the movement (Movements + patient history + masterlist "Patient now") and take them off today's list */
+function ebLeave(){const r=S.ed.rows[S.eb.i];if(!r)return;const type=$("ebLT").value,d=$("ebLD").value;if(!isD(d)||d>TODAY){toast("Choose the date.");return}const from=$("ebLW").value,bed=$("ebLB").value.trim().toUpperCase(),to=type==="TRANSFER"?$("ebLToW").value:"";
+  const lbl={DISCHARGE:"discharged",DEATH:"died",TRANSFER:"transferred to "+to,OTHER_HOSP:"transferred to another hospital"}[type];if(!confirm(`${r.name}: ${lbl} on ${fmt(d)}?\n\nThe movement is recorded and the patient is taken off this list.`))return;
+  MOVES.push({id:uid("M"),date:d,...pick(r),from,bed,to,type,by:(S.icn||"Staff "+S.ward)+(S.role==="uki"?" (UKI)":" ("+S.ward+")"),at:Date.now()});try{applyLeave(pick(r),type,d,from,to)}catch(e){console.warn(e)}
+  S.ed.rows.splice(S.eb.i,1);S.ed._dirty=true;closeModal();if(S.tab==="census")paintEd();else refresh();toast(`${r.name}: ${lbl} on ${fmt(d)} · recorded in Movements.`)}
 function ebRemove(){const r=S.ed.rows[S.eb.i];S.ed.rows.splice(S.eb.i,1);closeModal();if(S.tab==="census")paintEd();else refresh();toast(`${r.name} removed from the list. Choose their status (discharged / transferred) below the list.`)}
 function bedActs(bed,row){if(!row||row.imp||S.map.date!==TODAY)return"";const c=censusOf(S.map.ward,TODAY);
   if(!c||!c.rows.includes(row))return`<div class="banner warn" style="margin-top:12px">${svg("bed")}<div>Census ${esc(S.map.ward)} today has not been submitted. Fill in today's census first to change beds or transfer patients.</div></div>`;
