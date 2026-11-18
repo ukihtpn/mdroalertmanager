@@ -1060,6 +1060,7 @@ a.srcchip:hover{background:color-mix(in srgb,#16a34a 18%,var(--panel))}
 @media(max-width:760px){.scang{grid-template-columns:1fr}.scanimg{max-height:55vh;border-right:0;border-bottom:1px solid var(--line)}}
 .pnmb{cursor:pointer;border-bottom:1px dashed transparent}.pnmb:hover,.pnmb:focus{border-bottom-color:var(--brand);outline:none}
 .pnmed{font-size:11px;color:var(--mut2);font-weight:500}
+.pill.pill-sm{font-size:10.5px;padding:1px 7px}
 
 .syncst{position:fixed;left:12px;bottom:12px;z-index:90;border:0;border-radius:999px;padding:7px 14px;font:600 12.5px/1 inherit;background:var(--ink);color:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .syncst[data-k="1"]{background:var(--ok);color:#fff}.syncst[data-k="2"]{background:var(--crit);color:#fff}
@@ -1309,9 +1310,19 @@ function pullId(o){let h=5381;const t=caseKey(o);for(let i=0;i<t.length;i++)h=((
 /* LAB_SURVEILLANCE row -> existing case: changes made in the sheet since the last pull are copied into the app
    (a field the sheet did not change is left alone, so corrections made in the app are kept) */
 const hs=v=>{let h=5381;const t=String(v??"");for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))>>>0;return h.toString(36)};
+function specOk(a,b){a=String(a||"").toUpperCase().trim();b=String(b||"").toUpperCase().trim();return!a||!b||a===b||a.startsWith(b)||b.startsWith(a)}
+/* a case written from the app that came back from the sheet as a separate record (e.g. the specimen was shortened by the sheet's dropdown, or RN added in the sheet):
+   the app record keeps its work, takes the sheet row, and the copy is removed */
+function labReconcile(){const out=[];const nn=normN;CASES.filter(c=>(c.lab_pushed||c.lab_add||(c.created_at&&!c.imp))&&!LABROW.has(c.id)&&c.name&&isD(c.sample_date)).forEach(c=>{
+    const d=CASES.find(x=>x!==c&&/^L/.test(x.id)&&LABROW.has(x.id)&&nn(x.name)===nn(c.name)&&x.sample_date===c.sample_date&&sgrp(x.subtype)===sgrp(c.subtype)&&specOk(x.spec,c.spec)&&!CASES.some(y=>y!==x&&y.lid===x.id));
+    if(!d)return;LABROW.set(c.id,LABROW.get(d.id));LABROW.delete(d.id);
+    COLS.forEach(([k,,,t])=>{if(t==="auto")return;const v=d[k];if((c[k]===undefined||c[k]===""||c[k]===null)&&v!==undefined&&v!=="")c[k]=v});
+    ["reviews","att","ukin","remind","dq_ok"].forEach(k=>{if((d[k]||[]).length)c[k]=(c[k]||[]).concat(d[k].filter(x=>!(c[k]||[]).some(y=>JSON.stringify(y)===JSON.stringify(x))))});
+    c.lid=d.id;linkIds(c,d);if(d.lsv)c.lsv=d.lsv;c.lab_pushed=c.lab_pushed||Date.now();delete c.lab_add;const i=CASES.indexOf(d);if(i>=0)CASES.splice(i,1);out.push(c.name)});
+  return out}
 function pullMerge(o){o.id=pullId(o);const L=c=>(same(c,o)||(normN(c.name)&&normN(c.name)===normN(o.name)))&&c.sample_date===o.sample_date&&c.subtype===o.subtype;
   const U=window._pullUsed||(window._pullUsed=new Set());const free=x=>!U.has(x.id)&&!/^L/.test(x.id);/* fallback only for records made before fixed ids */
-  if(U.has(o.id))return"same";/* same row twice in the sheet */if(DELS.some(z=>z.id===o.id))return"same";/* deleted on purpose */const c=CASES.find(x=>x.id===o.id)||CASES.find(x=>x.lid===o.id||(x.lids||[]).includes(o.id))||CASES.find(x=>free(x)&&L(x)&&x.spec===o.spec&&(x.lab_date===o.lab_date||!x.lab_date||!o.lab_date))||CASES.find(x=>free(x)&&L(x)&&(x.spec===o.spec||!x.spec||!o.spec));
+  if(U.has(o.id))return"same";/* same row twice in the sheet */if(DELS.some(z=>z.id===o.id))return"same";/* deleted on purpose */const c=CASES.find(x=>x.id===o.id)||CASES.find(x=>x.lid===o.id||(x.lids||[]).includes(o.id))||CASES.find(x=>free(x)&&L(x)&&x.spec===o.spec&&(x.lab_date===o.lab_date||!x.lab_date||!o.lab_date))||CASES.find(x=>free(x)&&L(x)&&specOk(x.spec,o.spec));
   window._pullHit=c||null;if(!c){U.add(o.id);return""}U.add(c.id);if(c.id!==o.id&&c.lid!==o.id)c.lid=o.id;if(c.jk_final&&isFinal(c.sample_date))return"same";
   const snap={};let ch=0;COLS.forEach(([k,,,t])=>{if(t==="auto")return;const v=o[k];if(v===undefined||v===""||v===false)return;snap[k]=hs(v);if(String(c[k]??"")===String(v))return;
     const old=c.lsv&&c.lsv[k];if(c.lsv?old!==snap[k]:(String(c[k]??"").trim()===""||(k==="case_status"&&v==="REPEAT"))){c[k]=v;ch++}});
@@ -1478,6 +1489,14 @@ function locPill(l,c){
   if(l.st==="OH")return`<span class="pill p-mut">To another hospital ${fmt(l.date)}</span>`;
   if(l.st==="DIED")return`<span class="pill p-mut">Died ${fmt(l.date)}</span>`;
   return c&&!recentLab(c)?`<span class="pill p-mut">Not in census</span>`:`<span class="pill p-warn">Not yet found in census</span>`}
+/* masterlist: where the patient is now (census / movements first, then the masterlist's own outcome fields) */
+function nowPill(c){const l=locate(c);const sm=x=>x.replace('class="pill','class="pill pill-sm');
+  if(isDead(c)&&l.st!=="DIED"){const d=dodOf(c)||c.dis_date;return sm(`<span class="pill p-mut" title="From the masterlist">Died${isD(d)?" "+fmt(d):""}</span>`)}
+  if(l.st!=="NONE")return sm(locPill(l,c));
+  if(c.dis_status==="Discharged")return sm(`<span class="pill p-mut" title="From the masterlist">Discharge${isD(c.dis_date)?" "+fmt(c.dis_date):""}</span>`);
+  if(c.dis_status==="Transferred to other hospital")return sm(`<span class="pill p-mut" title="From the masterlist">To another hospital${isD(c.dis_date)?" "+fmt(c.dis_date):""}</span>`);
+  if(c.dis_status==="In ward"&&c.dis_ward)return sm(`<span class="pill p-ok" title="From the masterlist">${esc(c.dis_ward)}${c.dis_bed?" · bed "+esc(c.dis_bed):""}</span>`);
+  return sm(locPill(l,c))}
 function locSub(l){if(["DC","DIED","OH"].includes(l.st))return`Last bed: ${esc(l.ward)} · ${esc(l.bed)}`;if(l.st==="TR")return`Last bed ${esc(l.from)} · ${esc(l.bed)}, awaiting census ${esc(l.ward)}`;if(l.st==="IN")return`Census ${fmt(l.date)}`;return""}
 /* bed state for mapping */
 let IMPMODE=false;
@@ -3153,7 +3172,7 @@ function rMasterGroups(L){const by={};L.forEach(c=>{const k=mlKey(c);(by[k]=by[k
      <div class="gc"><span class="pill p-ok">${n.done} complete</span><span class="pill p-warn">${n.pend} pending</span><span class="pill p-crit">${n.none} incomplete</span></div></summary>
     <div class="tbl-wrap"><table class="grpt"><thead><tr><th></th><th>Patient / RN</th><th>Ward · bed (positive)</th><th>Organism · specimen</th><th title="Cases are grouped by month of the sample date (same as JKNS)">Sample date · lab</th><th>Masterlist data</th><th>Classification</th><th>MDRO form</th><th>UKI review</th><th></th></tr></thead><tbody>
     ${R.map(c=>{const o=overall(c);return`<tr class="ov-${o}"><td><span class="ovdot" title="${OV[o].l}" style="background:var(${OV[o].c})"></span></td><td class="nm">${probTag(c)}<button class="namebtn${c.tag==="Aktif"?" mdro":""}" onclick="openProfile('${c.id}')">${esc(c.name)}</button><span class="mono">RN ${esc(c.rn)} · ${esc(c.case_status)}</span></td>
-      <td>${esc(c.ward)}${c.bed?" · "+esc(c.bed):""}</td><td><b>${esc(subL(c.subtype))}</b> · ${esc(c.spec)}</td><td class="mono">${isD(c.sample_date)?`<b>${fmt(c.sample_date)}</b>`:"—"}${isD(c.lab_date)?`<div class="hint" style="margin:0${isD(c.sample_date)&&c.lab_date.slice(0,7)!==c.sample_date.slice(0,7)?";color:var(--warn);font-weight:700":""}">lab ${fmt(c.lab_date)}</div>`:""}${sdNote(c)}</td><td>${dataPill(c)}${S.role==="uki"&&liveOK()&&LABMETA&&(k=>!["in","skip","off"].includes(k))(labStat(c).k)?` <span class="pill p-warn" title="${esc(labStat(c).t)}">Not in LAB sheet</span>`:""}</td><td>${clsPill(c)}</td><td>${fPill(c)}</td><td>${revPill(c)}</td>
+      <td>${esc(c.ward)}${c.bed?" · "+esc(c.bed):""}<div style="margin-top:3px">${nowPill(c)}</div></td><td><b>${esc(subL(c.subtype))}</b> · ${esc(c.spec)}</td><td class="mono">${isD(c.sample_date)?`<b>${fmt(c.sample_date)}</b>`:"—"}${isD(c.lab_date)?`<div class="hint" style="margin:0${isD(c.sample_date)&&c.lab_date.slice(0,7)!==c.sample_date.slice(0,7)?";color:var(--warn);font-weight:700":""}">lab ${fmt(c.lab_date)}</div>`:""}${sdNote(c)}</td><td>${dataPill(c)}${S.role==="uki"&&liveOK()&&LABMETA&&(k=>!["in","skip","off"].includes(k))(labStat(c).k)?` <span class="pill p-warn" title="${esc(labStat(c).t)}">Not in LAB sheet</span>`:""}</td><td>${clsPill(c)}</td><td>${fPill(c)}</td><td>${revPill(c)}</td>
       <td><div class="acts"><button class="btn btn-${fstat(c)==="filled"?"pri":"ghost"} btn-sm" onclick="openForm('${c.id}')">MDRO form</button><button class="btn btn-ghost btn-sm" onclick="openCase('${c.id}')">Edit data</button></div></td></tr>`}).join("")}
     </tbody></table></div></details>`}).join(""):`<div class="panel empty-row">No records for this filter.</div>`}
 
@@ -3602,9 +3621,26 @@ function rMoves(){const q=S.mvQ.toUpperCase();const all=S.mvAll||!!q;const L0=[.
   return`<div class="sec-h"><div><h2>Patient movements</h2><p>Recorded when the ward confirms a patient not in the census, when the system detects the patient in another ward, or when UKI records it here or on the mapping.</p></div>${S.role==="uki"?`<button class="btn btn-pri" onclick="mvAdd()">+ Record movement</button>`:""}</div>
   <div class="panel"><div class="toolbar"><input type="search" id="mvQ" placeholder="Search name, RN, ward" value="${esc(S.mvQ)}" oninput="S.mvQ=this.value;clearTimeout(window._mv);window._mv=setTimeout(()=>{refresh();const e=$('mvQ');e.focus();e.setSelectionRange(e.value.length,e.value.length)},250)"><span class="hint" style="margin:0">${L.length} records${!all?` · MDRO / CRE contact / infectious only${hid?` (${hid} other patients hidden: type a name to find them)`:""}`:""}</span><label class="hint" style="margin:0 0 0 auto;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" ${S.mvAll?"checked":""} onchange="S.mvAll=this.checked;refresh()"> Show all patients</label></div>
   <div class="tbl-wrap"><table><thead><tr><th>Date of movement</th><th>Name / RN</th><th>Type</th><th>From (ward · last bed)</th><th>Transferred to / outcome</th><th>Recorded by</th></tr></thead><tbody>
-  ${L.slice(0,200).map(m=>`<tr><td class="mono"><b>${fmt(m.date)}</b><div class="hint" style="margin:0">recorded ${fmtT(m.at)}</div></td><td class="nm"><b>${esc(m.name)} ${mdroOf(m).length?'<span class="pill p-crit">MDRO</span>':(()=>{try{return ctRec(m)?'<span class="pill p-warn">CRE contact</span>':""}catch(e){return""}})()}</b><span class="mono">RN ${esc(m.rn)}</span></td><td>${tp[m.type]}</td><td>${esc(m.from)} · ${esc(m.bed)}</td><td>${m.type==="TRANSFER"?`Transferred to ward <b>${esc(m.to||"—")}</b>`:m.type==="BED"?`Moved to bed <b>${esc(m.to||"—")}</b> (same ward)`:m.type==="DISCHARGE"?"Discharged home":m.type==="DEATH"?"Died in ward":m.type==="OTHER_HOSP"?"Transferred to another hospital":esc(m.to||"—")}</td><td>${esc(m.by)}${m.auto?' <span class="pill p-brand">auto</span>':""}${m.mby&&m.mby!==m.by?`<div class="hint" style="margin:0">changed by ${esc(m.mby)} ${fmtT(m.mat)}</div>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No movements.</td></tr>'}
+  ${L.slice(0,200).map(m=>`<tr><td class="mono"><b>${fmt(m.date)}</b><div class="hint" style="margin:0">recorded ${fmtT(m.at)}</div></td><td class="nm"><b><button class="namebtn" onclick="mvOpen(${MOVES.indexOf(m)})">${esc(m.name)}</button> ${mdroOf(m).length?'<span class="pill p-crit">MDRO</span>':(()=>{try{return ctRec(m)?'<span class="pill p-warn">CRE contact</span>':""}catch(e){return""}})()}</b><span class="mono">RN ${esc(m.rn)}</span></td><td>${tp[m.type]}</td><td>${esc(m.from)} · ${esc(m.bed)}</td><td>${m.type==="TRANSFER"?`Transferred to ward <b>${esc(m.to||"—")}</b>`:m.type==="BED"?`Moved to bed <b>${esc(m.to||"—")}</b> (same ward)`:m.type==="DISCHARGE"?"Discharged home":m.type==="DEATH"?"Died in ward":m.type==="OTHER_HOSP"?"Transferred to another hospital":esc(m.to||"—")}</td><td>${esc(m.by)}${m.auto?' <span class="pill p-brand">auto</span>':""}${m.mby&&m.mby!==m.by?`<div class="hint" style="margin:0">changed by ${esc(m.mby)} ${fmtT(m.mat)}</div>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="empty-row">No movements.</td></tr>'}
   </tbody></table></div></div>`}
 
+/* one movement: the patient's whole location history (beds and dates), and UKI can correct or delete this record */
+function mvOpen(i){const m=MOVES[i];if(!m)return;const p={name:m.name,rn:m.rn,ic:m.ic};const uki=S.role==="uki";const C=CASES.filter(c=>same(c,p));
+  const opt=(v,l)=>`<option value="${v}"${m.type===v?" selected":""}>${l}</option>`;
+  openModal(`<div class="m-head"><div class="hx"><h3>${esc(m.name)}</h3><p>RN ${esc(m.rn||"—")}${m.ic?" · "+esc(m.ic):""}${C.length?" · "+C.map(c=>esc(subL(c.subtype))).filter((x,k,A)=>A.indexOf(x)===k).join(", "):""}</p></div>${xBtn()}</div>
+  <div class="m-body">${nowHTML(p)}<div class="lbl" style="margin-top:10px">Location history (beds and dates)</div>${trailHTML(p)}
+   ${uki?`<div class="lbl" style="margin-top:12px">This movement · correct it if it is wrong</div>
+   <div class="row2"><div class="fld"><label for="mvE_t">Movement</label><select id="mvE_t" onchange="$('mvE_tw').hidden=this.value!=='TRANSFER';$('mvE_nb').hidden=this.value!=='BED'">${opt("DISCHARGE","Discharge")}${opt("TRANSFER","Transfer to another ward")}${opt("DEATH","Died")}${opt("OTHER_HOSP","Other hospital")}${opt("BED","Bed change (same ward)")}</select></div>
+    <div class="fld"><label for="mvE_d">Date</label><input type="date" id="mvE_d" value="${esc(m.date)}" max="${TODAY}"></div></div>
+   <div class="row2"><div class="fld"><label for="mvE_w">From ward</label><select id="mvE_w">${WARDS.map(w=>`<option${w===m.from?" selected":""}>${esc(w)}</option>`).join("")}</select></div><div class="fld"><label for="mvE_b">Last bed</label><input id="mvE_b" value="${esc(m.bed||"")}"></div></div>
+   <div class="fld" id="mvE_tw" ${m.type==="TRANSFER"?"":"hidden"}><label for="mvE_to">To ward</label><select id="mvE_to">${WARDS.map(w=>`<option${w===m.to?" selected":""}>${esc(w)}</option>`).join("")}</select></div>
+   <div class="fld" id="mvE_nb" ${m.type==="BED"?"":"hidden"}><label for="mvE_nbi">New bed</label><input id="mvE_nbi" value="${m.type==="BED"?esc(m.to||""):""}"></div>`:""}</div>
+  <div class="m-foot">${uki?`<button class="btn btn-ghost" style="color:var(--crit)" onclick="mvDel(${i})">Delete this movement</button>`:""}<span class="sp"></span>${C[0]?`<button class="btn btn-ghost" onclick="closeModal();openProfile('${C[0].id}')">Patient profile</button>`:""}<button class="btn btn-ghost" onclick="closeModal()">Close</button>${uki?`<button class="btn btn-pri" onclick="mvSaveEdit(${i})">Save changes</button>`:""}</div>`,true)}
+function mvSaveEdit(i){const m=MOVES[i];if(!m)return;const t=$("mvE_t").value,d=$("mvE_d").value;if(!isD(d)||d>TODAY){toast("Choose a valid date.");return}
+  const o={type:t,date:d,from:$("mvE_w").value,bed:$("mvE_b").value.trim().toUpperCase(),to:t==="TRANSFER"?$("mvE_to").value:t==="BED"?$("mvE_nbi").value.trim().toUpperCase():""};
+  if(t==="BED"&&!o.to){toast("Type the new bed.");return}Object.assign(m,o,{mby:(S.icn||"UKI")+" (UKI)",mat:Date.now()});if(typeof audit==="function")try{audit("Movement corrected",m.name+" · "+t+" "+d)}catch(e){}
+  closeModal();toast("Movement corrected.");refresh()}
+function mvDel(i){const m=MOVES[i];if(!m)return;if(!confirm(`Delete this movement?\n\n${m.name} · ${m.type} · ${fmt(m.date)}\n\nUse this only for a movement recorded by mistake. The patient's location will follow the census again.`))return;MOVES.splice(i,1);if(typeof audit==="function")try{audit("Movement deleted",m.name+" · "+m.type+" "+m.date)}catch(e){}closeModal();toast("Movement deleted.");refresh()}
 /* a discharge / transfer / death / other hospital: masterlist "Patient now" + UKI mapping beds follow it */
 function applyLeave(p,type,d,from,to){
   CASES.filter(c=>same(c,p)&&c.dis_status==="In ward"&&(!from||!c.dis_ward||c.dis_ward===from)).forEach(c=>{
@@ -4376,6 +4412,7 @@ async function syncSheets(btn){if(!liveOK()){toast("Available in the live app (l
 async function pullLab(L,quiet){if(!L.lab||!L.lab.url)return;
   try{const d=await GS("pullSheet",TOKEN,"lab");const R=analyseWb(wbFromPull(d),d.name);let n=0,f=0;LABROW=new Map();LABMETA=R.masterSheet?{sheet:R.masterSheet,hdrRow:R.mhi+1,hdr:R.mhdr,at:Date.now()}:null;
     window._pullUpd=0;window._pullUsed=new Set();R.master.forEach(o=>{if(isFinal(o.sample_date)){f++;return}window._pullHit=null;{const m=pullMerge(o);const hit=window._pullHit;if(hit&&o._r)LABROW.set(hit.id,o._r);if(m==="upd"){window._pullUpd=(window._pullUpd||0)+1;return}if(m)return}if(o._r)LABROW.set(o.id,o._r);o.lsv=lsvOf(o);CASES.push(o);n++});
+    {const rc=labReconcile();if(rc.length){n=Math.max(0,n-rc.length);setTimeout(()=>toast(`Linked to their LAB_SURVEILLANCE row: ${rc.join(", ")} (the sheet copy was a duplicate).`),1500)}}
     labNotes(d,R);labCmts(d);const u=window._pullUpd||0;window._pullUpd=0;if(n||u){IMPORTS.unshift({at:Date.now(),file:d.name+" (auto-pull)",by:S.icn,nD:0,nB:0,nM:n,nP:0});if(!quiet||($("modalBg").hidden&&!["register","census"].includes(S.tab)))refresh()}if(!quiet||n||u)toast((n||u?`LAB_SURVEILLANCE: ${n} new cases, ${u} cases updated from changes in the sheet.`:`LAB_SURVEILLANCE checked · no changes.`)+(window.GCMSTAT?` Comments: ${GCMSTAT.n} read, ${GCMSTAT.m} matched to a patient${GCMSTAT.noq?` (${GCMSTAT.noq} without cell text)`:""}.`:d.commentsErr?"":" Comments: not read (update Code.gs).")) }catch(e){if(!quiet)toast("LAB_SURVEILLANCE pull failed: "+(e.message||e));return}
   if(S.role==="uki"){const n=cleanAutoNotes();if(n){toast(`Auto text (lab report no. / diagnosis / doctor) removed from NOTES/EDITS of ${n} case${n>1?"s":""}.`);refresh()}}
   if(L.wb)setTimeout(()=>labPush(quiet),quiet?0:2500)}
