@@ -1496,6 +1496,19 @@ function mdroOf(pt){if(!pt)return[];const m=mdroIx().m;const set=new Set();const
   if(!set.size)return[];return[...set].filter(c=>c.tag==="Aktif"&&same(c,pt))}
 let LOCC=null;if(typeof locate==="function"){const _locate=locate;locate=function(pt){if(!pt)return _locate(pt);const k=[normRN(pt.rn),(pt.rns||[]).join(","),normR(pt.ic),normN(pt.name),(pt.nx||[]).join(","),MOVES.length,CENSUS.length,(typeof UBEDS!=="undefined"?UBEDS.length:0),CASES.length].join("|");
   if(!LOCC){LOCC=new Map();taskClear("loc")}let v=LOCC.get(k);if(v===undefined){v=_locate(pt);LOCC.set(k,v)}return v}}
+/* a newly registered case whose patient is already in today's census under a short name / without RN:
+   link the census row (fill RN / IC, keep the full name) so the ward, dashboard and map show the MDRO at once */
+const nmIn=(a,b)=>{const A=nameToks(a).filter(t=>t.length>1&&!/^(BIN|BINTI|BT|BN|A\/L|A\/P|AL|AP)$/.test(t)),B=new Set(nameToks(b));return A.length>0&&A.every(t=>B.has(t))};
+function caseCensusLink(c){if(!c||c.tag!=="Aktif"||!c.name)return null;let found=null,warn=null;
+  const WL=[...new Set([c.ward&&(matchWard?matchWard(c.ward):c.ward),...WARDS].filter(w=>w&&WCFG[w]))];
+  for(const w of WL){const lc=latestCensus(w);if(!lc||lc.date<addDays(TODAY,-3))continue;for(const r of lc.rows){if(!r.name)continue;
+    if(same(r,c)){found=found||{w,bed:r.bed,date:lc.date};continue}
+    const cw=c.ward&&(matchWard?matchWard(c.ward):c.ward);const loose=(normN(r.name)===normN(c.name))||(w===cw&&((nmIn(r.name,c.name)&&nameToks(r.name).length>=2)||(nmIn(c.name,r.name)&&nameToks(c.name).length>=2)));if(!loose)continue;
+    const rr=normRN(r.rn),cr=normRN(c.rn),ri=normR(r.ic),ci=normR(c.ic);
+    if((rr&&cr&&rr!==cr)||(ri&&ci&&ri!==ci)){if(w===c.ward||!warn)warn={w,bed:r.bed,name:r.name,rn:r.rn};continue}
+    if(!found){if(!rr&&cr)r.rn=c.rn;if(!ri&&ci)r.ic=c.ic;if(String(c.name).length>String(r.name).length){r.name=c.name;r.nmFix=1}r.ed_at=Date.now();found={w,bed:r.bed,date:lc.date,linked:1}}}}
+  if(found)try{LOCC=null;MIX=null}catch(e){}return found||(warn?{warn}:null)}
+function caseCensusMsg(c){const L=caseCensusLink(c);if(!L)return"";if(L.warn)return` · ⚠ ${L.warn.name} in ${L.warn.w} bed ${L.warn.bed||"?"} has a different RN (${L.warn.rn}) in today's census: check`;return` · in today's census ${L.w} bed ${L.bed||"?"}${L.linked?" (census row linked)":""}: shown as MDRO in the ward, dashboard and map`}
 function orgsOf(pt){return[...new Set(mdroOf(pt).map(c=>c.subtype))]}
 const sgrp=s=>/^ESBL/.test(s)?"ESBL":/^MRO/.test(s)?"MRO":/RSA$/.test(s)?"MRSA":s;
 function allOrgs(r){const o=orgsOf(r);let mw=r.mw||[];if(mw.length&&mw.some(k=>/CRE/i.test(k)&&!o.includes(k))){const cs=ctSwab(r);if(cs&&!cs.pos)mw=mw.filter(k=>!/CRE/i.test(k)||o.includes(k))}return[...new Set(o.concat(mw))]}
@@ -3460,7 +3473,7 @@ function submitReg(force){saveDraft();const MS=missAll("rg_");if(MS.length){mark
       <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Sample date</th><th>Organism</th><th>Specimen</th><th>Ward</th><th>Status</th><th>Inf / col</th></tr></thead><tbody>${P.slice(0,8).map(x=>`<tr><td class="mono">${fmt(x.sample_date)}</td><td>${esc(subL(x.subtype))}${x.organism?`<div class="hint" style="margin:0">${esc(x.organism)}</div>`:""}</td><td>${esc(x.spec_other||x.spec||"")}</td><td>${esc(x.ward||"")}</td><td><span class="pill ${x.case_status==="NEW"?"p-crit":""}">${esc(x.case_status||"no status")}</span></td><td>${esc(x.infcol||"—")}</td></tr>`).join("")}</tbody></table></div></div>
      <div class="m-foot"><button class="btn btn-ghost" onclick="askClose()">Cancel</button><span class="sp"></span><button class="btn ${sug==="NEW"?"btn-pri":"btn-ghost"}" onclick="closeModal();$('rg_case_status').value='NEW';submitReg(true)">Save as NEW${sug==="NEW"?" (suggested)":""}</button><button class="btn ${sug==="REPEAT"?"btn-pri":"btn-ghost"}" onclick="closeModal();$('rg_case_status').value='REPEAT';submitReg(true)">Save as REPEAT${sug==="REPEAT"?" (suggested)":""}</button></div>`);return}}
   const c={id:uid("K"),...o,att:S.reg.att,created_at:Date.now(),created_by:S.icn};CASES.push(c);S.reg=regBlank();
-  refresh();savedPop(c,`Case registered${c.att.length?` with ${c.att.length} attachments`:""}${o.tag==="Aktif"?" · the ward will see this patient as MDRO":""}`)}
+  const cm=caseCensusMsg(c);refresh();savedPop(c,`Case registered${c.att.length?` with ${c.att.length} attachments`:""}${o.tag==="Aktif"?(cm||" · the ward will see this patient as MDRO"):""}`)}
 
 /* ================= attachments (camera / gallery / PDF / paste / drop) ================= */
 function attList(ctx){if(ctx==="reg")return S.reg.att;const c=CASES.find(x=>x.id===ctx);c.att=c.att||[];return c.att}
@@ -4492,7 +4505,7 @@ async function syncSheets(btn){if(!liveOK()){toast("Available in the live app (l
   const b=btn||$("syncBtn");const old=b?b.innerHTML:"";if(b){b.disabled=true;b.innerHTML='<span class="spin"></span><span>Updating…</span>'}
   try{const L=await loadLinks();if(!L||(!(L.lab&&L.lab.url)&&!(L.census&&L.census.url))){toast("No Google Sheet linked yet. Link LAB_SURVEILLANCE / census in Import → Link Google Sheets.");return}
     {const nd=dedupeCases();if(nd)toast(`${nd} duplicate copies removed.`)}
-    if(L.lab&&L.lab.url)await pullLab(L);if(L.census&&L.census.url)await autoPullCensus(L);if(L.pd211&&L.pd211.url)await pullPD(L);refresh()}
+    if(L.lab&&L.lab.url)await pullLab(L);if(L.census&&L.census.url)await autoPullCensus(L);try{const lk=CASES.filter(c=>c.tag==="Aktif"&&!c.syn&&String(c.sample_date||"")>=addDays(TODAY,-30)).map(c=>{const r=caseCensusLink(c);return r&&r.linked?`${c.name} (${r.w} bed ${r.bed||"?"})`:""}).filter(Boolean);if(lk.length)setTimeout(()=>toast(`Found in today's census, now shown as MDRO: ${lk.join(", ")}.`),1200)}catch(e){console.warn(e)}if(L.pd211&&L.pd211.url)await pullPD(L);refresh()}
   finally{window._syncing=0;if(b&&b.isConnected){b.disabled=false;b.innerHTML=old}}}
 /* PD211: new / changed months go straight into the monthly denominator (JKNS-finalized months are left alone) */
 async function pdPullNow(){if(!liveOK()){toast("Available in the live app (linked Google Sheets).");return}const L=await loadLinks();if(!L||!L.pd211||!L.pd211.url){window._pdLast={err:"PD211 Google Sheet is not linked. Import → Link Google Sheets → STATISTIK PD211.",at:Date.now()};refresh();return}toast("Reading PD211…");await pullPD(L);refresh()}
