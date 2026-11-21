@@ -1493,7 +1493,8 @@ let MIX=null;const taskClear=k=>{if(!taskClear[k]){taskClear[k]=1;setTimeout(()=
 function mdroIx(){if(MIX&&MIX.a===CASES&&MIX.n===CASES.length)return MIX;const m=new Map();const put=(k,c)=>{if(!k)return;let L=m.get(k);if(!L)m.set(k,L=[]);L.push(c)};
   CASES.forEach(c=>{if(c.tag!=="Aktif")return;rnSet(c).forEach(r=>put("R"+r,c));put("I"+normR(c.ic),c);put("N"+normN(c.name),c)});MIX={a:CASES,n:CASES.length,m};taskClear("mix");return MIX}
 function mdroOf(pt){if(!pt)return[];const m=mdroIx().m;const set=new Set();const add=k=>{const L=m.get(k);if(L)L.forEach(c=>set.add(c))};rnSet(pt).forEach(r=>add("R"+r));add("I"+normR(pt.ic));add("N"+normN(pt.name));
-  if(!set.size)return[];return[...set].filter(c=>c.tag==="Aktif"&&same(c,pt))}
+  if(pt.mq)Object.entries(pt.mq).forEach(([id,v])=>{if(v==="Y"){const c=CASES.find(x=>x.id===id);if(c)set.add(c)}});
+  if(!set.size)return[];return[...set].filter(c=>c.tag==="Aktif"&&(same(c,pt)||(pt.mq&&pt.mq[c.id]==="Y")))}
 let LOCC=null;if(typeof locate==="function"){const _locate=locate;locate=function(pt){if(!pt)return _locate(pt);const k=[normRN(pt.rn),(pt.rns||[]).join(","),normR(pt.ic),normN(pt.name),(pt.nx||[]).join(","),MOVES.length,CENSUS.length,(typeof UBEDS!=="undefined"?UBEDS.length:0),CASES.length].join("|");
   if(!LOCC){LOCC=new Map();taskClear("loc")}let v=LOCC.get(k);if(v===undefined){v=_locate(pt);LOCC.set(k,v)}return v}}
 /* a newly registered case whose patient is already in today's census under a short name / without RN:
@@ -1509,6 +1510,22 @@ function caseCensusLink(c){if(!c||c.tag!=="Aktif"||!c.name)return null;let found
     if(!found){if(!rr&&cr)r.rn=c.rn;if(!ri&&ci)r.ic=c.ic;if(String(c.name).length>String(r.name).length){r.name=c.name;r.nmFix=1}r.ed_at=Date.now();found={w,bed:r.bed,date:lc.date,linked:1}}}}
   if(found)try{LOCC=null;MIX=null}catch(e){}return found||(warn?{warn}:null)}
 function caseCensusMsg(c){const L=caseCensusLink(c);if(!L)return"";if(L.warn)return` · ⚠ ${L.warn.name} in ${L.warn.w} bed ${L.warn.bed||"?"} has a different RN (${L.warn.rn}) in today's census: check`;return` · in today's census ${L.w} bed ${L.bed||"?"}${L.linked?" (census row linked)":""}: shown as MDRO in the ward, dashboard and map`}
+/* census name spelled like an active MDRO patient (but not matched by RN / IC / exact name): ask the ward / UKI */
+const nmCore=n=>nameToks(String(n||"").toUpperCase()).filter(t=>!/^(BIN|BINTI|BT|BTE|BN|A\/L|A\/P|AL|AP|S\/O|D\/O|MOHD|MOHAMAD|MOHAMMAD|MUHAMMAD|MUHAMAD|MUHD|MD|NOR|NUR)$/.test(t)).join(" ");
+function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m||n;let p=Array.from({length:n+1},(_,j)=>j);for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
+function nmLike(a,b){const x=nmCore(a),y=nmCore(b);if(!x||!y||x.length<5||y.length<5)return false;if(x===y)return true;const d=lev(x,y);if(d/Math.max(x.length,y.length)<=0.2)return true;
+  const A=x.split(" "),B=y.split(" ");if(A.length<2||B.length<2)return false;const hit=A.filter(t=>B.some(u=>t===u||(t.length>3&&u.length>3&&lev(t,u)<=1))).length;return hit>=2&&hit>=Math.min(A.length,B.length)-0}
+function mqList(rows){const C=CASES.filter(c=>c.tag==="Aktif"&&!c.syn&&c.name);const out=[];rows.forEach(r=>{if(!r.name||r.imp)return;let o=[];try{o=allOrgs(r)}catch(e){}if(o.length)return;const seen=new Set();
+  C.forEach(c=>{if(r.mq&&r.mq[c.id])return;if(same(c,r))return;const k=normN(c.name);if(seen.has(k))return;if(!nmLike(r.name,c.name))return;seen.add(k);out.push({r,c})})});return out}
+function mqAns(w,d,bed,nm,id,v){const hit=[];const c=censusOf(w,d);if(c)c.rows.forEach(r=>{if(String(r.bed)===String(bed)&&normN(r.name)===normN(nm))hit.push(r)});if(S.ed&&S.ed.ward===w)(S.ed.rows||[]).forEach(r=>{if(String(r.bed)===String(bed)&&normN(r.name)===normN(nm))hit.push(r)});
+  const K=CASES.find(x=>x.id===id);if(!hit.length){toast("Census row not found.");return}hit.forEach(r=>{r.mq={...(r.mq||{}),[id]:v};if(v==="Y"&&K){if(!normRN(r.rn)&&K.rn)r.rn=K.rn;if(!normR(r.ic)&&K.ic)r.ic=K.ic}r.ed_by=S.icn||S.ward||"";r.ed_at=Date.now()});
+  if(v==="Y"&&K&&S.role==="uki"){const rn=normRN(hit[0].rn);if(rn&&rn!==normRN(K.rn))K.rns=[...new Set([...(K.rns||[]),hit[0].rn])]}
+  try{MIX=null;LOCC=null}catch(e){}toast(v==="Y"?`${nm} marked as ${K?K.name:"the MDRO patient"} (${K?subL(K.subtype):""}). Shown as MDRO in the ward.`:`OK, ${nm} is a different patient.`);refresh()}
+function mqHTML(W,rows,M){let L=[];try{L=mqList(rows)}catch(e){console.warn(e)}if(!L.length)return"";
+  return`<div class="banner warn" style="margin:12px 0 0">${svg("list")}<div><b>Is this MDRO patient in the ward today?</b> The census name looks like an active MDRO patient but the RN / IC does not match. Please check and answer.
+   <div class="tbl-wrap" style="margin-top:8px"><table class="mc"><thead><tr><th>Census · bed</th><th>MDRO patient (masterlist)</th><th></th></tr></thead><tbody>${L.slice(0,12).map(({r,c})=>`<tr><td><b>Bed ${esc(r.bed||"?")} · ${esc(r.name)}</b><br><span class="mono hint" style="margin:0">RN ${esc(r.rn||"—")}${r.ic?" · "+esc(r.ic):""}</span></td>
+     <td><b>${esc(c.name)}</b> <span class="pill p-crit">${esc(subL(c.subtype))}</span><br><span class="mono hint" style="margin:0">RN ${esc(c.rn||"—")}${c.ic?" · "+esc(c.ic):""} · sample ${fmt(c.sample_date)} · ${esc(c.ward||"")}</span></td>
+     <td><div class="acts"><button class="btn btn-pri btn-sm" onclick="mqAns('${esc(W.code)}','${M.date}','${esc(r.bed||"")}',${esc(JSON.stringify(r.name))},'${c.id}','Y')">Yes, same patient</button><button class="btn btn-ghost btn-sm" onclick="mqAns('${esc(W.code)}','${M.date}','${esc(r.bed||"")}',${esc(JSON.stringify(r.name))},'${c.id}','N')">No, different</button></div></td></tr>`).join("")}</tbody></table></div></div></div>`}
 function orgsOf(pt){return[...new Set(mdroOf(pt).map(c=>c.subtype))]}
 const sgrp=s=>/^ESBL/.test(s)?"ESBL":/^MRO/.test(s)?"MRO":/RSA$/.test(s)?"MRSA":s;
 function allOrgs(r){const o=orgsOf(r);let mw=r.mw||[];if(mw.length&&mw.some(k=>/CRE/i.test(k)&&!o.includes(k))){const cs=ctSwab(r);if(cs&&!cs.pos)mw=mw.filter(k=>!/CRE/i.test(k)||o.includes(k))}return[...new Set(o.concat(mw))]}
@@ -2724,7 +2741,7 @@ function mplOpen(i){const r=(window._MPL||[])[i];if(r)bedInfo(pick(r),r.bed,r)}
 function mapPatientList(W,rows,M,draft){const R=rows.filter(r=>r.name||r.imp).slice().sort((a,b)=>bedIdx(W.code,a.bed)-bedIdx(W.code,b.bed));
   const q=(S.mlpQ||"").toUpperCase();const V=R.filter(r=>!q||[r.name,r.rn,r.ic,r.bed].join(" ").toUpperCase().includes(q));
   const prev=latestCensus(W.code,addDays(M.date,-1));const was=new Set(prev?prev.rows.map(r=>normN(r.name)+"|"+normR(r.rn)):[]);
-  return`<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Patient list · ${esc(W.code)} · ${fmt(M.date)}</h3><p>${R.length} patients${draft?" (draft, not yet submitted)":""}. Tap a name to see the patient details and movements. <span class="pill p-crit">MDRO</span> from UKI tags.</p></div>
+  return`${mqHTML(W,R,M)}<div class="panel" style="margin-top:16px"><div class="ph"><div><h3>Patient list · ${esc(W.code)} · ${fmt(M.date)}</h3><p>${R.length} patients${draft?" (draft, not yet submitted)":""}. Tap a name to see the patient details and movements. <span class="pill p-crit">MDRO</span> from UKI tags.</p></div>
    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="search" placeholder="Search name / RN / bed" value="${esc(S.mlpQ||"")}" oninput="S.mlpQ=this.value;clearTimeout(window._mlp);window._mlp=setTimeout(refresh,350)" style="padding:8px 10px;min-width:200px"><button class="btn btn-ghost btn-sm" onclick="dlMapList()">${svg("up")}Excel</button></div></div>
    <div class="tbl-wrap"><table id="mapList"><thead><tr><th>Bed</th><th>Patient / RN</th><th>IC</th><th>MDRO</th><th>Infectious disease</th><th>Device</th><th>Status</th></tr></thead><tbody>
    ${(window._MPL=V,"")}${V.map((r,vi)=>{const st=rowState(r);const org=st.orgs||[];const cs=r.name?mdroOf(r):[];const isNew=prev&&r.name&&!was.has(normN(r.name)+"|"+normR(r.rn));
@@ -2761,7 +2778,7 @@ function rMapping(){const M=S.map;if(S.role==="ward"){M.ward=S.ward;M.bld=WCFG[S
      ${extN&&!draft?`<div class="banner warn" style="padding:8px 12px">${svg("bed")}<div><b>${extN} extra beds</b> today (besides ${W.beds.length} regular beds).</div></div>`:""}<div class="census"><div><b>${imp?rows.length:occ+"/"+W.beds.length}</b>${imp?"Marked beds":"Occupied"}</div><div><b>${imp?"—":n("e")}</b>Empty</div><div><b style="color:var(--crit)">${n("r")}</b>MDRO</div><div><b style="color:var(--air)">${air}</b>Airborne</div><div><b style="color:var(--dpl)">${drop}</b>Droplet</div><div><b style="color:var(--con)">${con}</b>Contact</div></div>
      <h3>Device</h3><div class="pills">${DEVS.map(([k,l])=>`<span class="pill p-mut">${l} <b class="mono">${dev[k]||0}</b></span>`).join("")}</div>
      ${lc?`<h3>Admissions</h3><div class="pills"><span class="pill p-brand">New ${lc.adm}</span><span class="pill p-drop">Transfer in ${lc.tin}</span></div>`:(()=>{const h=HIST.find(x=>x.ward===M.ward&&x.date===M.date&&!x._d);return h?`<h3>Admissions · census sheet</h3><div class="pills"><span class="pill p-brand">New ${h.adm}</span><span class="pill p-drop">Transfer in ${h.tin}</span>${h.remarks?`<span class="pill p-mut">${esc(h.remarks)}</span>`:""}</div>`:""})()}
-     <h3>Movements on this date</h3><div class="moves">${mv.map(mvHTML).join("")||'<div class="hint" style="margin:0">No movements recorded.</div>'}</div>
+     <h3>Movements on this date${mv.length?` <span class="pill p-mut">${mv.length}</span>`:""}</h3><div class="moves">${mv.slice(0,3).map(mvHTML).join("")||'<div class="hint" style="margin:0">No movements recorded.</div>'}</div>${mv.length>3?`<details class="mvmore"><summary class="linkbtn" style="cursor:pointer;margin-top:6px">▸ Show all ${mv.length} movements</summary><div class="moves">${mv.slice(3).map(mvHTML).join("")}</div></details>`:""}
     </aside>
    </div>
   </div>
