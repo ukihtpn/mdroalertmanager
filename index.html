@@ -1180,7 +1180,7 @@ const WARD_CFG=[
  {code:"W4",label:"W4",disc:"SURGIKAL, ORTHO",bld:"MB",mean:9,beds:rng(1,44)},
  {code:"W6",label:"W6 ISO",disc:"MEDIKAL",bld:"MB",mean:3,beds:["R1/1","R1/2","R1/3","R1/4","R1/5","R2","R3","R4/1","R4/2","R4/3","R4/4","R5/1","R5/2","R5/3","R5/4","R6/1","R6/2","R7/1","R7/2","R8/1","R8/2","R9/1","R9/2"]},
  {code:"W7",label:"W7",disc:"ORTHO, SURGIKAL",bld:"MB",mean:7,beds:rng(1,40)},
- {code:"W8",label:"W8",disc:"PSIKIATRI",bld:"MB",mean:2,beds:rng(1,30)},
+ {code:"W8",label:"W8",disc:"PSIKIATRI",bld:"MB",mean:2,beds:[...rng(1,13).map(n=>"M"+n),...rng(1,8).map(n=>"F"+n)],named:1},
  {code:"W72",label:"WAD 72",disc:"MULTI-DISIPLIN",bld:"MB",mean:3,beds:rng(1,16),note:"72-hour observation ward (in Wad 5). Patients are lodgers from W1 / W2 / W3 / W7: their patient-days are in PD211 under the home ward."},
  {code:"ICU MB",label:"ICU",disc:"ANAEST",bld:"MB",mean:1,beds:["1","2","3","4","R5","R6"]},
  {code:"6A WCC",label:"A6WCC 6A",disc:"SURGIKAL",bld:"WCC",mean:5,beds:rng(1,16).concat(["ISO 17","ISO 18"],rng(19,30))},
@@ -1318,7 +1318,7 @@ const bedKey=b=>String(b||"").toUpperCase().trim().replace(/^.*\bCTG\s*(\d+).*$/
 /* boarding: on this ward's list but lying in another ward ("TUMPANG W72") */
 const isTump=b=>/^TUMPANG\s+\S/.test(String(b||""));
 function tumpOf(b){const m=String(b||"").trim().toUpperCase().match(/^(?:TUMPANG|TMPG|TMP|BOARDING|BOARD|@)\s*(?:DI\s+|AT\s+|IN\s+)?(?:WAD|WARD)?\s*(.+)$/);if(!m)return"";const w=m[1].trim().replace(/\s+/g," ");const f=WARDS.find(x=>x.toUpperCase()===w||x.replace(/\s+/g,"")===w.replace(/\s+/g,""));return"TUMPANG "+(f||(/^\d+[A-Z]?$/.test(w)?"W"+w:w))}
-function matchBed(ward,b){const tp=tumpOf(b);if(tp)return tp;const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds;let f=L.find(x=>bedKey(x)===k);if(f)return f;
+function matchBed(ward,b){const tp=tumpOf(b);if(tp)return tp;const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds;let f=L.find(x=>bedKey(x)===k)||L.find(x=>bedKey(x).replace(/\s/g,"")===k.replace(/\s/g,""));if(f)return f;
   const tok=k.split(" ").sort().join(" ");f=L.find(x=>bedKey(x).split(" ").sort().join(" ")===tok);if(f)return f;
   const d=k.replace(/\D/g,"");const c=L.filter(x=>x.replace(/\D/g,"")===d&&d);return c.length===1?c[0]:String(b).trim()}
 const bedIdx=(ward,b)=>{const i=WCFG[ward]?WCFG[ward].beds.indexOf(b):-1;return i<0?999:i};
@@ -2822,7 +2822,9 @@ function mapDraw(W,byBed){const P=planFor(W.code,PLANDATE);const focus=S.map.foc
   const groups=[];const iso=W.beds.filter(b=>/ISO|^R\d/.test(b)&&!/\//.test(b));const rooms={};
   W.beds.forEach(b=>{if(/\//.test(b)){const k=b.split("/")[0];(rooms[k]=rooms[k]||[]).push(b)}});
   const plain=W.beds.filter(b=>!iso.includes(b)&&!/\//.test(b));
-  for(let i=0;i<plain.length;i+=6)groups.push({name:`Bay ${i/6+1} · ${plain[i]}–${plain[Math.min(i+5,plain.length-1)]}`,beds:plain.slice(i,i+6)});
+  /* lettered beds (e.g. W8: M1–M13 male, F1–F8 female) stay in their own side */const pf=b=>(String(b).match(/^([A-Z]+)\d+$/)||[])[1]||"";const sides=[...new Set(plain.map(pf))];const SIDE={M:"Male",F:"Female",L:"Male",P:"Female"};
+  if(sides.length>1&&sides.every(Boolean))sides.forEach(k=>{const L=plain.filter(b=>pf(b)===k);for(let i=0;i<L.length;i+=6)groups.push({name:`${SIDE[k]||k}${L.length>6?" "+(i/6+1):""} · ${L[i]}${L.length-1>i?"–"+L[Math.min(i+5,L.length-1)]:""}`,beds:L.slice(i,i+6)})});
+  else for(let i=0;i<plain.length;i+=6)groups.push({name:`Bay ${i/6+1} · ${plain[i]}–${plain[Math.min(i+5,plain.length-1)]}`,beds:plain.slice(i,i+6)});
   Object.entries(rooms).forEach(([k,v])=>groups.push({name:"Room "+k,beds:v,iso:true}));
   if(iso.length)groups.push({name:"Isolation room / single room",beds:iso,iso:true});
   const loose=[];extUsed.forEach(b=>{const e=EXTMETA[b];const g=e&&groups.find(g=>g.beds.includes(e.near));if(g)g.beds.push(b);else loose.push(b)});
@@ -2844,7 +2846,7 @@ addEventListener("resize",sizeMarkers);
 WARD_CFG.forEach(w=>{w.beds0=w.beds.slice()});
 let PLANDATE="";
 function planFor(code,date){const P=MAPS[code];if(!P)return null;if(!date||!P.from||date>=P.from)return P;const H=(P.hist||[]).filter(h=>!h.from||h.from<=date).sort((a,b)=>(b.from||"").localeCompare(a.from||""));return H[0]||P}
-function applyPlanBeds(){const d=(S.tab==="mapping"&&!S.map.edit)?(S.map.date||TODAY):TODAY;PLANDATE=d;WARD_CFG.forEach(w=>{const P=planFor(w.code,d);w.beds=P&&Array.isArray(P.beds)&&P.beds.length?P.beds.slice():w.beds0.slice();try{posFill(P,w.beds)}catch(e){}
+function applyPlanBeds(){const d=(S.tab==="mapping"&&!S.map.edit)?(S.map.date||TODAY):TODAY;PLANDATE=d;WARD_CFG.forEach(w=>{const P=planFor(w.code,d);w.beds=P&&Array.isArray(P.beds)&&P.beds.length&&!(w.named&&P.beds.every(b=>/^\d+$/.test(String(b))))?P.beds.slice():w.beds0.slice();try{posFill(P,w.beds)}catch(e){}
   /* permanent extra beds of a ward (e.g. W3: EXT 1 beside bed 37, EXT 2 beside bed 38) */(FIXED_EXT[w.code]||[]).forEach(([b,near])=>{if(!w.beds.includes(b))w.beds.push(b);if(P&&P.pos&&!P.pos[b]&&P.pos[near]){const q=P.pos[near];P.pos[b]=Array.isArray(q)?[Math.min(97,q[0]+4.2),q[1]]:{...q,x:Math.min(97,q.x+4.2)}}})})}
 const FIXED_EXT={W3:[["EXT 1","37"],["EXT 2","38"]]};
 /* a bed label the plan reader missed (e.g. "BED 2" between bed 1 and bed 3 on the same row): place it half-way between its neighbours; UKI can still drag it in Mapping */
@@ -2853,7 +2855,7 @@ function posFill(P,beds){if(!P||!P.pos)return;beds.forEach(b=>{if(P.pos[b]||!/^\
 function newPlan(code,img){S.pg={code,new:1,want:1};const old=MAPS[code];const hist=((old&&old.hist)||[]).slice();if(old&&old.img){const o={...old};delete o.hist;if(!o.beds)o.beds=(WCFG[code].beds0||WCFG[code].beds).slice();hist.push(o)}
   MAPS[code]={img,pos:{},beds:old&&old.beds?old.beds.slice():undefined,cubs:old&&old.cubs?JSON.parse(JSON.stringify(old.cubs)):undefined,from:TODAY,by:S.icn||S.staff||"",v:(old&&old.v)||0,hist}}
 function undoPlan(code){const P=MAPS[code];if(!P)return;const H=(P.hist||[]).slice();if(H.length){const prev=H.pop();MAPS[code]={...prev,hist:H,v:P.v}}else delete MAPS[code];refresh()}
-function parseBeds(t){const out=[];String(t||"").split(/[,;\n]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{const m=x.match(/^(.*?)(\d+)\s*-\s*(\d+)$/);if(m&&+m[3]>=+m[2]&&+m[3]-+m[2]<200){for(let i=+m[2];i<=+m[3];i++)out.push((m[1]||"")+i)}else out.push(x)});return[...new Set(out)]}
+function parseBeds(t){const out=[];String(t||"").split(/[,;\n]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{const m=x.match(/^(.*?)(\d+)\s*-\s*(?:[A-Z]+\s*)?(\d+)$/);if(m&&+m[3]>=+m[2]&&+m[3]-+m[2]<200){for(let i=+m[2];i<=+m[3];i++)out.push((m[1]||"")+i)}else out.push(x)});return[...new Set(out)]}
 function setPlanBeds(){const W=WCFG[S.map.ward];const L=parseBeds($("bedListIn").value);if(!L.length){toast("Enter at least one bed.");return}S.pg=Object.assign(S.pg||{},{beds:1});const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=L;applyPlanBeds();toast(`${L.length} beds set for ${W.code}.`);refresh()}
 async function planFromFile(f){if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){if(!window.pdfjsLib)throw new Error("PDF reader not loaded");const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;const pg=await pdf.getPage(1);const vp=pg.getViewport({scale:2});const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;return cv.toDataURL("image/jpeg",.85)}
   return await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=e=>res(e.target.result);rd.onerror=rej;rd.readAsDataURL(f)})}
@@ -4113,7 +4115,7 @@ function scanAdd(b){const n=($("scn_n_"+b)||{}).value||"",rn=($("scn_r_"+b)||{})
 function ocrClean(rows){const DC=new Set(DIET_CODES.map(d=>d[0]).concat(DIET_EXTRA).filter(Boolean).map(x=>x.toUpperCase()));
   rows.forEach(r=>{let rn=String(r.rn||"").toUpperCase().replace(/\$/g,"8").replace(/^S/,"8").replace(/[O]/g,"0").replace(/[LI|!]/g,"1").replace(/[S]/g,"5").replace(/[B]/g,"8").replace(/\D/g,"");r.rn=rn.length>=5&&rn.length<=8?rn:"";
     r.name=String(r.name||"").toUpperCase().replace(/[^A-Z@'\/ .-]/g," ").split(/\s+/).filter((t,i,A)=>t&&(t.length>2||/^(A\/[LP]|AL|AP|BIN|BT|BN|@|MD)$/.test(t)||(i>0&&i<A.length-1))).join(" ").replace(/^[^A-Z]+|[^A-Z]+$/g,"").trim();
-    let b=String(r.bed||"").toUpperCase().replace(/\s+/g,"").replace(/[|\[\]()]/g,"");const m=b.match(/R?\d{1,2}(?:\/?B?\d)?|ISO\d+|EXT\d+/);r.bed=m?m[0]:"";
+    let b=String(r.bed||"").toUpperCase().replace(/\s+/g,"").replace(/[|\[\]()]/g,"");const m=b.match(/[MF]\d{1,2}(?!\d)|R?\d{1,2}(?:\/?B?\d)?|ISO\d+|EXT\d+/);r.bed=m?m[0]:"";
     if(r.diet!=null){const ds=String(r.diet).toUpperCase().replace(/HPO/g,"HPD").replace(/0D\b/g,"DD").replace(/[^A-Z ,\/()]/g," ").split(/[\s,]+/).filter(t=>DC.has(t)||t.split("/").every(x=>/^(ND|DD|HPD|SD|LSD|LFD|BD|MP|VEG|LSLF|LFLS|LSLFDD|LFLSDD|LSDD|LFLSD|LFLSDD|LSLCDD|SDDD|LFDD|HSDD|NBM|RTF|SOFT|DIET|\(?LSDD\)?|\(?LFLS\)?)$/.test(x)));r.diet=ds.join(" ")}
     if(r.dnote!=null)r.dnote=String(r.dnote).replace(/^[^A-Za-z]+|[^A-Za-z.)]+$/g,"").trim()});
   /* a bed number missing between two running numbers (e.g. 3 · ? · 5) */
@@ -5008,7 +5010,7 @@ function cubsOf(w,d){const P=planFor(w,d||TODAY);const c=P&&P.cubs&&P.cubs.lengt
 const _cubD={};function cubDef(w){if(_cubD[w])return _cubD[w];const t=CUB_HINT[w],W=WCFG[w];if(!t||!W)return[];return _cubD[w]=t.split(";").map(x=>x.match(/^(.+?)\s*:\s*(.+)$/)).filter(Boolean).map(m=>({n:m[1].trim(),b:parseBeds(m[2]).filter(b=>W.beds.includes(b)),def:1}))}
 function cubSave(w,t){const W=WCFG[w];if(!W)return;const out=[];let bad=0;String(t||"").split(/[;\n]+/).map(x=>x.trim()).filter(Boolean).forEach(x=>{const m=x.match(/^(.+?)\s*[:=]\s*(.+)$/);if(!m){bad++;return}out.push({n:m[1].trim().toUpperCase(),b:parseBeds(m[2]).filter(b=>W.beds.includes(b))})});
   const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.cubs=out;toast(out.length?`${out.length} cubicles set for ${W.code}.${bad?" Some parts were not understood (use NAME: beds).":""}`:"Cubicles cleared.");return out.length}
-const CUB_HINT={W7:"CUB 1: 1-8; CUB 2: 9-16; HDU: 17-20; ACUTE: 21-26; CUB 3: 27-34; INFECTION ROOM: 35-40"};
+const CUB_HINT={W7:"CUB 1: 1-8; CUB 2: 9-16; HDU: 17-20; ACUTE: 21-26; CUB 3: 27-34; INFECTION ROOM: 35-40",W8:"MALE: M1-M13; FEMALE: F1-F8"};
 function cubAsk(w,after){const P=MAPS[w]||{};const cur=(P.cubs||[]).map(c=>c.n+": "+compactBeds(c.b)).join("; ");openModal(`<div class="m-head"><div class="hx"><h3>Cubicles · ${esc(w)}</h3><p>Used for contacts in the same cubicle, the bed × date map and the bed table.</p></div>${xBtn()}</div>
   <div class="m-body"><div class="fld"><label for="cubAskIn">Cubicle: beds (separate with ;)</label><textarea id="cubAskIn" rows="3">${esc(cur||CUB_HINT[w]||"")}</textarea></div><div class="hint" style="margin:0">Example: <code>CUB 1: 1-8; CUB 2: 9-16; HDU: 17-20</code>${CUB_HINT[w]&&!cur?" · filled in from the ward's outbreak mapping sheet, check it":""}</div></div>
   <div class="m-foot"><button class="btn btn-ghost" onclick="askClose()">Cancel</button><span class="sp"></span><button class="btn btn-pri" onclick="if(cubSave('${esc(w)}',$('cubAskIn').value)!==undefined){${after||"closeModal();refresh()"}}">Save cubicles</button></div>`)}
