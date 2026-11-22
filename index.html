@@ -1180,6 +1180,7 @@ const WARD_CFG=[
  {code:"W6",label:"W6 ISO",disc:"MEDIKAL",bld:"MB",mean:3,beds:["R1/1","R1/2","R1/3","R1/4","R1/5","R2","R3","R4/1","R4/2","R4/3","R4/4","R5/1","R5/2","R5/3","R5/4","R6/1","R6/2","R7/1","R7/2","R8/1","R8/2","R9/1","R9/2"]},
  {code:"W7",label:"W7",disc:"ORTHO, SURGIKAL",bld:"MB",mean:7,beds:rng(1,40)},
  {code:"W8",label:"W8",disc:"PSIKIATRI",bld:"MB",mean:2,beds:rng(1,30)},
+ {code:"W72",label:"WAD 72",disc:"MULTI-DISIPLIN",bld:"MB",mean:3,beds:rng(1,16),note:"72-hour observation ward (in Wad 5). Patients are lodgers from W1 / W2 / W3 / W7: their patient-days are in PD211 under the home ward."},
  {code:"ICU MB",label:"ICU",disc:"ANAEST",bld:"MB",mean:1,beds:["1","2","3","4","R5","R6"]},
  {code:"6A WCC",label:"A6WCC 6A",disc:"SURGIKAL",bld:"WCC",mean:5,beds:rng(1,16).concat(["ISO 17","ISO 18"],rng(19,30))},
  {code:"6B WCC",label:"A6WCC 6B",disc:"SURGIKAL",bld:"WCC",mean:5,beds:rng(1,8).concat(["ISO 9","ISO 10","ISO 11","ISO 12"],rng(13,28))},
@@ -3619,6 +3620,7 @@ function tagPrec(t){t=String(t).toUpperCase();if(MDRO_TAGS.includes(t))return"md
   if(/AGE|ROTA|DIFF|DYSENT|HFMD|SALMON|NORO|SCABIES/.test(t))return"contact";return"std"}
 function tagsOf(v){return[...new Set(String(v).toUpperCase().split(/[,;\/&+\n]|\bDAN\b/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean).filter(x=>!isDengue(x)).map(x=>x==="COVID"?"COVID-19":x==="ADENOVIR"?"ADENOVIRUS":x))]}
 function wardCode(label){const L=" "+String(label).toUpperCase().replace(/\s+/g," ").trim()+" ";
+  if(/\bW(?:AR|A)?D?\s*72\b|\b72\s*JAM\b|\bW72/.test(L))return"W72";
   let m=L.match(/[\s(W]([678])\s?([AB])(?=OBS|\b|\s)/)||L.match(/WARD\s?([678])([AB])/);if(m)return m[1]+m[2]+" WCC";
   if(/NICU/.test(L))return"NICU";if(/PICU/.test(L))return"PICU";if(/SCN/.test(L))return"SCN";
   if(/ICU|HDW/.test(L))return/WCC|A4|HDW/.test(L)?"ICU WCC":"ICU MB";
@@ -3865,13 +3867,13 @@ function rowChips(r){const o=orgsOf(r),mw=(r.mw||[]).filter(x=>!o.includes(x));c
   else if(r.name&&!(l.st==="IN"&&l.ward===S.ward))h+=`<span class="pill p-mut">New admissions</span>`;
   return h}
 function missKey(p){return p.rn||p.ic||p.name}
-function missList(){if(!S.ed||isBack())return[];return currentIn(S.ward).filter(p=>!S.ed.rows.some(r=>r.name&&same(r,p)))}
-const missMust=p=>{try{return allOrgs(p).length>0||orgsOf(p).length>0}catch(e){return orgsOf(p).length>0}};
+function missList(){if(!S.ed||isBack())return[];return currentIn(S.ward).filter(p=>!S.ed.rows.some(r=>r.name&&same(r,p))).map(p=>S.ward!=="W72"&&w72Here(p,CD())?{...p,_w72:1}:p)}
+const missMust=p=>{if(p&&p._w72)return false;try{return allOrgs(p).length>0||orgsOf(p).length>0}catch(e){return orgsOf(p).length>0}};
 function paintMiss(){const el=$("pmiss");if(!el)return;const M=missList();S.ed.md=S.ed.md||{};
   if(!M.length){el.innerHTML="";return}
   {const A=[["","— choose —"],["DISCHARGE","Discharged"],["DEATH","Died"],["TRANSFER","Transfer ward"],["OTHER_HOSP","Other hospital"],["STAY","Still in ward"]];const must=M.filter(missMust),opt=M.filter(p=>!missMust(p));
-   const row=p=>{const k=missKey(p);const d=S.ed.md[k]=S.ed.md[k]||{act:"",to:"",bed:p.bed,date:CD()};const o=allOrgs(p);const ok=d.act&&(d.act!=="TRANSFER"||d.to);const K=esc(k);
-     return`<tr class="${ok?"mok":missMust(p)?"mneed":""}"><td><b>${esc(p.name)}</b><br><span class="mono hint" style="margin:0">RN ${esc(p.rn||"—")} · bed ${esc(p.bed||"—")}</span>${o.length?`<div><span class="pill p-crit">MDRO · ${o.map(g=>esc(subL(g))).join(", ")}</span></div>`:""}</td>
+   const row=p=>{const k=missKey(p);const d=S.ed.md[k]=S.ed.md[k]||(p._w72?{act:"TRANSFER",to:"W72",bed:p.bed,date:CD(),auto72:1}:{act:"",to:"",bed:p.bed,date:CD()});const o=allOrgs(p);const ok=d.act&&(d.act!=="TRANSFER"||d.to);const K=esc(k);
+     return`<tr class="${ok?"mok":missMust(p)?"mneed":""}"><td><b>${esc(p.name)}</b><br><span class="mono hint" style="margin:0">RN ${esc(p.rn||"—")} · bed ${esc(p.bed||"—")}</span>${o.length?`<div><span class="pill p-crit">MDRO · ${o.map(g=>esc(subL(g))).join(", ")}</span></div>`:""}${p._w72?`<div><span class="pill p-brand">In WAD 72 today (lodger) · set automatically</span></div>`:""}</td>
       <td><select class="tsel" aria-label="Status of ${esc(p.name)}" onchange="setMiss('${K}',this.value)">${A.map(([v,l])=>`<option value="${v}"${d.act===v?" selected":""}>${l}</option>`).join("")}</select>${d.act==="TRANSFER"?`<select class="tsel" style="margin-top:4px" aria-label="To ward" onchange="S.ed.md['${K}'].to=this.value;paintMiss()"><option value="">To ward…</option>${WARDS.filter(w=>w!==S.ward).map(w=>`<option${w===d.to?" selected":""}>${w}</option>`).join("")}</select>`:""}</td>
       <td><input type="date" class="tsel" value="${d.date}" max="${TODAY}" aria-label="Date" oninput="S.ed.md['${K}'].date=this.value"></td></tr>`};
    const tbl=L=>`<div class="tbl-wrap"><table class="mini misst"><thead><tr><th>Patient (last bed)</th><th>What happened</th><th>Date</th></tr></thead><tbody>${L.map(row).join("")}</tbody></table></div>`;
@@ -4209,7 +4211,7 @@ function submitCensus(){const W=WCFG[S.ward];
   const bad=R.filter(r=>!W.beds.includes(r.bed)&&!isExt(r.bed)&&!isTump(r.bed));if(bad.length){toast(`Bed not in the list ${S.ward}: ${bad.map(r=>r.bed).join(", ")}${S.role==="uki"?" · add it to the bed list, or choose EXT / TUMPANG (boarding)":""}`);return}
   const dupBed=R.filter(r=>!isTump(r.bed)).map(r=>r.bed).filter((b,i,a)=>a.indexOf(b)!==i);if(dupBed.length){toast("Duplicate beds: "+[...new Set(dupBed)].join(", "));return}
   const missing=missList();S.ed.md=S.ed.md||{};
-  const M=missing.map(p=>{const d=S.ed.md[missKey(p)]||{};return{...pick(p),bed:d.bed||p.bed,act:d.act||"",to:d.to||"",date:d.date||TODAY}});
+  const M=missing.map(p=>{const d=S.ed.md[missKey(p)]||{};return{...pick(p),bed:d.bed||p.bed,act:d.act||(p._w72?"TRANSFER":""),to:d.to||(p._w72?"W72":""),date:d.date||TODAY,lodger:p._w72?1:0}});
   const un=M.filter(m=>missMust(m)&&(!m.act||(m.act==="TRANSFER"&&!m.to)));M.forEach(m=>{if(!m.act){m.act="DISCHARGE";m.auto=1}if(!String(m.bed||"").trim())m.bed="?"});
   if(un.length){if(S.tab!=="census")go("census");paintMiss();toast(`${un.length} MDRO patient${un.length>1?"s are":" is"} not in today's list. Choose what happened (discharged / died / transferred).`);const e=$("pmiss");if(e)e.scrollIntoView({behavior:"smooth",block:"start"});return}
   {const p=latestCensus(S.ward,addDays(CD(),-1));if(p&&!M.length&&listSig({rows:R})===listSig(p)&&!confirm(`The patient list is exactly the same as on ${fmt(p.date)} (${R.length} patients, same beds).\n\nNo admission, discharge, transfer or bed change since then?\n\nOK = yes, it is the same · Cancel = go back and update the names`))return}
@@ -4542,7 +4544,7 @@ let LINKS=null;
 /* small "data from" chips next to a section title, linking to the Google Sheet behind it (UKI only) */
 const SRC_L={lab:"LAB_SURVEILLANCE",census:"Census harian",pd211:"Statistik PD211",bw:"MyWard Bedwatcher",cre:"CRE TRACKING"};
 function srcChips(keys){if(S.role!=="uki")return"";if(LINKS===null&&liveOK()&&!window._lkLoading){window._lkLoading=1;loadLinks().then(()=>{window._lkLoading=0;if(LINKS)refresh()})}
-  return`<div class="srcchips"><span>Data from</span>${keys.map(k=>{const L=LINKS&&LINKS[k];const nm=SRC_L[k]||k;return L&&L.url?`<a class="srcchip" href="${esc(L.url)}" target="_blank" rel="noopener" title="Open ${esc(L.name||nm)}${L.at?" · last pulled "+esc(L.at):""}">${svg("table")}${esc(nm)} ↗</a>`:`<span class="srcchip off" title="${liveOK()?"Not linked yet · Import › Link Google Sheets":"Linked sheet opens in the live app"}">${svg("table")}${esc(nm)}</span>`}).join("")}</div>`}const LINK_L={lab:"LAB_SURVEILLANCE (masterlist)",census:"CENSUS HARIAN (daily census)",pd211:"STATISTIK PD211",bw:"MyWard BEDWATCHER (category / remarks)",cre:"CRE TRACKING (index & close contacts)"};
+  return`<div class="srcchips"><span>Data from</span>${keys.map(k=>{const L=LINKS&&LINKS[k];const nm=SRC_L[k]||k;return L&&L.url?`<a class="srcchip" href="${esc(L.url)}" target="_blank" rel="noopener" title="Open ${esc(L.name||nm)}${L.at?" · last pulled "+esc(L.at):""}">${svg("table")}${esc(nm)} ↗</a>`:`<span class="srcchip off" title="${liveOK()?"Not linked yet · Import › Link Google Sheets":"Linked sheet opens in the live app"}">${svg("table")}${esc(nm)}</span>`}).join("")}</div>`}const LINK_L={lab:"LAB_SURVEILLANCE (masterlist)",census:"CENSUS HARIAN (daily census)",pd211:"STATISTIK PD211",bw:"MyWard BEDWATCHER (category / remarks)",cre:"CRE TRACKING (index & close contacts)",w72:"WAD 72 admission log (DAILY CENCUS WARD 72JAM)"};
 const liveOK=()=>typeof GS==="function"&&typeof LIVE!=="undefined";
 async function loadLinks(){if(!liveOK()||S.role!=="uki")return null;try{LINKS=await GS("getLinks",TOKEN)}catch(e){LINKS=null}return LINKS}
 function linkedHTML(){if(!liveOK())return`<div class="hint" style="margin:12px 0 0">Linked Google Sheets are available in the live app.</div>`;
@@ -4567,7 +4569,7 @@ function openLinks(){const L=LINKS||{};openModal(`<div class="m-head"><div class
 async function saveLinks(){const o={auto:$("lk_auto").checked,wb:$("lk_wb").checked,wbcre:$("lk_wbcre").checked,wbcen:$("lk_wbcen").checked};Object.keys(LINK_L).forEach(k=>o[k]=$("lk_"+k).value.trim());toast("Checking links…");
   try{LINKS=await GS("setLinks",TOKEN,o);closeModal();toast("Links saved.");openImport()}catch(e){toast((e.message||String(e)).replace(/^Error:\s*/,""))}}
 function wbFromPull(d){if(d.xlsx)return XLSX.read(d.xlsx,{type:"base64",cellDates:false});const wb={SheetNames:[],Sheets:{}};d.sheets.forEach(s=>{wb.SheetNames.push(s.name);wb.Sheets[s.name]=XLSX.utils.aoa_to_sheet(s.v.length?s.v:[[""]])});return wb}
-async function pullLinked(kind){if(!$("impRes")){openImport()}$("impRes").innerHTML=`<div class="banner info">${svg("up")}<div>Pulling <b>${esc(LINK_L[kind])}</b> from Google Sheets… this can take up to a minute for large sheets.</div></div>`;
+async function pullLinked(kind){if(kind==="w72"){toast("Reading the WAD 72 log…");await pullW72(LINKS);refresh();return}if(!$("impRes")){openImport()}$("impRes").innerHTML=`<div class="banner info">${svg("up")}<div>Pulling <b>${esc(LINK_L[kind])}</b> from Google Sheets… this can take up to a minute for large sheets.</div></div>`;
   try{const d=await GS("pullSheet",TOKEN,kind);IMP=analyseWb(wbFromPull(d),d.name+" (Google Sheet)");IMP.buf=null;IMP.jkns=false;renderImp();loadLinks().then(()=>{const e=$("impLinks");if(e)e.innerHTML=linkedHTML()})}
   catch(e){$("impRes").innerHTML=`<div class="banner crit">${svg("list")}<div>Could not pull the sheet: ${esc((e.message||String(e)).replace(/^Error:\s*/,""))}</div></div>`}}
 /* daily totals (JUMLAH sheet) -> history, for days the ward did not submit in the app */
@@ -4602,7 +4604,7 @@ async function syncSheets(btn){if(!liveOK()){toast("Available in the live app (l
   const b=btn||$("syncBtn");const old=b?b.innerHTML:"";if(b){b.disabled=true;b.innerHTML='<span class="spin"></span><span>Updating…</span>'}
   try{const L=await loadLinks();if(!L||(!(L.lab&&L.lab.url)&&!(L.census&&L.census.url))){toast("No Google Sheet linked yet. Link LAB_SURVEILLANCE / census in Import → Link Google Sheets.");return}
     {const nd=dedupeCases();if(nd)toast(`${nd} duplicate copies removed.`)}
-    if(L.lab&&L.lab.url)await pullLab(L);if(L.census&&L.census.url)await autoPullCensus(L);try{const lk=CASES.filter(c=>c.tag==="Aktif"&&!c.syn&&String(c.sample_date||"")>=addDays(TODAY,-30)).map(c=>{const r=caseCensusLink(c);return r&&r.linked?`${c.name} (${r.w} bed ${r.bed||"?"})`:""}).filter(Boolean);if(lk.length)setTimeout(()=>toast(`Found in today's census, now shown as MDRO: ${lk.join(", ")}.`),1200)}catch(e){console.warn(e)}if(L.pd211&&L.pd211.url)await pullPD(L);refresh()}
+    if(L.lab&&L.lab.url)await pullLab(L);if(L.census&&L.census.url)await autoPullCensus(L);try{const lk=CASES.filter(c=>c.tag==="Aktif"&&!c.syn&&String(c.sample_date||"")>=addDays(TODAY,-30)).map(c=>{const r=caseCensusLink(c);return r&&r.linked?`${c.name} (${r.w} bed ${r.bed||"?"})`:""}).filter(Boolean);if(lk.length)setTimeout(()=>toast(`Found in today's census, now shown as MDRO: ${lk.join(", ")}.`),1200)}catch(e){console.warn(e)}if(L.pd211&&L.pd211.url)await pullPD(L);if(L.w72&&L.w72.url)await pullW72(L);refresh()}
   finally{window._syncing=0;if(b&&b.isConnected){b.disabled=false;b.innerHTML=old}}}
 /* PD211: new / changed months go straight into the monthly denominator (JKNS-finalized months are left alone) */
 async function pdPullNow(){if(!liveOK()){toast("Available in the live app (linked Google Sheets).");return}const L=await loadLinks();if(!L||!L.pd211||!L.pd211.url){window._pdLast={err:"PD211 Google Sheet is not linked. Import → Link Google Sheets → STATISTIK PD211.",at:Date.now()};refresh();return}toast("Reading PD211…");await pullPD(L);refresh()}
@@ -4619,6 +4621,25 @@ function pdDiagHTML(){const P=window._pdLast;const btn=`<button class="btn btn-g
   const M=m=>MON3[+m.slice(5)-1]+" "+m.slice(0,4);const miss=Array.from({length:CUR_M},(_,i)=>YEAR+"-"+pad(i+1)).filter(m=>!P.got.includes(m)&&!(()=>{try{return isFinal(m+"-15")}catch(e){return false}})());
   return`<div class="banner ${miss.length?"warn":"ok"}" style="margin-top:8px">${svg("table")}<div><b>PD211 read ${fmtT(P.at)}:</b> months found ${P.got.map(M).join(", ")||"none"}${P.chg&&P.chg.length?` · updated ${P.chg.map(M).join(", ")}`:""}.${miss.length?` <b>Not found: ${miss.map(M).join(", ")}</b>.`:""}
    <div class="hint" style="margin:4px 0 0">Tabs in the sheet: ${(P.tabs||[]).map(esc).join(" · ")||"—"}${P.skipped&&P.skipped.length?`<br>Tabs not understood: ${P.skipped.map(esc).join(" · ")}`:""}${P.unmapped&&P.unmapped.length?`<br>Ward names not matched: ${P.unmapped.map(esc).join(" · ")}`:""}</div> ${btn}</div></div>`}
+/* ===== WAD 72 (72-hour observation ward): its admission log is the census. Who is in W72 on a day = admitted on / before that day and not yet departed. ===== */
+let W72LOG=[];
+function parseW72(wb){const out=[];wb.SheetNames.forEach(sn=>{const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:"",raw:true});let hi=-1;
+    for(let i=0;i<Math.min(15,A.length);i++){const h=A[i].map(x=>String(x).toUpperCase());if(h.some(x=>/^\s*MRN\s*$/.test(x))&&h.some(x=>/^\s*NAME\s*$/.test(x))){hi=i;break}}if(hi<0)return;
+    const H=A[hi].map((x,j)=>(String(A[hi-1]?A[hi-1][j]:"")+" "+String(x)).toUpperCase().replace(/\s+/g," ").trim());const c=re=>H.findIndex(h=>re.test(h));
+    const cR=c(/\bMRN\b/),cN=c(/\bNAME\b/),cDx=c(/^DIAGNOSIS|\bDIAGNOSIS$/),cA=c(/DATE OF ADM/),cE=c(/FROM ED/),cC=c(/FROM CLINIC/),cS=c(/STEPDOWN/),cH=c(/DISCHARGED HOME/),cO=c(/OTHER HOSP/),cDa=c(/\bDAMA\b/),cAb=c(/ABSCOND/),cW=c(/ADMIT WA/),cD=c(/DATE DEPART/),cF=c(/FINAL DIAG/);
+    if(cN<0||cA<0)return;A.slice(hi+1).forEach(r=>{const name=String(r[cN]||"").trim().toUpperCase().replace(/\s+/g," ");const adm=toYmd(r[cA]);if(!name||!adm||/^\d+\/\d+\/\d{4}/.test(name))return;
+      const rn=String(r[cR]??"").replace(/\.0$/,"").replace(/\D/g,"");const fw=[cE,cC,cS].map(i=>i>=0?String(r[i]||"").trim():"").find(v=>v&&v!=="-"&&v!=="/");const tick=i=>i>=0&&/\/|✓|YES|\w/.test(String(r[i]||"").trim())&&String(r[i]||"").trim()!=="-";
+      const fin=cF>=0?String(r[cF]||""):"";const back=(fin.match(/LODGER\s*BACK\s*(?:TO\s*)?(W\s*\d+)/i)||[])[1];
+      out.push({rn,name,adm,dep:cD>=0?toYmd(r[cD]):"",from:fw?wardCode(fw)||fw:"",how:tick(cDa)?"DAMA":tick(cAb)?"ABSCONDED":tick(cO)?"OTHER_HOSP":tick(cW)?"ADMIT WARD":tick(cH)?"HOME":back?"BACK "+wardCode(back):"",dx:cDx>=0?String(r[cDx]||"").trim():"",tab:sn})})});return out}
+function w72In(x,d){if(x.adm>d)return false;if(x.dep)return x.dep>d;return daysBetween(x.adm,d)<=3}
+const daysBetween=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+function w72Here(p,d){d=d||TODAY;const c=censusOf("W72",d);if(c&&c.rows.some(r=>r.name&&same(r,p)))return true;return W72LOG.some(x=>w72In(x,d)&&same(x,p))}
+function w72Build(){if(!WCFG.W72||!W72LOG.length)return 0;let n=0;for(let i=13;i>=0;i--){const d=addDays(TODAY,-i);const ex=censusOf("W72",d);if(ex&&!ex.auto)continue;
+    const rows=W72LOG.filter(x=>w72In(x,d)).map(x=>({bed:"",name:x.name,rn:x.rn,ic:"",inf:[],dev:[],mw:[],lodger:x.from||"",dx:x.dx}));const adm=W72LOG.filter(x=>x.adm===d).length;
+    const sig=JSON.stringify(rows.map(r=>r.rn+r.name))+adm;if(ex&&ex.sig===sig)continue;const o={ward:"W72",date:d,rows,adm,tin:0,remarks:"From the WAD 72 admission log",by:"WAD 72 log (auto)",at:Date.now(),ext:[],layout:"same",uki:1,auto:1,sig};
+    if(ex)Object.assign(ex,o);else CENSUS.push({id:uid("C"),...o});n++}return n}
+async function pullW72(L,quiet){if(!L.w72||!L.w72.url)return;try{const d=await GS("pullSheet",TOKEN,"w72");const wb=wbFromPull(d);W72LOG=parseW72(wb);const n=w72Build();try{LOCC=null;MIX=null}catch(e){}
+  if(!quiet)toast(`WAD 72: ${W72LOG.filter(x=>w72In(x,TODAY)).length} patient(s) in the ward today${n?` · census of ${n} day(s) updated`:""}.`)}catch(e){if(!quiet)toast("WAD 72 log could not be read: "+(e.message||e))}}
 async function pullLab(L,quiet){if(!L.lab||!L.lab.url)return;
   try{const d=await GS("pullSheet",TOKEN,"lab");const R=analyseWb(wbFromPull(d),d.name);let n=0,f=0;LABROW=new Map();LABMETA=R.masterSheet?{sheet:R.masterSheet,hdrRow:R.mhi+1,hdr:R.mhdr,at:Date.now()}:null;
     window._labRows=R.master.filter(o=>o._r).map(o=>({name:o.name,sample_date:o.sample_date,subtype:o.subtype,spec:o.spec,rn:o.rn,ic:o.ic,ward:o.ward,_r:o._r,id:o.id,o}));
