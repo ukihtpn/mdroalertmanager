@@ -530,7 +530,7 @@ button.pill{border:0;cursor:pointer;font-family:inherit}
 .stephd{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}.stephd>span{flex:none;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
 .stephd>div{flex:1;min-width:0}.stephd b{font-size:15px;color:var(--ink)}.stephd p{margin:2px 0 0;color:var(--mut);font-size:13px}
 .stepbox{margin-bottom:16px}.stepbox.ok .stephd>span{background:var(--ok)}
-.extgrid{display:flex;flex-direction:column;gap:8px;margin-top:12px}.extrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:10px;border:2px dashed var(--warn);border-radius:10px;background:var(--warn-soft)}
+.extgrid{display:flex;flex-direction:column;gap:8px;margin-top:12px}.extnm{width:84px;font:inherit;font-weight:800;padding:6px 8px;border:1px dashed var(--brand);border-radius:8px;background:var(--panel);color:var(--ink);text-transform:uppercase}.extrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:10px;border:2px dashed var(--warn);border-radius:10px;background:var(--warn-soft)}
 .extrow>b{min-width:52px;align-self:center}.extrow .fld{margin:0;flex:1;min-width:150px}
 .extinfo{display:flex;flex-direction:column;gap:6px;font-size:13px;padding:10px;border:1px dashed var(--warn);border-radius:10px;background:var(--warn-soft);margin-bottom:10px}
 .sidebtns{display:flex;flex-direction:column;gap:8px;margin:6px 0}.draftbox .lbl{margin-top:12px}
@@ -1318,7 +1318,7 @@ const bedKey=b=>String(b||"").toUpperCase().trim().replace(/^.*\bCTG\s*(\d+).*$/
 /* boarding: on this ward's list but lying in another ward ("TUMPANG W72") */
 const isTump=b=>/^TUMPANG\s+\S/.test(String(b||""));
 function tumpOf(b){const m=String(b||"").trim().toUpperCase().match(/^(?:TUMPANG|TMPG|TMP|BOARDING|BOARD|@)\s*(?:DI\s+|AT\s+|IN\s+)?(?:WAD|WARD)?\s*(.+)$/);if(!m)return"";const w=m[1].trim().replace(/\s+/g," ");const f=WARDS.find(x=>x.toUpperCase()===w||x.replace(/\s+/g,"")===w.replace(/\s+/g,""));return"TUMPANG "+(f||(/^\d+[A-Z]?$/.test(w)?"W"+w:w))}
-function matchBed(ward,b){const tp=tumpOf(b);if(tp)return tp;const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds;let f=L.find(x=>bedKey(x)===k)||L.find(x=>bedKey(x).replace(/\s/g,"")===k.replace(/\s/g,""));if(f)return f;
+function matchBed(ward,b){const tp=tumpOf(b);if(tp)return tp;const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds.concat(S.ed&&S.ed.ward===ward?(S.ed.ext||[]).map(e=>e.bed):[]);let f=L.find(x=>bedKey(x)===k)||L.find(x=>bedKey(x).replace(/\s/g,"")===k.replace(/\s/g,""));if(f)return f;
   const tok=k.split(" ").sort().join(" ");f=L.find(x=>bedKey(x).split(" ").sort().join(" ")===tok);if(f)return f;
   /* "28A" is a bed of its own (extra bed beside 28), not bed 28 */if(/^\d+[A-Z]$/.test(k.replace(/\s/g,"")))return k.replace(/\s/g,"");const d=k.replace(/\D/g,"");const c=L.filter(x=>x.replace(/\D/g,"")===d&&d);return c.length===1?c[0]:String(b).trim()}
 const bedIdx=(ward,b)=>{const i=WCFG[ward]?WCFG[ward].beds.indexOf(b):-1;return i<0?999:i};
@@ -3406,7 +3406,10 @@ function dlReview(cid,rid){const c=CASES.find(x=>x.id===cid);const r=c.reviews.f
 
 /* ================= katil tambahan (extension) ================= */
 const EXTS=["EXT 1","EXT 2","EXT 3","EXT 4","EXT 5","EXT 6","EXT 7","EXT 8"];let EXTMETA={};
-const isExt=b=>/^EXT \d+$/.test(String(b));
+/* extra beds: EXT 1… or a name the ward gave it (e.g. 28A) */const isExt=b=>/^EXT \d+$/.test(String(b))||!!(b&&EXTMETA[b])||!!(b&&S.ed&&(S.ed.ext||[]).some(e=>e.bed===b));
+function extRename(i,v){const e=S.ed.ext[i];if(!e)return;const n=String(v||"").toUpperCase().replace(/\s+/g," ").trim();if(!n||n===e.bed){refresh();return}
+  const W=WCFG[S.ward];if(W.beds.includes(n)){toast(`Bed ${n} is already a bed of ${S.ward}. Choose another name.`);refresh();return}if(S.ed.ext.some((x,k)=>k!==i&&x.bed===n)){toast(`${n} is already used for another extra bed.`);refresh();return}
+  if(/^TUMPANG\b/.test(n)){toast("Choose a bed name, not TUMPANG.");refresh();return}const o=e.bed;S.ed.rows.forEach(r=>{if(r.bed===o)r.bed=n});e.bed=n;S.ed._dirty=true;refresh();toast(`Extra bed ${o} renamed to ${n}.`)}
 const bedNat=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
 function extStrip(list,byBed){return`<div class="extstrip"><b>Extra beds (extension)</b><div class="bts">${list.map(b=>{const r=byBed[b],s=rowState(r);return`<button class="bed-t st-${s.st}${s.ring?" rg-"+s.ring:""}" data-bed="${esc(b)}"><span class="bn">${esc(b)}</span><span class="pn">${r?esc(r.name||""):""}</span>${r&&s.orgs.length?`<span class="tg">${s.orgs.map(esc).join(" · ")}</span>`:""}</button>`}).join("")}</div></div>`}
 function addBed(){const W=WCFG[S.map.ward];const v=$("newBed").value.trim().toUpperCase();if(!v)return;if(W.beds.includes(v)){toast("Bed "+v+" already exists.");return}const P=MAPS[W.code]=MAPS[W.code]||{img:"",pos:{}};P.beds=W.beds.concat(v);applyPlanBeds();S.map.arm=v;toast("Bed "+v+" added. Tap on the plan to place it.");refresh()}
@@ -3920,13 +3923,13 @@ function layoutPanel(){const E=S.ed.ext||[];const L=S.ed.layout;const W=WCFG[S.w
     <button type="button" aria-pressed="${L==="ext"}" onclick="setLayout('ext')"><i>${L==="ext"?"✓":""}</i><span><b>Has extra beds</b><small>Extra beds in corridor / cubicle</small></span></button></div>
     <div class="hint" style="margin:10px 0 0">Ward layout changed permanently (new floor plan / bed numbers)? <button class="linkbtn" onclick="openPlanUpdate()">Upload new floor plan (image / PDF)</button></div>
    ${L==="ext"&&E.some(e=>!e.near&&!e.note)?`<div class="banner warn" style="margin:10px 0 0">${svg("bed")}<div>Where is each extra bed today? Choose the <b>bed it is next to</b>, or write the <b>cubicle</b> (e.g. Cubicle 1 / HDU / corridor). One of the two is enough.</div></div>`:""}
-   ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b>${esc(e.bed)}${(p=>p?`<small style="display:block;font-weight:600;color:var(--mut)">${esc(p.name)}</small>`:"")(S.ed.rows.find(r=>r.name&&r.bed===e.bed))}</b>
+   ${L==="ext"?`<div class="extgrid">${E.map((e,i)=>`<div class="extrow"><b><input class="extnm" value="${esc(e.bed)}" aria-label="Name of extra bed ${esc(e.bed)}" title="Tap to rename (e.g. 28A)" maxlength="12" onchange="extRename(${i},this.value)" onkeydown="if(event.key==='Enter')this.blur()">${(p=>p?`<small style="display:block;font-weight:600;color:var(--mut)">${esc(p.name)}</small>`:"")(S.ed.rows.find(r=>r.name&&r.bed===e.bed))}</b>
      <div class="fld"><label for="ex_n${i}">Near bed / cubicle</label><select id="ex_n${i}" onchange="S.ed.ext[${i}].near=this.value"><option value="">Choose</option>${W.beds.map(b=>`<option${e.near===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div>
      <div class="fld"><label for="ex_t${i}">Location note</label><input id="ex_t${i}" value="${esc(e.note||"")}" placeholder="e.g. Cubicle 1 / HDU / corridor" list="cubList" oninput="S.ed.ext[${i}].note=this.value"><datalist id="cubList">${["Cubicle 1","Cubicle 2","Cubicle 3","Cubicle 4","Cubicle 5","HDU","Acute","Corridor","Isolation room"].map(x=>`<option value="${x}">`).join("")}</datalist></div>
      <button class="btn btn-ghost btn-sm extpin${S.extArm===i?" on":""}" onclick="extArm(${i})">📍 ${e.pos?"Move on plan":"Place on plan"}</button>
      <button class="xbtn" aria-label="Remove" onclick="S.ed.ext.splice(${i},1);refresh()">✕</button></div>`).join("")}</div>
      <div class="hint" style="margin:6px 0 0">Tap <b>📍 Place on plan</b>, then tap the spot on the ward plan (Step 4). You can also drag an EXT box on the plan. The nearest bed is filled in automatically.</div>
-     <div class="addrow"><button class="btn btn-ghost btn-sm" onclick="addExt()"${E.length>=EXTS.length?" disabled":""}>+ Add extra bed</button><span class="hint" style="margin:0">Extra beds are named EXT 1, EXT 2… Use these names in the patient list.</span></div>`:""}</div>`}
+     <div class="addrow"><button class="btn btn-ghost btn-sm" onclick="addExt()"${E.length>=EXTS.length?" disabled":""}>+ Add extra bed</button><span class="hint" style="margin:0">Extra beds are named EXT 1, EXT 2… Tap the name to change it (e.g. 28A). Use the same name in the patient list.</span></div>`:""}</div>`}
 function setLayout(v){S.ed.layout=v;if(v==="ext"&&!S.ed.ext.length)addExt(true);if(v==="same")S.ed.ext=[];refresh()}
 function addExt(silent){const used=S.ed.ext.map(e=>e.bed).concat((FIXED_EXT[S.ward]||[]).map(x=>x[0]));const b=EXTS.find(x=>!used.includes(x));if(!b)return;S.ed.ext.push({bed:b,near:"",note:""});S.ed.layout="ext";if(!silent)refresh()}
 function infCell(r,i){if(!r.name&&!r.rn)return"";const o=orgsOf(r);let h="";
@@ -4157,6 +4160,7 @@ function loadRows(rows,how){edSnap();if(S.ed)S.ed.carryOnly=0;rows.forEach(r=>{c
   rows.forEach(r=>{if(r.bed)return;const p=prev.find(x=>same(x,r));if(p&&p.bed&&!rows.some(y=>y.bed===p.bed)){r.bed=p.bed;r.inf=r.inf.length?r.inf:[...(p.inf||[])];r.dev=r.dev.length?r.dev:[...(p.dev||[])];r.mw=[...(p.mw||[])];fill++}if(p){if(!r.diet&&p.diet)r.diet=p.diet;if(!r.dnote&&p.dnote)r.dnote=p.dnote}});
   S.ed.rows=rows.concat(keep);S.ed.chk=false;
   /* extra beds found in the list (EXT 1 …): switch Step 2 to "Has extra beds" and list them, the ward only chooses where they are */
+  {const W=WCFG[S.ward];rows.forEach(r=>{const b=String(r.bed||"");if(/^\d+[A-Z]$/.test(b)&&!W.beds.includes(b)&&!S.ed.ext.some(e=>e.bed===b)&&S.ed.ext.length<EXTS.length){const nb=b.replace(/\D/g,"");S.ed.ext.push({bed:b,near:W.beds.includes(nb)?nb:"",note:""})}})}
   const ex=[...new Set(rows.map(r=>r.bed).filter(isExt))];ex.forEach(b=>{if(!S.ed.ext.some(e=>e.bed===b))S.ed.ext.push({bed:b,near:"",note:""})});if(ex.length){S.ed.layout="ext";setTimeout(()=>refresh(),0)}
   paintEd();const nb=S.ed.rows.filter(r=>r.name&&!r.bed).length;
   toast(`${rows.length} patients loaded from ${how}.${fill?` ${fill} beds taken from yesterday's census.`:""}${nb?` ${nb} have no bed, fill in at Step 4 (plan) or Step 5 (list).`:""}${ex.length?` Extra bed${ex.length>1?"s":""} ${ex.join(", ")} found: choose the location in Step 2.`:""}`);
