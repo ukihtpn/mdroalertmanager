@@ -1320,7 +1320,7 @@ const isTump=b=>/^TUMPANG\s+\S/.test(String(b||""));
 function tumpOf(b){const m=String(b||"").trim().toUpperCase().match(/^(?:TUMPANG|TMPG|TMP|BOARDING|BOARD|@)\s*(?:DI\s+|AT\s+|IN\s+)?(?:WAD|WARD)?\s*(.+)$/);if(!m)return"";const w=m[1].trim().replace(/\s+/g," ");const f=WARDS.find(x=>x.toUpperCase()===w||x.replace(/\s+/g,"")===w.replace(/\s+/g,""));return"TUMPANG "+(f||(/^\d+[A-Z]?$/.test(w)?"W"+w:w))}
 function matchBed(ward,b){const tp=tumpOf(b);if(tp)return tp;const k=bedKey(b);if(!k)return"";const ex=k.match(/^(?:EXT|EXTRA|EXTENSION|TAMBAHAN|TMB|T|E)\s*-?\s*(\d{1,2})$/);if(ex)return"EXT "+(+ex[1]);const L=WCFG[ward].beds;let f=L.find(x=>bedKey(x)===k)||L.find(x=>bedKey(x).replace(/\s/g,"")===k.replace(/\s/g,""));if(f)return f;
   const tok=k.split(" ").sort().join(" ");f=L.find(x=>bedKey(x).split(" ").sort().join(" ")===tok);if(f)return f;
-  const d=k.replace(/\D/g,"");const c=L.filter(x=>x.replace(/\D/g,"")===d&&d);return c.length===1?c[0]:String(b).trim()}
+  /* "28A" is a bed of its own (extra bed beside 28), not bed 28 */if(/^\d+[A-Z]$/.test(k.replace(/\s/g,"")))return k.replace(/\s/g,"");const d=k.replace(/\D/g,"");const c=L.filter(x=>x.replace(/\D/g,"")===d&&d);return c.length===1?c[0]:String(b).trim()}
 const bedIdx=(ward,b)=>{const i=WCFG[ward]?WCFG[ward].beds.indexOf(b):-1;return i<0?999:i};
 function uid(p){return p+Math.random().toString(36).slice(2,8)}
 /* one lab result = one id: the same row pulled twice (two logins / two devices at once) saves to the same record instead of a copy */
@@ -4135,7 +4135,10 @@ function parseGrid(grid){grid=grid.filter(r=>r.some(c=>String(c??"").trim()!==""
   const infs=s=>s.toUpperCase().split(/[,;/+]/).map(x=>x.trim()).filter(Boolean).map(x=>INF.find(([k])=>k===x||k.replace(/\W/g,"")===x.replace(/\W/g,""))?.[0]||(x?"OTHERS":"")).filter(Boolean);
   const devs=s=>s.toUpperCase().split(/[,;/+ ]/).map(x=>x.trim()).map(x=>x==="VENT"?"VENTILATOR":x==="CBD"||x==="SPC"?"CBD/SPC":x).filter(x=>DEVS.some(d=>d[0]===x));
   const extOf=r=>{const z=zc>=0?String(r[zc]??"").trim().toUpperCase():"";const m=z.match(/^EXT\s*(\d+)/);return m?"EXT "+m[1]:""};
-  return grid.map(r=>({bed:extOf(r)||matchBed(S.ward,cell(r,idx.bed)),name:cell(r,idx.name).toUpperCase(),rn:cell(r,idx.rn),ic:cell(r,idx.ic),inf:[...new Set(infs(cell(r,idx.inf)))],dev:[...new Set(devs(cell(r,idx.dev)))],diet:cell(r,idx.diet).toUpperCase(),dnote:cell(r,idx.dnote)})).filter(r=>r.name&&/[A-Z]{2}/.test(r.name)&&!/^(TANDATANGAN|DISEDIAKAN|JUMLAH|NAMA PESAKIT)/.test(r.name))}
+  /* RN and name read as one piece ("815531 ZAFIQ", e.g. a PDF printed from Google Sheets): split them */
+  const rnName=r=>{let n=cell(r,idx.name),rn=cell(r,idx.rn);const sp=t=>String(t).match(/^([A-Z]{0,2}\d{5,8})\s+([A-Za-z@'].*)$/);
+    let m=!n&&sp(rn);if(m){rn=m[1];n=m[2]}else if((m=sp(n))&&!/\d{5}/.test(rn)){rn=m[1];n=m[2]}return{n,rn}};
+  return grid.map(r=>{const q=rnName(r);return{bed:extOf(r)||matchBed(S.ward,cell(r,idx.bed)),name:q.n.toUpperCase(),rn:q.rn,ic:cell(r,idx.ic),inf:[...new Set(infs(cell(r,idx.inf)))],dev:[...new Set(devs(cell(r,idx.dev)))],diet:cell(r,idx.diet).toUpperCase(),dnote:cell(r,idx.dnote)}}).filter(r=>r.name&&/[A-Z]{2}/.test(r.name)&&!/^(TANDATANGAN|DISEDIAKAN|JUMLAH|NAMA PESAKIT)/.test(r.name))}
 const BADNAME=/I DO NOT HAVE|NOT ENOUGH INFORMATION|PROVIDED CONTEXT|CORRESPONDING TO|^#(N\/A|REF!?|VALUE!?|NAME\?|ERROR!?)|^ERROR\b|LOADING\.\.\./i;
 function badName(n){n=String(n||"");return BADNAME.test(n)||n.split(/\s+/).length>9||n.length>70}
 /* ward lists often carry a short name ("ARIKUMAR"); when an earlier census has the full name for the same patient, use it */
